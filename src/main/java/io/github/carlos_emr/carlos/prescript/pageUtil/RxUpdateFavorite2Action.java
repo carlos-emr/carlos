@@ -95,7 +95,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         fav.setFrequencyCode(this.getFrequencyCode());
         fav.setDuration(this.getDuration());
         fav.setDurationUnit(this.getDurationUnit());
-        fav.setQuantity(DoseText.ofNumericText(this.getQuantity()));
+        applyFavoriteQuantity(fav, this.getQuantity());
         fav.setRepeat(repeatCount);
         fav.setNosubs(this.getNosubs());
         fav.setPrn(this.getPrn());
@@ -140,7 +140,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         fav.setFrequencyCode(request.getParameter("frequencyCode"));
         fav.setDuration(request.getParameter("duration"));
         fav.setDurationUnit(request.getParameter("durationUnit"));
-        fav.setQuantity(DoseText.ofNumericText(request.getParameter("quantity")));
+        applyFavoriteQuantity(fav, request.getParameter("quantity"));
         fav.setRepeat(repeatCount);
         fav.setNosubs("true".equalsIgnoreCase(request.getParameter("nosubs")));
         fav.setPrn("true".equalsIgnoreCase(request.getParameter("prn")));
@@ -157,6 +157,26 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         response.setStatus(HttpServletResponse.SC_NO_CONTENT);
 
         return NONE;
+    }
+
+    private static final int FAVORITE_QUANTITY_MAX_LENGTH = 20;
+    private static final int FAVORITE_UNIT_NAME_MAX_LENGTH = 10;
+
+    private static void applyFavoriteQuantity(RxPrescriptionData.Favorite fav, String rawQuantity) {
+        RxUtil.QuantityParts split = RxUtil.splitLeadingQuantityAndUnit(rawQuantity);
+        if (split != null && split.unit().length() <= FAVORITE_UNIT_NAME_MAX_LENGTH) {
+            fav.setQuantity(split.amount());
+            fav.setUnitName(split.unit());
+            return;
+        }
+        String normalized = DoseText.ofNumericText(rawQuantity);
+        if (normalized != null
+                && normalized.length() > FAVORITE_QUANTITY_MAX_LENGTH
+                && rawQuantity.length() <= FAVORITE_QUANTITY_MAX_LENGTH) {
+            fav.setQuantity(rawQuantity);
+        } else {
+            fav.setQuantity(normalized);
+        }
     }
 
     private String favoriteId = null;

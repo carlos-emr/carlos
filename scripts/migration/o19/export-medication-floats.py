@@ -17,19 +17,22 @@ NUMBER = re.compile(r"^-?[0-9]+(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?$")
 
 
 def identifier(name):
-    if not re.match(r"^[A-Za-z0-9_]+$", name):
+    if not re.match(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$", name):
         raise ValueError("unexpected identifier in medication schema")
     return "`" + name + "`"
 
 
 def query(command, statement):
     process = subprocess.Popen(command + ["--execute", statement], stdout=subprocess.PIPE)
+    completed = False
     try:
         for line in process.stdout:
             yield line.decode("ascii").rstrip("\r\n").split("\t")
+        completed = True
     finally:
         process.stdout.close()
-        if process.wait():
+        rc = process.wait()
+        if completed and rc:
             raise ValueError("source database query failed")
 
 
@@ -37,6 +40,7 @@ def export(command, out):
     metadata = list(query(command, """SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_KEY, EXTRA
         FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()
         AND LOWER(TABLE_NAME) IN ('drugs','favorites','drugdispensingmapping')
+        AND (COLUMN_KEY='PRI' OR LOWER(COLUMN_NAME) IN ('takemin','takemax') OR LOWER(EXTRA) LIKE '%on update%')
         ORDER BY TABLE_NAME, ORDINAL_POSITION"""))
     tables = {}
     for table, column, kind, key, extra in metadata:
@@ -48,9 +52,9 @@ def export(command, out):
         columns = tables[table]
         key = TABLE_KEYS[table.lower()]
         primary = [name.lower() for name, kind, flag, _ in columns if flag == "PRI"]
-        integers = [name.lower() for name, kind, _, _ in columns if kind in INTEGER_TYPES]
+        integers = [name.lower() for name, kind, _, _ in columns if kind.lower() in INTEGER_TYPES]
         floats = [identifier(name) for name, kind, _, extra in columns
-                  if kind == "float" and name.lower() in ("takemin", "takemax")
+                  if kind.lower() == "float" and name.lower() in ("takemin", "takemax")
                   and "generated" not in extra.lower()]
         if not floats:
             continue
@@ -99,7 +103,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", required=True)
     parser.add_argument("--mysql-cmd", default="mysql")
-    parser.add_argument("--mysql-arg", action="append", default=[])
+    parser.add_argument("--mysql-arg", action="append", default=[],
+                        help="pass through a mysql client option (use --mysql-arg=-u... for dash-prefixed flags)")
     parser.add_argument("--complete-dump", action="store_true",
                         help="read a completed vendor dump from stdin and write the exact dump to stdout")
     args = parser.parse_args()

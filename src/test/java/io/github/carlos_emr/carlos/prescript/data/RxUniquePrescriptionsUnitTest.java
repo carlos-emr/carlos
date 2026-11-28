@@ -190,7 +190,15 @@ class RxUniquePrescriptionsUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest(name = "{0} is not {1}")
-    @CsvSource({"250mg, 25mg", "250.0mg, 25.0mg", "2.5mg, 25mg", "250.5mg, 250mg", "10.0mg, 1mg"})
+    @CsvSource(delimiter = '|', value = {
+            "250mg | 25mg",
+            "250.0mg | 25.0mg",
+            "2.5mg | 25mg",
+            "250.5mg | 250mg",
+            "10.0mg | 1mg",
+            "1,000.0 mg | 1,0 mg",
+            "1.0.5 | 1.5"
+    })
     void shouldKeepBothEntries_whenTheStrengthItselfDiffers(String first, String second) {
         Drug older = drug(1, "Synthetic X");
         older.setDosage(first);

@@ -578,6 +578,8 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         if (source.dosage != null && (dosage == null || DrugStrength.fromDosage(source.dosage).dosageText().equals(dosage))) {
             dosage = source.dosage;
             unit = source.unit;
+        } else if (source.dosage == null && dosage == null && unit == null) {
+            unit = source.unit;
         }
         if (restMinimumOmitted || (source.takeMin == null && getTakeMin() == 0f)) takeMin = source.takeMin;
         if (restMaximumOmitted || (source.takeMax == null && getTakeMax() == 0f)) takeMax = source.takeMax;
@@ -585,6 +587,8 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         if (source.hideFromCpp == null && !getHideFromCpp()) hideFromCpp = null;
         if (source.startDateUnknown == null && !getStartDateUnknown()) startDateUnknown = null;
     }
+
+    private static final int MAX_UNIT_NAME_LENGTH = 50;
 
     private static final Set<String> QUANTITY_CONNECTIVES = Set.of(
             "and", "to", "or", "thru", "through", "plus", "minus", "by", "x", "et", "ou", "a", "\u00E0");
@@ -601,20 +605,62 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     /**
      * Reports whether the text following a leading decimal quantity names a dispense unit rather than
-     * a fraction, range or multiplier (such as {@code "/2 bottle"}, {@code "and 1/2 tablets"},
-     * {@code "to 2 bottles"}, or {@code "x 100 mL"}).
+     * a fraction, range, compound phrase or multiplier (such as {@code "/2 bottle"}, {@code "and 1/2 tablets"},
+     * {@code "1 tab to 2 tabs"}, or {@code "x 100 mL"}), and fits the {@code drugs.unitName} column width.
      *
      * @param suffix String text immediately following the leading decimal amount, already stripped of leading blanks
-     * @return boolean {@code true} when {@code suffix} starts with a unit word rather than a quantity connective
+     * @return boolean {@code true} when {@code suffix} is a bounded dispense unit name (optionally with a parenthesized container size)
      */
     public static boolean isEmbeddedDispenseUnit(String suffix) {
-        int wordEnd = 0;
-        while (wordEnd < suffix.length()) {
-            int codePoint = suffix.codePointAt(wordEnd);
-            if (!Character.isLetter(codePoint)) break;
-            wordEnd += Character.charCount(codePoint);
+        if (suffix == null || suffix.isEmpty() || suffix.length() > MAX_UNIT_NAME_LENGTH) {
+            return false;
         }
-        return wordEnd > 0 && !QUANTITY_CONNECTIVES.contains(suffix.substring(0, wordEnd).toLowerCase(Locale.ROOT));
+        int index = 0;
+        int words = 0;
+        while (index < suffix.length()) {
+            int codePoint = suffix.codePointAt(index);
+            if (Character.isWhitespace(codePoint)) {
+                index += Character.charCount(codePoint);
+                continue;
+            }
+            if (codePoint == '(') {
+                return words > 0 && isParenthesizedContainerSize(suffix.substring(index).stripTrailing());
+            }
+            int wordEnd = lettersEnd(suffix, index);
+            if (wordEnd == index) {
+                return false;
+            }
+            String word = suffix.substring(index, wordEnd).toLowerCase(Locale.ROOT);
+            if (QUANTITY_CONNECTIVES.contains(word)) {
+                return false;
+            }
+            words++;
+            index = wordEnd;
+        }
+        return words > 0;
+    }
+
+    private static boolean isParenthesizedContainerSize(String rest) {
+        if (!rest.endsWith(")")) {
+            return false;
+        }
+        String container = rest.substring(1, rest.length() - 1).strip();
+        int numEnd = DoseText.numberEnd(container, 0);
+        if (numEnd == 0) {
+            return false;
+        }
+        String containerUnit = container.substring(numEnd).strip();
+        return !containerUnit.isEmpty() && lettersEnd(containerUnit, 0) == containerUnit.length();
+    }
+
+    private static int lettersEnd(String text, int start) {
+        int index = start;
+        while (index < text.length()) {
+            int codePoint = text.codePointAt(index);
+            if (!Character.isLetter(codePoint)) break;
+            index += Character.charCount(codePoint);
+        }
+        return index;
     }
 
     /**
@@ -639,18 +685,20 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     /**
      * Validates the final bounds of a REST medication after any omitted values have been restored.
-     * Native medication objects bypass this REST check. A nonpositive maximum records an unspecified upper
-     * bound. An edit may carry forward both original bounds verbatim on the same product, including a
+     * Native medication objects bypass this REST check. A zero maximum records an unspecified upper
+     * bound. Negative or nonfinite bounds are refused unless carried forward unchanged on the same product.
+     * An edit may carry forward both original bounds verbatim on the same product, including a
      * historical range that a new prescription could not use.
      *
      * @param source Drug holding the prescription being replaced, or null for a new medication
-     * @throws InvalidDoseRangeException if new or changed bounds are nonfinite or the minimum exceeds a positive maximum
+     * @throws InvalidDoseRangeException if new or changed bounds are negative, nonfinite or the minimum exceeds a positive maximum
      */
     public void requireValidRestDoseRange(Drug source) {
         if (restQuantitySubmitted == null) return;
         float minimum = getTakeMin();
         float maximum = getTakeMax();
-        if (Float.isFinite(minimum) && Float.isFinite(maximum) && (maximum <= 0f || minimum <= maximum)) return;
+        if (Float.isFinite(minimum) && Float.isFinite(maximum)
+                && minimum >= 0f && maximum >= 0f && (maximum == 0f || minimum <= maximum)) return;
         if (source != null && sameMedicationProduct(source)
                 && Objects.equals(takeMin, source.takeMin) && Objects.equals(takeMax, source.takeMax)) return;
         throw new InvalidDoseRangeException();

@@ -309,7 +309,7 @@
                 </tr>
                 <tr>
                     <td class="label">Repeats:</td>
-                    <td><%= drug.getRepeat() %>
+                    <td><%= drug.getRepeat() != null ? drug.getRepeat() : "" %>
                     </td>
                 </tr>
                 <tr style="height:15px">

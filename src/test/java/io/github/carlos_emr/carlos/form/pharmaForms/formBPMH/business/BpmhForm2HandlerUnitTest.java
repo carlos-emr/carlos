@@ -196,6 +196,38 @@ class BpmhForm2HandlerUnitTest {
         assertThat(formRowFor(drug).getHow()).isEqualTo("Take 5 mL BID PO");
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "0.1, mL, Take 0.1 mL BID PO",
+            "1/2, tablet, Take 1/2 tablet BID PO",
+            "5 mL, mL, Take 5 mL BID PO",
+            "5 mL, L, Take 5 mL L BID PO"
+    })
+    void shouldFallbackToCdsDoseText_whenFloatDoseIsAbsent(String cdsDose, String unit, String expectedHow) {
+        Drug drug = structuredDrug(0, 0);
+        drug.setDosage("10 mg");
+        drug.setUnit(unit);
+        drug.setCdsDoseText(cdsDose);
+        assertThat(formRowFor(drug).getHow()).isEqualTo(expectedHow);
+    }
+
+    @Test
+    void shouldUseDrugUnitOnlyWhenMatchingDrugForm_forCommercialProductWithoutCdsDose() {
+        Drug matching = structuredDrug(1, 1);
+        matching.setCustomName(null);
+        matching.setBrandName("FAKE metoprolol 25 mg");
+        matching.setDrugForm("TAB");
+        matching.setUnit("TAB");
+        assertThat(formRowFor(matching).getHow()).isEqualTo("Take 1 TAB BID PO");
+
+        Drug strengthUnit = structuredDrug(1, 1);
+        strengthUnit.setCustomName(null);
+        strengthUnit.setBrandName("FAKE metoprolol 25 mg");
+        strengthUnit.setDrugForm("TAB");
+        strengthUnit.setUnit("mg");
+        assertThat(formRowFor(strengthUnit).getHow()).isEmpty();
+    }
+
     @Test
     void shouldBuildAnEmptyMedicationList_whenTheDaoReturnsNull() {
         DrugDao drugDao = mock(DrugDao.class);

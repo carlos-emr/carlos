@@ -311,7 +311,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             rx.setFrequencyCode(this.getFrequencyCode());
             rx.setDuration(this.getDuration());
             rx.setDurationUnit(this.getDurationUnit());
-            rx.setQuantity(this.getQuantity());
+            rx.setQuantity(DoseText.ofNumericText(this.getQuantity()));
             rx.setRepeat(this.getRepeat());
             rx.setLastRefillDate(RxUtil.StringToDate(this.getLastRefillDate(), "yyyy-MM-dd"));
             rx.setNosubs(this.getNosubs());
@@ -417,9 +417,10 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (stated == null) {
             return false;
         }
-        for (int at = stated.indexOf(strength); at >= 0; at = stated.indexOf(strength, at + 1)) {
+        String expected = DoseText.withPlainNumbers(strength);
+        for (int at = stated.indexOf(expected); at >= 0; at = stated.indexOf(expected, at + 1)) {
             int before = at == 0 ? ' ' : stated.codePointBefore(at);
-            int end = at + strength.length();
+            int end = at + expected.length();
             int after = end == stated.length() ? ' ' : stated.codePointAt(end);
             boolean followedByFraction = after == '.' && end + 1 < stated.length()
                     && Character.isDigit(stated.codePointAt(end + 1));
@@ -1207,14 +1208,15 @@ public final class RxWriteScript2Action extends ActionSupport {
                     quantity = "";
                 }
                 // check if quantity is same as prescript.getquantity(), if yes, do nothing.
-                if (quantity.equals(rx.getQuantity()) && rx.getUnitName() == null) {
+                String normalizedQuantity = RxUtil.isStringToNumber(quantity) ? DoseText.ofNumericText(quantity) : quantity;
+                if (normalizedQuantity.equals(rx.getQuantity()) && rx.getUnitName() == null) {
                     // do nothing
                 } else {
 
                     if (RxUtil.isStringToNumber(quantity)) {
                         // Stored, and printed after "Qty:", without a trailing zero or a missing
                         // leading zero: "30.0" as 30 and ".5" as 0.5 (#6185).
-                        rx.setQuantity(DoseText.ofNumericText(quantity));
+                        rx.setQuantity(normalizedQuantity);
                         rx.setUnitName(null);
                     } else if (RxUtil.isMitte(quantity)) {// set duration for mitte
 
@@ -1222,11 +1224,9 @@ public final class RxWriteScript2Action extends ActionSupport {
                         String durationUnit = RxUtil.getDurationUnitFromQuantityText(quantity);
                         rx.setDuration(duration);
                         rx.setDurationUnit(durationUnit);
-                        rx.setQuantity(RxUtil.getQuantityFromQuantityText(quantity));
-                        rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity)); // this is actually an indicator for Mitte prescript
+                        RxUtil.applyQuantityText(rx, quantity); // unitName is an indicator for Mitte prescript
                     } else {
-                        rx.setQuantity(RxUtil.getQuantityFromQuantityText(quantity));
-                        rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity));
+                        RxUtil.applyQuantityText(rx, quantity);
                     }
 
                     String frequency = rx.getFrequencyCode();
@@ -1694,14 +1694,9 @@ public final class RxWriteScript2Action extends ActionSupport {
                         } else if (elem.equals("quantity_" + num)) {
                             if (val.equals("") || val == null) {
                                 rx.setQuantity("0");
+                                rx.setUnitName(null);
                             } else {
-                                if (RxUtil.isStringToNumber(val)) {
-                                    rx.setQuantity(DoseText.ofNumericText(val));
-                                    rx.setUnitName(null);
-                                } else {
-                                    rx.setQuantity(RxUtil.getQuantityFromQuantityText(val));
-                                    rx.setUnitName(RxUtil.getUnitNameFromQuantityText(val));
-                                }
+                                RxUtil.applyQuantityText(rx, val);
                             }
                         } else if (elem.equals("longTerm_" + num)) {
                             if ("yes".equals(val)) {

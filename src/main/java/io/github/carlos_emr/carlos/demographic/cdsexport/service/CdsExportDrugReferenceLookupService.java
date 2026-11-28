@@ -112,10 +112,6 @@ public class CdsExportDrugReferenceLookupService {
         }
     }
 
-    /** A negative plain decimal, as {@link DoseText} writes one. */
-    private static final java.util.regex.Pattern NEGATIVE_NUMBER =
-            java.util.regex.Pattern.compile("-\\d+(?:\\.\\d+)?");
-
     /**
      * DrugRef holds a strength as a float and sends that float's text ("250.0" for 250 mg); an
      * XML-RPC double would be read as a Double, whose own text is "500.0" or "1.0E7". Either way
@@ -128,9 +124,16 @@ public class CdsExportDrugReferenceLookupService {
      */
     static String strength(Object value) {
         if (value instanceof String text) {
-            String plain = DoseText.ofNumericText(text);
-            // A number is the same number as text or as a double.
-            return NEGATIVE_NUMBER.matcher(plain).matches() ? null : plain;
+            try {
+                // A number is the same number as text or as a double, even when its exponent
+                // exceeds DoseText's plain-digit expansion cap (e.g. "-1E100").
+                if (new java.math.BigDecimal(text.strip()).signum() < 0) {
+                    return null;
+                }
+            } catch (NumberFormatException notSingleNumber) {
+                // Free-text strengths ("2.5 mg/mL") stay as authored.
+            }
+            return DoseText.ofNumericText(text);
         }
         try {
             var decimal = new java.math.BigDecimal(value.toString());

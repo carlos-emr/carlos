@@ -143,6 +143,7 @@ class CdsExportDrugReferenceLookupServiceUnitTest {
         // reference either way. Text that is not a number is kept, whatever it starts with.
         assertThat(CdsExportDrugReferenceLookupService.strength("-1.5")).isNull();
         assertThat(CdsExportDrugReferenceLookupService.strength("-250.0")).isNull();
+        assertThat(CdsExportDrugReferenceLookupService.strength("-1E100")).isNull();
         assertThat(CdsExportDrugReferenceLookupService.strength("-0.0")).isEqualTo("0");
         assertThat(CdsExportDrugReferenceLookupService.strength("- as directed")).isEqualTo("- as directed");
     }
@@ -157,6 +158,7 @@ class CdsExportDrugReferenceLookupServiceUnitTest {
         // No ingredient has a negative or non-finite strength: no usable reference.
         assertThat(CdsExportDrugReferenceLookupService.strength(Double.NaN)).isNull();
         assertThat(CdsExportDrugReferenceLookupService.strength(-1.5d)).isNull();
+        assertThat(CdsExportDrugReferenceLookupService.strength(-1E100d)).isNull();
     }
 
     @Test
@@ -165,6 +167,13 @@ class CdsExportDrugReferenceLookupServiceUnitTest {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertThatThrownBy(() -> new CdsExportDrugReferenceLookupService(client).read("00123456"))
                 .hasMessage("CDS_EXPORT_REFERENCE_LOOKUP_INSIDE_TRANSACTION_REFUSED");
+        TransactionSynchronizationManager.setActualTransactionActive(false);
+        assertThatThrownBy(() -> new CdsExportDrugReferenceLookupService(client).read(null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("CDS_EXPORT_DRUG_REFERENCE_DIN_INVALID");
+        assertThatThrownBy(() -> new CdsExportDrugReferenceLookupService(client).read("123"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("CDS_EXPORT_DRUG_REFERENCE_DIN_INVALID");
         verifyNoInteractions(client);
     }
 

@@ -27,9 +27,10 @@ public record DrugStrength(Float amount, String unit) {
     // while a second active ingredient such as "875mg/125mg" or "875 mg / 125 mg" stops at the first unit.
     private static final Pattern PER_DENOMINATOR = Pattern.compile("\\s*+(?:/|per\\b)\\s*+", UNIT_FLAGS);
     private static final Pattern DENOMINATOR_TOKEN = Pattern.compile("\\s*+([\\p{L}\\u00B22]++)(?!\\p{Nd})", UNIT_FLAGS);
+    private static final Pattern PERCENT_BASIS = Pattern.compile("\\s++([wv]/[wv])\\b", UNIT_FLAGS);
     private static final Set<String> GRAM_UNITS = Set.of("g", "gm", "gram", "grams");
     private static final Set<String> DENOMINATOR_UNITS = Set.of(
-            "l", "ml", "ul", "\u00B5l", "\u03BCl", "nl", "liter", "liters", "litre", "litres",
+            "l", "dl", "ml", "mcl", "ul", "\u00B5l", "\u03BCl", "nl", "liter", "liters", "litre", "litres",
             "milliliter", "milliliters", "millilitre", "millilitres",
             "microliter", "microliters", "microlitre", "microlitres", "cc",
             "g", "gm", "gram", "grams", "kg",
@@ -73,6 +74,12 @@ public record DrugStrength(Float amount, String unit) {
         int unitStart = unitMatch.start(1);
         int unitEnd = unitMatch.end(1);
         String baseUnit = text.substring(unitStart, unitEnd);
+        if ("%".equals(baseUnit)) {
+            Matcher basis = PERCENT_BASIS.matcher(text).region(unitEnd, text.length());
+            if (basis.lookingAt()) {
+                unitEnd = basis.end();
+            }
+        }
         while (unitEnd < text.length()) {
             Matcher separator = PER_DENOMINATOR.matcher(text).region(unitEnd, text.length());
             if (!separator.lookingAt()) {

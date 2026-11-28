@@ -342,7 +342,9 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         "'30 days', 30,",
         "'12.5 tabs', 12.5, 12.5",
         "'.5 tabs', 0.5, 0.5",
-        "'30 30 tabs', 30,",
+        "'30 30 tabs', '30 30 tabs',",
+        "'1/2 bottle', '1/2 bottle',",
+        "'one bottle', 'one bottle',",
         "30.0, 30, 30",
         ".5, 0.5, 0.5",
         "12.5, 12.5, 12.5",
@@ -362,6 +364,22 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         assertThat(json.path("calQuantity").asText()).isEqualTo(acknowledged);
         assertThat(json.get("priceQuantity").asText(null)).isEqualTo(priceQuantity);
         verifyNoInteractions(mockRxManager, mockDrugDao, mockPartialDateDao, mockSignatureStampService);
+    }
+
+    @Test
+    @DisplayName("should normalize a legacy trailing-zero quantity on blur even when text matches staged value")
+    void shouldNormalizeLegacyQuantityOnBlur_whenStagedQuantityHadTrailingZero() throws Exception {
+        card.setQuantity("30.0");
+        card.setUnitName(null);
+        request.setParameter("action", "updateQty");
+        request.setParameter("randomId", "1");
+        request.setParameter("quantity", "30.0");
+
+        assertThat(action.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(200);
+        var json = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(card.getQuantity()).isEqualTo("30");
+        assertThat(json.path("calQuantity").asText()).isEqualTo("30");
     }
 
     @ParameterizedTest
@@ -526,8 +544,11 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         @ParameterizedTest(name = "typed \"{0}\" -> {1}")
         @CsvSource(delimiter = '|', value = {
             "30.0 | Qty:30 Repeats:2", ".5 | Qty:0.5 Repeats:2", "2.5 mL | Qty:2.5 mL Repeats:2",
-            "30.0 mL | Qty:30 mL Repeats:2", "30 | Qty:30 Repeats:2"})
+            "30.0 mL | Qty:30 mL Repeats:2", "30 | Qty:30 Repeats:2",
+            "1/2 bottle | Qty:1/2 bottle Repeats:2", "one bottle | Qty:one bottle Repeats:2",
+            "'' | Qty:0 Repeats:2"})
         void shouldWritePlainDecimalQuantityLine_whenSaving(String typed, String quantityLine) throws Exception {
+            card.setUnitName("staleUnit");
             request.setParameter("drugName_1", "SYNTHETIC DRUG");
             request.setParameter("quantity_1", typed);
             request.setParameter("draftRevision_1", card.getDraftRevision());
@@ -537,6 +558,37 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
 
             assertThat(card.getSpecial()).endsWith(quantityLine);
+        }
+
+        @Test
+        void shouldNormalizeLegacyExecuteQuantity_whenUpdatingSingleDrugForm() throws Exception {
+            bean.setStashIndex(0);
+            request.setParameter("randomId", "1");
+            request.setParameter("draftRevision", card.getDraftRevision());
+            action.setAction("update");
+            action.setCustomName("SYNTHETIC DRUG");
+            action.setRxDate("2026-11-28");
+            action.setWrittenDate("2026-11-28");
+            action.setQuantity("30.0");
+            action.setSpecial("Take 1 tablet daily");
+            action.setUnit("");
+            action.setDosage("");
+
+            assertThat(action.execute()).isEqualTo("refresh");
+            assertThat(bean.getStashItem(0).getQuantity()).isEqualTo("30");
+        }
+
+        @Test
+        void shouldClearStaleUnitName_whenUpdateQtyReceivesMatchingBareNumber() throws Exception {
+            card.setQuantity("30");
+            card.setUnitName("mL");
+            request.setParameter("action", "updateQty");
+            request.setParameter("randomId", "1");
+            request.setParameter("quantity", "30.0");
+
+            assertThat(action.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
+            assertThat(card.getQuantity()).isEqualTo("30");
+            assertThat(card.getUnitName()).isNull();
         }
 
         @Test

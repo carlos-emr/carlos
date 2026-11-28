@@ -152,7 +152,9 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
         t.setPrn(f.isPrn());
 
         // prescription fields
-        t.setDuration(Integer.parseInt(f.getDuration()));
+        // A favourite saved from a unit-bearing quantity ("2.5 mL") has no derived duration (null);
+        // Integer.parseInt threw on null/non-whole values and failed the read of every favourite.
+        t.setDuration(Drug.wholeQuantity(f.getDuration()));
         t.setDurationUnit(f.getDurationUnit());
         t.setRepeats(f.getRepeat());
 

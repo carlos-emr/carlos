@@ -346,6 +346,12 @@ class DrugConverterUnitTest {
             "10% (100 mg/mL), 10, %",
             "5 mg 1:1000, 5, mg",
             "10 mg/m\u00B2, 10, mg/m\u00B2",
+            "10 mcg/mcL, 10, mcg/mcL",
+            "10 mcg / mcL, 10, mcg / mcL",
+            "100 mg/dL, 100, mg/dL",
+            "0.05% w/w, 0.05, % w/w",
+            "0.1% w/v, 0.1, % w/v",
+            "5% v/v, 5, % v/v",
             "5 mg \u00BD tablet, 5, mg"
         })
         @DisplayName("should read the first ingredient's strength and unit, and keep a unit of concentration whole")
@@ -699,6 +705,18 @@ class DrugConverterUnitTest {
 
             assertThat(d.getDosage()).isEqualTo("1 mg");
             assertThat(d.getUnit()).isEqualTo("mg");
+        }
+
+        @ParameterizedTest(name = "invalid strength={0}")
+        @ValueSource(floats = {Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY, -10f})
+        void shouldRejectNonFiniteOrNegativeStrength_whenConvertingFromTransferObject(float invalidStrength) {
+            DrugTo1 t = restDrug("aspirin");
+            t.setStrength(invalidStrength);
+            t.setStrengthUnit("mg");
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> converter.getAsDomainObject(info, t))
+                    .isInstanceOf(io.github.carlos_emr.carlos.webserv.rest.conversion.ConversionException.class)
+                    .hasMessage("Invalid drug strength");
         }
 
         @Test

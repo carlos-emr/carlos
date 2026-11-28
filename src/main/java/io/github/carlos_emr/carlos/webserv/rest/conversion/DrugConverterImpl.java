@@ -78,6 +78,10 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
         // This is not quite a one-to-one copy, some transformation
         // is done on types.
 
+        if (t.getStrength() != null && (!Float.isFinite(t.getStrength()) || t.getStrength() < 0f)) {
+            throw new ConversionException("Invalid drug strength");
+        }
+
         try {
 
             d.setId(t.getDrugId());

@@ -295,7 +295,10 @@ class RxManagerUnitTest extends RxManagerImpl {
         @ParameterizedTest
         @org.junit.jupiter.params.provider.ValueSource(strings = {
                 "1/2 mL", "one bottle", "1 and 1/2 tablets", "1 to 2 bottles",
-                "2 x 100 mL", "2x100 mL", "1 or 2 boxes", "1 \u00E0 2 flacons"
+                "2 x 100 mL", "2x100 mL", "1 or 2 boxes", "1 \u00E0 2 flacons",
+                "1 tab to 2 tabs", "1 bottle + 1 dropper", "30 tablets / 30 days",
+                "1 (120 mL)", "1 bottle (120 mL", "1 bottle (large)", "1 bottle (120)",
+                "1 bottle (dispense in child-resistant amber glass container with oral syringe)"
         })
         void shouldKeepOriginalPrescription_whenRestCannotRecoverTheDispenseUnit(String quantity) throws Exception {
             Drug stored = new Drug();
@@ -315,6 +318,49 @@ class RxManagerUnitTest extends RxManagerImpl {
                     .hasMessage("The stored dispense unit could not be determined");
             assertThat(stored.getQuantity()).isEqualTo(quantity);
             assertThat(stored.isArchived()).isFalse();
+        }
+
+        @Test
+        void shouldPreserveStoredUnit_whenSameProductUpdateHasNullDosage() throws Exception {
+            Drug stored = new Drug();
+            stored.setId(4);
+            stored.setDemographicId(1);
+            stored.setCustomName("Compounded Suspension");
+            stored.setGenericName("ASA");
+            stored.setDosage(null);
+            stored.setUnit("mL");
+            stored.setTakeMin(5f);
+            stored.setTakeMax(5f);
+            stored.setProviderNo("999001");
+            ((MockDrugDao) drugDao).seed(stored);
+            var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+            var info = new LoggedInInfo();
+            var dto = converter.getAsTransferObject(info, stored);
+            dto.setRepeats(2);
+
+            Drug replacement = updateDrug(info, converter.getAsDomainObject(info, dto));
+
+            assertThat(replacement.getDosage()).isNull();
+            assertThat(replacement.getUnit()).isEqualTo("mL");
+
+            Drug withNewUnit = converter.getAsDomainObject(info, dto);
+            withNewUnit.setUnit("mg");
+            withNewUnit.preserveUnchangedMedicationValues(stored);
+            assertThat(withNewUnit.getUnit()).isEqualTo("mg");
+
+            Drug withNewDosage = converter.getAsDomainObject(info, dto);
+            withNewDosage.setDosage("5 mg");
+            withNewDosage.preserveUnchangedMedicationValues(stored);
+            assertThat(withNewDosage.getDosage()).isEqualTo("5 mg");
+            assertThat(withNewDosage.getUnit()).isNull();
+
+            assertThat(Drug.isEmbeddedDispenseUnit(null)).isFalse();
+            assertThat(Drug.isEmbeddedDispenseUnit("")).isFalse();
+            assertThat(Drug.isEmbeddedDispenseUnit("   ")).isFalse();
+            assertThat(Drug.isEmbeddedDispenseUnit("bottle (120 mL")).isFalse();
+            assertThat(Drug.isEmbeddedDispenseUnit("bottle 120 mL)")).isFalse();
+            assertThat(Drug.isEmbeddedDispenseUnit("bottle (120)")).isFalse();
+            assertThat(Drug.isEmbeddedDispenseUnit("bottle (120 mL/hr)")).isFalse();
         }
 
         @ParameterizedTest
@@ -388,7 +434,8 @@ class RxManagerUnitTest extends RxManagerImpl {
 
         @ParameterizedTest
         @CsvSource(nullValues = "omitted", value = {
-                "1,3,5,omitted", "1,3,omitted,0.5", "5,3,5,2", "1,3,NaN,omitted", "1,3,omitted,Infinity"
+                "1,3,5,omitted", "1,3,omitted,0.5", "5,3,5,2", "1,3,NaN,omitted", "1,3,omitted,Infinity",
+                "1,3,-10,2", "1,3,500,-5", "1,3,-1,omitted", "1,3,omitted,-1"
         })
         void shouldRefuseInvalidCombinedDoseBeforeArchiving(float oldMin, float oldMax, Float minimum, Float maximum) {
             Drug stored = new Drug();
@@ -428,6 +475,13 @@ class RxManagerUnitTest extends RxManagerImpl {
             echo.setRegionalIdentifier("new DIN");
             assertThatThrownBy(() -> echo.requireValidRestDoseRange(stored)).isInstanceOf(Drug.InvalidDoseRangeException.class);
             assertThatThrownBy(() -> addDrug(new LoggedInInfo(), echo)).isInstanceOf(Drug.InvalidDoseRangeException.class);
+
+            Drug negativeNew = new Drug();
+            negativeNew.setDemographicId(1);
+            negativeNew.setTakeMin(-10f);
+            negativeNew.setTakeMax(2f);
+            negativeNew.recordRestFieldPresence(false, true, true);
+            assertThatThrownBy(() -> addDrug(new LoggedInInfo(), negativeNew)).isInstanceOf(Drug.InvalidDoseRangeException.class);
         }
 
         @Test

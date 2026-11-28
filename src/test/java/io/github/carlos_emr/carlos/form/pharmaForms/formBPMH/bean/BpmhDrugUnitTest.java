@@ -311,6 +311,14 @@ class BpmhDrugUnitTest {
         direct.setSpecial("LIPITOR\nTake 1 tablet daily\nDo not crush\nQty:30 Repeats:0");
         direct.setSpecial_instruction("Do not crush");
         assertThat(direct.getHow()).isEqualTo("LIPITOR\nTake 1 tablet daily");
+
+        drug.setSpecial("APO-METOPROLOL 50MG\nTake 1 Tabs PO BID for 30Days\nQty/Mitte:60 \nRepeats:2 No Subs\n");
+        drug.usePrescriptionDirections("APO-METOPROLOL 50MG", null, "Tabs");
+        assertThat(drug.getHow()).isEqualTo("Take 1 Tabs PO BID for 30Days");
+
+        drug.setSpecial("APO-METOPROLOL 50MG\nPrendre 1 comprime par jour\nQt\u00E9/Mitte:30 \nRepeats:1\n");
+        drug.usePrescriptionDirections("APO-METOPROLOL 50MG", null, "Tabs");
+        assertThat(drug.getHow()).isEqualTo("Prendre 1 comprime par jour");
     }
 
     @Nested

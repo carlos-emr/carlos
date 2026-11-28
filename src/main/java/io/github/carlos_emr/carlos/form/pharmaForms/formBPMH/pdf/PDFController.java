@@ -312,13 +312,16 @@ public class PDFController {
 
             key = acroFieldsIt.next().toString();
             cleanKey = key.replaceAll(STRING_FILTER, "");
+            String canonicalKey = canonicalDrugKey(cleanKey);
             fieldType = acroFields.getFieldType(key);
             _Logger.debug("Filling BPMH PDF field type={}", LogSafe.sanitizeObject(fieldType));
 
-            replaceWith = invokeValue(cleanKey);
-            if (continuedFields.contains(cleanKey)) {
-                replaceWith = (cleanKey.endsWith(".instruction") ? "See instructions #" : "See #")
-                        + instructionNumber(cleanKey);
+            replaceWith = invokeValue(canonicalKey);
+            if (continuedFields.contains(canonicalKey)) {
+                replaceWith = (canonicalKey.endsWith(".instruction") ? "See instructions #" : "See #")
+                        + instructionNumber(canonicalKey);
+            } else if (continueInstructions && canonicalKey.startsWith("drugs#")) {
+                replaceWith = stripTrailingLineBreaks(replaceWith);
             }
 
             //count the characters and compare to limit.
@@ -374,18 +377,41 @@ public class PDFController {
     }
 
     private static void checkField(AcroFields fields, BaseFont font, String key, String value, Set<String> continuedFields) {
-        float[] position = fields.getFieldPositions(key);
+        String templateKey = resolveTemplateFieldKey(fields, key);
+        float[] position = templateKey == null ? null : fields.getFieldPositions(templateKey);
         if (position == null) {
             continuedFields.add(key);
             return;
         }
-        fields.setFieldProperty(key, "textfont", font, null);
-        fields.setFieldProperty(key, "textsize", 7.2f, null);
-        if (value != null && (value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0
-                || !value.codePoints().allMatch(font::charExists)
-                || font.getWidthPoint(value, 7.2f) > position[3] - position[1] - 4)) {
+        fields.setFieldProperty(templateKey, "textfont", font, null);
+        fields.setFieldProperty(templateKey, "textsize", 7.2f, null);
+        String trimmed = value == null ? null : stripTrailingLineBreaks(value);
+        if (trimmed != null && (trimmed.indexOf('\n') >= 0 || trimmed.indexOf('\r') >= 0
+                || !trimmed.codePoints().allMatch(font::charExists)
+                || font.getWidthPoint(trimmed, 7.2f) > position[3] - position[1] - 4)) {
             continuedFields.add(key);
         }
+    }
+
+    /** Normalizes the legacy bpmh_template_marked.pdf singular typo (drug#8.why) to canonical drugs#8.why. */
+    private static String canonicalDrugKey(String cleanKey) {
+        return cleanKey.startsWith("drug#") ? "drugs#" + cleanKey.substring("drug#".length()) : cleanKey;
+    }
+
+    private static String resolveTemplateFieldKey(AcroFields fields, String canonicalKey) {
+        if (fields.getFieldPositions(canonicalKey) != null) {
+            return canonicalKey;
+        }
+        String singular = "drug#" + canonicalKey.substring("drugs#".length());
+        return fields.getFieldPositions(singular) != null ? singular : null;
+    }
+
+    private static String stripTrailingLineBreaks(String text) {
+        int end = text.length();
+        while (end > 0 && (text.charAt(end - 1) == '\n' || text.charAt(end - 1) == '\r')) {
+            end--;
+        }
+        return end == text.length() ? text : text.substring(0, end);
     }
 
     private static int instructionNumber(String key) {

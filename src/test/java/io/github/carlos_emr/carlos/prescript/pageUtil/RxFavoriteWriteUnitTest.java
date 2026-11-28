@@ -157,17 +157,26 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
         assertThat(stored.isPrn()).isTrue();
     }
 
-    @ParameterizedTest(name = "quantity \"{0}\" -> \"{1}\" (ajax={2})")
-    @CsvSource({
-            "30.0, 30, true",
-            ".5, 0.5, true",
-            "1/2, 1/2, true",
-            "30.0, 30, false",
-            ".5, 0.5, false",
-            "1/2, 1/2, false"
+    @ParameterizedTest(name = "initialUnit={0}, quantity \"{1}\" -> \"{2}\" ({3}) (ajax={4})")
+    @CsvSource(nullValues = "NULL", value = {
+            "NULL, 30.0, 30, NULL, true",
+            "NULL, .5, 0.5, NULL, true",
+            "NULL, 1/2, 1/2, NULL, true",
+            "mL, 2.5, 2.5, mL, true",
+            "mL, .5 mL, 0.5, mL, true",
+            "mL, 2 bottles, 2, bottles, true",
+            "NULL, 30.0 mL, 30, mL, false",
+            "NULL, .5, 0.5, NULL, false",
+            "NULL, 1e25, 1e25, NULL, false",
+            "NULL, 100000000000000000000.00, 100000000000000000000, NULL, false",
+            "NULL, 1 bottle (120 mL), 1 bottle (120 mL), NULL, false",
+            "NULL, NULL, NULL, NULL, false"
     })
-    @DisplayName("should write plain decimals for pure numeric favourite quantities in both edit paths")
-    void shouldNormalizeNumericQuantity_whenEditingFavorite(String submitted, String expected, boolean ajax) throws Exception {
+    @DisplayName("should write plain decimals and split bounded dispense units for favourite quantities in both edit paths")
+    void shouldNormalizeNumericQuantity_whenEditingFavorite(String initialUnit, String submitted,
+                                                            String expectedQuantity, String expectedUnit,
+                                                            boolean ajax) throws Exception {
+        stored.setUnitName(initialUnit);
         if (ajax) {
             editParameters(String.valueOf(FAVORITE_ID), "0");
             request.setParameter("quantity", submitted);
@@ -183,7 +192,8 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
             action.setQuantity(submitted);
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         }
-        assertThat(stored.getQuantity()).isEqualTo(expected);
+        assertThat(stored.getQuantity()).isEqualTo(expectedQuantity);
+        assertThat(stored.getUnitName()).isEqualTo(expectedUnit);
     }
 
     @Test

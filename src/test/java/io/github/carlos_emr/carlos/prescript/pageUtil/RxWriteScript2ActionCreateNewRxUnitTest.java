@@ -277,6 +277,8 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
         "amoxicillin 250mg, 250mg, true",
         "250mg amoxicillin, 250mg, true",
         "amoxicillin 250.0mg, 250mg, true",
+        "amoxicillin 250.0mg, 250.0mg, true",
+        "amoxicillin 250.0mg/5.0ml, 250.0mg/5.0ml, true",
         "amoxicillin 1250mg, 250mg, false",
         "amoxicillin 1.250mg, 250mg, false",
         "synthetic 2500, 250, false",

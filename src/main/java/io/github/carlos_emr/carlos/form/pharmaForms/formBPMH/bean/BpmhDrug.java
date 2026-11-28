@@ -156,9 +156,22 @@ public class BpmhDrug {
         if (!getTakeMax().isBlank() && !"0".equals(getTakeMax()) && !getTakeMax().equals(amount)) {
             amount += " to " + getTakeMax();
         }
-        how = String.join(" ", java.util.stream.Stream.of(getMethod(), amount, doseUnit, getFreqCode(), getRoute(),
+        String unitPart = endsWithUnit(amount, doseUnit) ? "" : doseUnit;
+        how = String.join(" ", java.util.stream.Stream.of(getMethod(), amount, unitPart, getFreqCode(), getRoute(),
                         Boolean.parseBoolean(getPrn()) ? "as needed" : "")
                 .filter(StringUtils::isNotBlank).toList());
+    }
+
+    private static boolean endsWithUnit(String amount, String unit) {
+        String trimmedAmount = amount.stripTrailing();
+        String trimmedUnit = unit.strip();
+        if (trimmedAmount.length() <= trimmedUnit.length()) {
+            return false;
+        }
+        int prefixEnd = trimmedAmount.length() - trimmedUnit.length();
+        return trimmedAmount.substring(prefixEnd).toLowerCase(Locale.ROOT)
+                .equals(trimmedUnit.toLowerCase(Locale.ROOT))
+                && !Character.isLetter(trimmedAmount.codePointBefore(prefixEnd));
     }
 
     private static String withoutDispensingFooter(String text) {
@@ -186,7 +199,10 @@ public class BpmhDrug {
     }
 
     private static boolean isDispenseAmount(String line) {
-        if (!line.startsWith("Qty:") && !line.startsWith("Mitte:")) return false;
+        if (!line.startsWith("Qty:") && !line.startsWith("Mitte:")
+                && !line.startsWith("Qty/Mitte:") && !line.startsWith("Qt\u00E9/Mitte:")) {
+            return false;
+        }
         String amount = line.substring(line.indexOf(':') + 1).stripLeading();
         int numberEnd = DoseText.numberEnd(amount, 0);
         return numberEnd > 0 && isDispenseUnit(amount.substring(numberEnd).strip());

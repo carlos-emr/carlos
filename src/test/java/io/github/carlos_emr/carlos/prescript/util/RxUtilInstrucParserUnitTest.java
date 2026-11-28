@@ -988,7 +988,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         }
 
         @ParameterizedTest(name = "ambiguous quantity \"{0}\"")
-        @ValueSource(strings = {"1/2", "1/2 bottle", "1 to 2 bottles"})
+        @ValueSource(strings = {"1/2", "1/2 bottle", "1 to 2 bottles", "1 tab to 2 tabs"})
         @DisplayName("should derive no duration or invented unit for fractional or range quantities")
         void shouldLeaveAmbiguousQuantityUnmodified_whenDerivingDuration(String typed) {
             RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab po bid");
@@ -997,6 +997,55 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertThat(RxUtil.findDuration(rx)).isNull();
             assertThat(rx.getQuantity()).isEqualTo(typed);
             assertThat(rx.getUnitName()).isNull();
+        }
+
+        @ParameterizedTest(name = "unitless quantity \"{0}\" -> \"{1}\" (duration {2})")
+        @CsvSource({"30.0, 30, 15", ".5, 0.5, 0"})
+        @DisplayName("should normalize unitless decimal quantity on the staged card when deriving duration")
+        void shouldNormalizeUnitlessQuantity_whenDerivingDuration(String typed, String expectedQuantity, String expectedDuration) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab po bid");
+            rx.setQuantity(typed);
+
+            assertThat(RxUtil.findDuration(rx)).isEqualTo(expectedDuration);
+            assertThat(rx.getQuantity()).isEqualTo(expectedQuantity);
+            assertThat(rx.getUnitName()).isNull();
+        }
+
+        @ParameterizedTest(name = "applyQuantityText(\"{0}\") -> quantity=\"{1}\", unitName={2}")
+        @CsvSource(nullValues = "NULL", value = {
+                "'', 0, NULL",
+                "'  ', 0, NULL",
+                "30.0, 30, NULL",
+                ".5, 0.5, NULL",
+                "2.5 mL, 2.5, mL",
+                "1 bottle (120 mL), 1, bottle (120 mL)",
+                "1/2 bottle, 1/2 bottle, NULL",
+                "one bottle, one bottle, NULL",
+                "1 tab to 2 tabs, 1 tab to 2 tabs, NULL"
+        })
+        @DisplayName("should split clean dispense units and preserve ambiguous quantities unsplit")
+        void shouldApplyQuantityTextSafely_forCleanAndAmbiguousValues(String input, String expectedQuantity, String expectedUnit) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab po bid");
+            rx.setUnitName("oldUnit");
+
+            RxUtil.applyQuantityText(rx, input);
+
+            assertThat(rx.getQuantity()).isEqualTo(expectedQuantity);
+            assertThat(rx.getUnitName()).isEqualTo(expectedUnit);
+        }
+
+        @Test
+        @DisplayName("should strip duplicate embedded unit while keeping distinct stored unitName")
+        void shouldNormalizeCarriedQuantity_withoutDroppingDistinctUnit() {
+            RxPrescriptionData.Prescription sameUnit = prescriptionWithSpecial("Take 5 mL po bid");
+            RxUtil.normalizeCarriedQuantity(sameUnit, "100.0 mL", "mL");
+            assertThat(sameUnit.getQuantity()).isEqualTo("100");
+            assertThat(sameUnit.getUnitName()).isEqualTo("mL");
+
+            RxPrescriptionData.Prescription distinctUnit = prescriptionWithSpecial("Take 5 mL po bid");
+            RxUtil.normalizeCarriedQuantity(distinctUnit, "100 mL", "bottle");
+            assertThat(distinctUnit.getQuantity()).isEqualTo("100 mL");
+            assertThat(distinctUnit.getUnitName()).isEqualTo("bottle");
         }
 
         /** Periodic frequencies divide by their exact interval, so three doses every three months last nine months. */

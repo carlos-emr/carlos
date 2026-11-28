@@ -130,13 +130,22 @@ public final class DoseText {
             // Not one number: a strength with its unit, a fraction, a range, a word.
             return text;
         }
-        // long arithmetic: precision and scale are ints, and a scale near Integer.MIN_VALUE
-        // ("1E2147483647") would overflow their difference.
-        long integerDigits = (long) value.precision() - value.scale();
-        if (integerDigits > MAX_PLAIN_DIGITS || value.scale() > MAX_PLAIN_DIGITS) {
+        if (value.signum() == 0) {
+            return "0";
+        }
+        // Reject extreme positive exponents before stripTrailingZeros() so subtracting stripped
+        // zeros from a scale near Integer.MIN_VALUE cannot underflow int.
+        if (value.scale() < -MAX_PLAIN_DIGITS) {
             return text;
         }
-        return of(value);
+        BigDecimal normalized = value.stripTrailingZeros();
+        // long arithmetic: precision and scale are ints, and a scale near Integer.MIN_VALUE
+        // ("1E2147483647") would overflow their difference.
+        long integerDigits = (long) normalized.precision() - normalized.scale();
+        if (integerDigits > MAX_PLAIN_DIGITS || normalized.scale() > MAX_PLAIN_DIGITS) {
+            return text;
+        }
+        return normalized.toPlainString();
     }
 
     /**
@@ -170,6 +179,12 @@ public final class DoseText {
                 // No number with a fraction or exponent starts here. Step over this character, or over the
                 // whole run of digits, so that no number is read from the middle of a longer one.
                 at = Math.max(at + 1, digitsEnd(text, at));
+            } else if (isFractionAt(text, end)) {
+                // Multi-dot token (e.g. "1.0.5", "12.50.0", "1.5E3.20"): leave the entire dotted run alone.
+                at = end;
+                while (isFractionAt(text, at)) {
+                    at = exponentEnd(text, digitsEnd(text, at + 1));
+                }
             } else {
                 if (plain == null) {
                     plain = new StringBuilder(text.length());
@@ -185,7 +200,8 @@ public final class DoseText {
     /**
      * The index after a number with a fraction or exponent that starts at {@code index}
      * ("250.0", ".5", "1.0E7", "1E7"). Returns {@code index} for text that starts with a
-     * non-number or with a whole number that needs no decimal normalization.
+     * non-number, a whole number that needs no decimal normalization, or a comma-grouped
+     * continuation ("1,000.0").
      */
     private static int decimalEnd(String text, int index) {
         int integerEnd = digitsEnd(text, index);
@@ -195,11 +211,23 @@ public final class DoseText {
             }
             return index;
         }
+        if (isPartOfGroupedOrDottedToken(text, index)) {
+            return index;
+        }
         if (isFractionAt(text, integerEnd)) {
             return exponentEnd(text, digitsEnd(text, integerEnd + 1));
         }
         int end = exponentEnd(text, integerEnd);
         return end == integerEnd ? index : end;
+    }
+
+    /** Whether digits at {@code index} continue a multi-dot ("1.0.5") or comma-grouped ("1,000.0") number. */
+    private static boolean isPartOfGroupedOrDottedToken(String text, int index) {
+        if (index == 0) {
+            return false;
+        }
+        char previous = text.charAt(index - 1);
+        return previous == '.' || (previous == ',' && index >= 2 && isDigit(text, index - 2));
     }
 
     /** A leading decimal point starts a number only when not attached to a word, digit or dot. */

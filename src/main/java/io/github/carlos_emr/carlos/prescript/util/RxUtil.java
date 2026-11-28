@@ -630,13 +630,29 @@ public class RxUtil {
             // Ambiguous text such as "1/2" or "1/2 bottle" cannot yield a duration or a clean unit.
             return null;
         }
+        rx.setQuantity(number);
         return durationForQuantity(rx, Double.parseDouble(number));
     }
 
-    private record QuantityParts(String amount, String unit) {
+    /**
+     * Parsed leading decimal amount (normalized via {@link DoseText#ofNumericText}) and recognized
+     * dispense unit split from a single quantity string.
+     *
+     * @param amount String normalized leading numeric amount
+     * @param unit String recognized dispense unit
+     * @since 2026-11-28
+     */
+    public record QuantityParts(String amount, String unit) {
     }
 
-    private static QuantityParts splitLeadingQuantityAndUnit(String text) {
+    /**
+     * Splits a leading decimal amount and clean dispense unit (such as {@code "2.5 mL"} or
+     * {@code "1 bottle (120 mL)"}) when the suffix passes {@link Drug#isEmbeddedDispenseUnit}.
+     *
+     * @param text String quantity text to inspect, which may be {@code null}
+     * @return QuantityParts when {@code text} splits cleanly into amount and dispense unit, otherwise {@code null}
+     */
+    public static QuantityParts splitLeadingQuantityAndUnit(String text) {
         if (StringUtils.isBlank(text)) {
             return null;
         }
@@ -650,6 +666,63 @@ public class RxUtil {
             return null;
         }
         return new QuantityParts(DoseText.ofNumericText(trimmed.substring(0, end)), unit);
+    }
+
+    /**
+     * Applies submitted quantity text onto a staged prescription, splitting a clean leading decimal
+     * amount and dispense unit while preserving ambiguous fractions ({@code "1/2 bottle"}), ranges
+     * ({@code "1 to 2 bottles"}), or word-only quantities ({@code "one bottle"}) unsplit.
+     *
+     * @param rx RxPrescriptionData.Prescription staged prescription to update
+     * @param quantityText String submitted quantity text
+     */
+    public static void applyQuantityText(RxPrescriptionData.Prescription rx, String quantityText) {
+        String trimmed = StringUtils.trimToEmpty(quantityText);
+        if (trimmed.isEmpty()) {
+            rx.setQuantity("0");
+            rx.setUnitName(null);
+            return;
+        }
+        QuantityParts split = splitLeadingQuantityAndUnit(trimmed);
+        if (split != null) {
+            rx.setQuantity(split.amount());
+            rx.setUnitName(split.unit());
+            return;
+        }
+        rx.setQuantity(DoseText.ofNumericText(trimmed));
+        rx.setUnitName(null);
+    }
+
+    /**
+     * Normalizes a carried-over prescription's stored quantity and unit before staging: splits a
+     * clean embedded unit when {@code sourceUnitName} is blank (or matches the embedded unit),
+     * normalizes pure numeric quantities with {@link DoseText#ofNumericText}, and preserves
+     * non-numeric/fractional quantities together with any existing {@code sourceUnitName}.
+     *
+     * @param rx RxPrescriptionData.Prescription target staged prescription
+     * @param sourceQuantity String stored quantity value, which may be {@code null}
+     * @param sourceUnitName String stored dispense unit, which may be {@code null}
+     */
+    public static void normalizeCarriedQuantity(RxPrescriptionData.Prescription rx,
+                                                String sourceQuantity,
+                                                String sourceUnitName) {
+        String unitName = sourceUnitName;
+        String quantity = sourceQuantity;
+        QuantityParts split = splitLeadingQuantityAndUnit(quantity);
+        if (split != null) {
+            if (StringUtils.isBlank(unitName)) {
+                quantity = split.amount();
+                unitName = split.unit();
+            } else if (split.unit().toLowerCase(Locale.ROOT).equals(unitName.strip().toLowerCase(Locale.ROOT))) {
+                quantity = split.amount();
+                unitName = unitName.strip();
+            }
+        }
+        String normalized = DoseText.ofNumericText(quantity);
+        if (StringUtils.isNotBlank(normalized)) {
+            rx.setQuantity(normalized);
+        }
+        rx.setUnitName(unitName);
     }
 
     /** True when the parser left no calculated quantity behind: null, empty or "0". */
@@ -3034,20 +3107,7 @@ public class RxUtil {
 
     private static void setResultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx, Drug d) {
         // Imported quantities can carry their unit in the quantity text instead of the unit column.
-        String unitName = d.getUnitName();
-        String quantity = d.getQuantity();
-        if (StringUtils.isBlank(unitName)) {
-            QuantityParts split = splitLeadingQuantityAndUnit(quantity);
-            if (split != null) {
-                quantity = split.amount();
-                unitName = split.unit();
-            }
-        }
-        String normalized = DoseText.ofNumericText(quantity);
-        if (StringUtils.isNotBlank(normalized)) {
-            rx.setQuantity(normalized);
-        }
-        rx.setUnitName(unitName);
+        normalizeCarriedQuantity(rx, d.getQuantity(), d.getUnitName());
 
         rx.setRepeat(d.getRepeat() == null ? 0 : d.getRepeat());
         rx.setSpecial(d.getSpecial());

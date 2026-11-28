@@ -56,4 +56,17 @@ class FavoriteConverterQuantityUnitTest {
         assertThat(new FavoriteConverterImpl().getAsTransferObject(new LoggedInInfo(), favorite).getQuantity())
                 .isNull();
     }
+
+    @ParameterizedTest(name = "stored duration \"{0}\" -> {1}")
+    @CsvSource(nullValues = "NULL", value = {"NULL, NULL", "'', NULL", "abc, NULL", "7, 7", "7.0, 7"})
+    @DisplayName("should omit a missing or non-whole duration rather than failing the favourite read")
+    void shouldHandleNullableOrNonWholeDuration_whenConvertingFavorite(String duration, Integer expected) {
+        Favorite favorite = favoriteWithQuantity("2.5");
+        favorite.setDuration(duration);
+
+        var dto = new FavoriteConverterImpl().getAsTransferObject(new LoggedInInfo(), favorite);
+
+        assertThat(dto.getDuration()).isEqualTo(expected);
+        assertThat(dto.getQuantity()).isNull();
+    }
 }

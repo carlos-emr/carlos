@@ -478,10 +478,16 @@ public class BpmhForm2Handler {
                         bpmhDrug.setTakeMin(min > 0 ? DoseText.of(min) : "");
                         bpmhDrug.setTakeMax(max > 0 ? DoseText.of(max) : "");
                     }
+                    // CDS imports store non-dyadic decimals ("0.1") and fractions ("1/2") only in
+                    // cdsDoseText, leaving takeMin/takeMax at 0.
+                    String cdsDose = StringUtils.stripToNull(drug.getCdsDoseText());
+                    if (bpmhDrug.getTakeMin().isBlank() && bpmhDrug.getTakeMax().isBlank() && cdsDose != null) {
+                        bpmhDrug.setTakeMin(cdsDose);
+                    }
                     // A selected product's unit can be its strength unit. Its form alone
                     // cannot establish an administered dose. A CDS import records the dose unit.
                     boolean recordedDoseUnit = (drug.isCustom() && StringUtils.isBlank(drug.getDosage()))
-                            || StringUtils.isNotBlank(drug.getCdsDoseText())
+                            || cdsDose != null
                             || StringUtils.equalsIgnoreCase(drug.getUnit(), drug.getDrugForm());
                     bpmhDrug.usePrescriptionDirections(drug.getBrandName(), drug.getSpecialInstruction(),
                             recordedDoseUnit ? drug.getUnit() : null);

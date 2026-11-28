@@ -128,24 +128,38 @@ def locate_package(explicit_dir: str):
             if (candidate / "o19sources.py").is_file() and (candidate / "o19digest.py").is_file():
                 return candidate
         return None
-    installed = Path("/usr/lib/carlos-ctl/carlos_ctl")
-    if (installed / "o19sources.py").is_file() and (installed / "o19digest.py").is_file():
-        return installed
     spec = importlib.util.find_spec("carlos_ctl")
     if spec and spec.submodule_search_locations:
         for loc in spec.submodule_search_locations:
             candidate = Path(loc)
             if (candidate / "o19sources.py").is_file() and (candidate / "o19digest.py").is_file():
                 return candidate
+    installed = Path("/usr/lib/carlos-ctl/carlos_ctl")
+    if (installed / "o19sources.py").is_file() and (installed / "o19digest.py").is_file():
+        return installed
     return None
 
 
 def digest_format(path: Path):
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     for node in tree.body:
-        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, int):
-            if any(isinstance(t, ast.Name) and t.id == "DIGEST_FORMAT" for t in node.targets):
-                return node.value.value
+        value = None
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "DIGEST_FORMAT" for t in node.targets
+        ):
+            value = node.value
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == "DIGEST_FORMAT"
+        ):
+            value = node.value
+        if (
+            isinstance(value, ast.Constant)
+            and isinstance(value.value, int)
+            and not isinstance(value.value, bool)
+        ):
+            return value.value
     return None
 
 

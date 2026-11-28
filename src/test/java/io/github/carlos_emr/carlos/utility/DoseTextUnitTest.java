@@ -209,6 +209,12 @@ class DoseTextUnitTest {
         @DisplayName("should ignore blanks around the number")
         void shouldIgnoreSurroundingBlanks_forTextThatIsOneNumber() {
             assertThat(DoseText.ofNumericText(" 250.0 ")).isEqualTo("250");
+            assertThat(DoseText.ofNumericText("0E65")).isEqualTo("0");
+            assertThat(DoseText.ofNumericText("0E2147483647")).isEqualTo("0");
+            assertThat(DoseText.ofNumericText("1.00E-64")).isEqualTo("0." + "0".repeat(63) + "1");
+            assertThat(DoseText.ofNumericText("10E64")).isEqualTo("10E64");
+            assertThat(DoseText.ofNumericText("100E2147483647")).isEqualTo("100E2147483647");
+            assertThat(DoseText.ofNumericText("1E-2147483647")).isEqualTo("1E-2147483647");
         }
 
         @ParameterizedTest(name = "\"{0}\" is left alone")
@@ -297,6 +303,7 @@ class DoseTextUnitTest {
             "5. mg | 5. mg",
             "5.x | 5.x",
             "5. | 5.",
+            "Give 5.0. | Give 5.",
             ".50 | 0.5",
             ".5mg | 0.5mg",
             "lorazepam .5mg tablet | lorazepam 0.5mg tablet",
@@ -304,8 +311,15 @@ class DoseTextUnitTest {
             ".50e+2mg | 50mg",
             "A.50 | A.50",
             "..50 | ..50",
+            ".5.0 | .5.0",
+            "1.0.5 | 1.0.5",
             "1.2.3 | 1.2.3",
-            "12.50.0 | 12.5.0",
+            "12.50.0 | 12.50.0",
+            "1,000.0 mg | 1,000.0 mg",
+            "1,000,000.0 IU | 1,000,000.0 IU",
+            "250.0mg,500.0mg | 250mg,500mg",
+            ",5.0 | ,5",
+            "foo,5.0 | foo,5",
             "1.0e+7unit | 10000000unit",
             "1.0e-4mg | 0.0001mg",
             "1e+7unit | 10000000unit",
@@ -318,7 +332,7 @@ class DoseTextUnitTest {
             "1.50e- | 1.5e-",
             "1.50e+x | 1.5e+x",
             "1.50ex | 1.5ex",
-            "1.5E3.20 | 1500.20"
+            "1.5E3.20 | 1.5E3.20"
         })
         @DisplayName("should find each number's whole extent and leave the text around it alone")
         void shouldRewriteOnlyCompleteNumbers_atEveryPositionInText(String text, String expected) {

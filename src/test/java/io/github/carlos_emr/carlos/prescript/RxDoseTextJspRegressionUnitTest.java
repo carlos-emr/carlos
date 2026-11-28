@@ -105,6 +105,16 @@ class RxDoseTextJspRegressionUnitTest {
     }
 
     @Test
+    @DisplayName("should null-coalesce nullable repeat counts on DisplayRxRecord.jsp")
+    void shouldNotPrintNullRepeat_inDisplayRxRecord() throws IOException {
+        String jsp = page(WEBAPP.resolve("WEB-INF/jsp/rx/DisplayRxRecord.jsp"));
+
+        assertThat(jsp)
+                .doesNotContain("<td><%= drug.getRepeat() %>")
+                .contains("drug.getRepeat() != null ? drug.getRepeat() : \"\"");
+    }
+
+    @Test
     @DisplayName("should not print a floating-point dose directly in any page")
     void shouldNotPrintFloatDoseDirectly_inAnyPage() throws IOException {
         List<String> offenders = new ArrayList<>();
