@@ -215,6 +215,14 @@ class BpmhDrugUnitTest {
         drug.setSpecial("Mitte:7 days Repeats: confirm with prescriber");
         drug.usePrescriptionDirections(null, null, null);
         assertThat(drug.getHow()).isEqualTo("Mitte:7 days Repeats: confirm with prescriber");
+
+        drug.setSpecial("Mitte:7 days only if confirmed Repeats:0");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Mitte:7 days only if confirmed Repeats:0");
+
+        drug.setSpecial("Use only as directed Repeats:0");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Use only as directed Repeats:0");
     }
 
     @Test

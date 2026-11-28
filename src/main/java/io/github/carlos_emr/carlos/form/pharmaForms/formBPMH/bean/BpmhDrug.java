@@ -30,9 +30,8 @@
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import org.apache.commons.lang3.StringUtils;
-
-import java.util.regex.Pattern;
 
 /*
  * Author: Dennis Warren
@@ -48,11 +47,6 @@ import java.util.regex.Pattern;
  *
  */
 public class BpmhDrug {
-
-    private static final String DISPENSE_NUMBER = "(?:[0-9]++(?:\\.[0-9]++)?+|\\.[0-9]++)";
-    private static final Pattern DISPENSE_AMOUNT = Pattern.compile(
-            "Qty:\\h*+" + DISPENSE_NUMBER + "[^\\n]*+|Mitte:\\h*+" + DISPENSE_NUMBER + "(?:\\h*+\\p{L}++)?+");
-    private static final Pattern REPEAT_COUNT = Pattern.compile("Repeats:\\h*+[0-9]++(?:\\h++No Subs)?");
 
     private String id;
     private String demographicId;
@@ -171,11 +165,25 @@ public class BpmhDrug {
             footerStart = trimmed.lastIndexOf('\n', lastBreak - 1);
         }
         if (repeatsSeparator > footerStart
-                && REPEAT_COUNT.matcher(trimmed).region(repeatsSeparator + 1, trimmed.length()).matches()
-                && DISPENSE_AMOUNT.matcher(trimmed.substring(footerStart + 1, repeatsSeparator).stripTrailing()).matches()) {
+                && isRepeatCount(trimmed.substring(repeatsSeparator + 1))
+                && isDispenseAmount(trimmed.substring(footerStart + 1, repeatsSeparator))) {
             return text.substring(0, Math.max(footerStart, 0));
         }
         return text;
+    }
+
+    private static boolean isRepeatCount(String line) {
+        if (!line.startsWith("Repeats:")) return false;
+        String count = line.substring("Repeats:".length()).stripLeading();
+        return StringUtils.isNumeric(StringUtils.removeEnd(count, " No Subs").stripTrailing());
+    }
+
+    private static boolean isDispenseAmount(String line) {
+        boolean quantity = line.startsWith("Qty:");
+        if (!quantity && !line.startsWith("Mitte:")) return false;
+        String amount = line.substring(line.indexOf(':') + 1).stripLeading();
+        int numberEnd = DoseText.numberEnd(amount, 0);
+        return numberEnd > 0 && (quantity || amount.substring(numberEnd).strip().codePoints().allMatch(Character::isLetter));
     }
 
     // Possessive digit runs, a single optional space and a fixed unit vocabulary bound the match to linear time.
