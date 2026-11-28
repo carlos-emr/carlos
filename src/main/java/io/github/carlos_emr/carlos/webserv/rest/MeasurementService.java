@@ -42,6 +42,7 @@ import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
@@ -516,6 +517,8 @@ public class MeasurementService extends AbstractServiceImpl {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static boolean isBloodPressureValidation(MeasurementType configured, Validations rule) {
         return "BP".equalsIgnoreCase(configured.getType())
                 || (rule.getName() != null && "Blood Pressure".equalsIgnoreCase(rule.getName().trim()));
