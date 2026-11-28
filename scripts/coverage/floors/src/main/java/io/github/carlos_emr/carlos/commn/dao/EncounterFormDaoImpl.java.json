@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/EncounterFormDaoImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 98.03220035778175,
+    "branches": 90.74074074074075,
+    "sourceBlob": "76cb502b740753388c48cd3ba29c37e6064ed7a3"
+  },
+  "evidenceSha256": "7bb84a8b231e8abdaeafed5be95f9dfb3030a7a91fde49be5a5c6ae721cf4fd2"
+}

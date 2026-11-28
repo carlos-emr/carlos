@@ -230,6 +230,26 @@ class SqlTableReferencesUnitTest {
     }
 
     @Test
+    void shouldHandleBoundaryTokensAndNonClauseConstructs_withoutFalseTables() {
+        assertThat(SqlTableReferences.tableNames("SELECT 1 FROM demographic--")).containsExactly("demographic");
+        assertThat(SqlTableReferences.tableNames("SELECT 1 FROM demographic # trailing")).containsExactly("demographic");
+        assertThat(SqlTableReferences.tableNames("SELECT 'a\\")).isEmpty();
+        assertThat(SqlTableReferences.tableNames("SELECT 'a\\\\', a$1 FROM demographic.")).containsExactly("demographic");
+        assertThat(SqlTableReferences.tableNames("SELECT 1 FROM demographic WINDOW w FROM preventions"))
+                .containsExactly("demographic", "preventions");
+        assertThat(SqlTableReferences.tableNames("SELECT 1 FROM demographic WINDOW + preventions"))
+                .containsExactly("demographic");
+        assertThat(SqlTableReferences.tableNames("SELECT 1 FROM { 1 }, preventions"))
+                .containsExactly("preventions");
+        assertThat(SqlTableReferences.tableNames("SELECT 1 FROM demographic FOR SELECT, preventions"))
+                .containsExactly("demographic");
+        assertThat(SqlTableReferences.tableNames("SELECT 1 FROM demographic + preventions"))
+                .containsExactly("demographic");
+        assertThat(SqlTableReferences.tableNames("SELECT /*!1234567 */ 1 FROM demographic"))
+                .containsExactly("demographic");
+    }
+
+    @Test
     void shouldFoldOnlyAsciiLetters_whenComparingNames() {
         assertThat(SqlTableReferences.foldAsciiCase("PREVENTIONS_Ünïcode_İ"))
                 .isEqualTo("preventions_Ünïcode_İ");

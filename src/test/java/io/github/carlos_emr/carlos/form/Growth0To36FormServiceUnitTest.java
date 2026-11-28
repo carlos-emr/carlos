@@ -7,13 +7,23 @@ import io.github.carlos_emr.carlos.form.model.FormGrowth0To36;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import jakarta.persistence.EntityManager;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.Properties;
+import javax.xml.parsers.ParserConfigurationException;
+import org.hibernate.Session;
+import org.hibernate.jdbc.ReturningWork;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
+import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -94,6 +104,32 @@ class Growth0To36FormServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRequireReadAccessAndAnOwnVersion_beforeThePageRenders() {
+        // The view gate asks this before the Growth page renders; write access is not needed.
+        when(security.hasPrivilege(actor, "_form", "w", "123")).thenReturn(false);
+        service.requireReadable(actor, 123, 0);
+        verifyNoInteractions(forms);
+
+        when(forms.findForPatient(123, 44)).thenReturn(new FormGrowth0To36());
+        service.requireReadable(actor, 123, 44);
+        verify(forms).findForPatient(123, 44);
+        assertThatThrownBy(() -> service.requireReadable(actor, 123, 45)).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_form)");
+        verify(security, times(3)).hasPrivilege(actor, "_form", "r", "123");
+        verify(security, never()).hasPrivilege(actor, "_form", "w", "123");
+        verifyNoInteractions(demographics);
+    }
+
+    @Test
+    void shouldRefuseThePageBeforeAnyLookup_whenFormReadAccessIsDenied() {
+        when(security.hasPrivilege(actor, "_form", "r", "123")).thenReturn(false);
+        assertThatThrownBy(() -> service.requireReadable(actor, 123, 44)).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_form)");
+        assertThatThrownBy(() -> service.requireReadable(actor, 0, 44)).isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(forms, demographics);
+    }
+
+    @Test
     void shouldRejectAbsentActorAndInvalidPatient_beforeAnyPersistence() {
         Properties values = new Properties();
         assertThatThrownBy(() -> service.load(null, 123, 0)).isInstanceOf(SecurityException.class);
@@ -101,5 +137,30 @@ class Growth0To36FormServiceUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> service.load(actor, 0, 0)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> service.saveVersion(actor, -1, 0, values)).isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(forms, demographics);
+    }
+
+    @Test
+    void shouldWrapParserConfigurationFailure_whenReadingArchive() throws Exception {
+        FormGrowth0To36Dao dao = new FormGrowth0To36Dao();
+        EntityManager entityManager = mock(EntityManager.class);
+        Session session = mock(Session.class);
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet rows = mock(ResultSet.class);
+        ReflectionTestUtils.setField(dao, "entityManager", entityManager);
+        when(entityManager.unwrap(Session.class)).thenReturn(session);
+        when(connection.prepareStatement(anyString())).thenReturn(statement);
+        when(statement.executeQuery()).thenReturn(rows);
+        when(session.doReturningWork(any())).thenAnswer(invocation ->
+                invocation.<ReturningWork<?>>getArgument(0).execute(connection));
+
+        try (MockedStatic<JDBCUtil> jdbcUtil = mockStatic(JDBCUtil.class)) {
+            jdbcUtil.when(() -> JDBCUtil.toDocument(rows))
+                    .thenThrow(new ParserConfigurationException("simulated parser failure"));
+            assertThatThrownBy(() -> dao.readArchive(123, 44))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Unable to create growth form XML")
+                    .hasCauseInstanceOf(ParserConfigurationException.class);
+        }
     }
 }

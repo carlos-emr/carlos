@@ -36,6 +36,18 @@ public class FormGrowth0To36Dao extends AbstractDaoImpl<FormGrowth0To36> {
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
+    /**
+     * Serializes version allocation for the patient until the caller's transaction completes.
+     *
+     * @param patient the patient's demographic number
+     * @param from the earliest whole second considered for the new version
+     * @return stored edit times at or after {@code from}, including the caller's pending saves
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<Date> lockAndFindEditsSince(int patient, Date from) {
+        return FormVersionEdits.lockAndFindEditsSince(entityManager, FormGrowth0To36.class, patient, from);
+    }
+
     /** Metadata consumed by encounter shortcuts, Rourke graphs and eForm growth overlays. */
     public record Version(Integer id, Integer patient, Date created, Date edited) { }
 
@@ -66,9 +78,11 @@ public class FormGrowth0To36Dao extends AbstractDaoImpl<FormGrowth0To36> {
 
     /**
      * Keeps the optional legacy XML interchange's JDBC column names and value encoding.
-     * A fresh transaction is required because this read is called after the save commits.
+     * Called after the save commits, while the save's EntityManager and connection are still
+     * bound: SUPPORTS reads through them, where a new transaction would hold a second pooled
+     * connection per archived save (issue #5693 review).
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public Document readArchive(int patient, int id) {
         return entityManager.unwrap(Session.class).doReturningWork(connection -> {
             try (var query = connection.prepareStatement("SELECT * FROM formGrowth0_36 WHERE demographic_no = ? AND ID = ?")) {

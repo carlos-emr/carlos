@@ -39,18 +39,22 @@ file_hash() {
 # Original AbandonOldChart lines and every prior comment/byte remain in the
 # comparison; this does not broadly exempt that key from configuration checks.
 properties_without_cutover() {
-    python3 - "$CARLOS_ETC_DIR/carlos.properties" "${1:-content}" <<'PYCUTOVER'
+    python3 - "$CARLOS_ETC_DIR/carlos.properties" "${1:-content}" "${@:2}" 3<&0 <<'PYCUTOVER'
+import json
 import pathlib
 import re
 import sys
 
-content = pathlib.Path(sys.argv[1]).read_bytes()
+mode = sys.argv[2]
+if mode == "active":
+    with open(3, "rb") as filtered:
+        content = filtered.read()
+else:
+    content = pathlib.Path(sys.argv[1]).read_bytes()
 entry = (b"\n\n# Mandatory modern-chart cutover; retain this on rollback (#4793).\n"
          b"AbandonOldChart=true\n")
-if sys.argv[2] == "status":
-    # Match Java Properties.load rather than the location of our historical
-    # append block. Idempotent preparation leaves an already-effective true in
-    # place even when another setting/comment follows it (#5763).
+if mode in ("status", "active"):
+    # Parse Java properties, including escape sequences and continued lines.
     def unescape(value):
         result = []
         index = 0
@@ -93,6 +97,8 @@ if sys.argv[2] == "status":
             yield logical
 
     effective = None
+    active = {}
+    migrated = set(sys.argv[3:])
     for line in logical_lines():
         end = 0
         escaped = False
@@ -110,9 +116,19 @@ if sys.argv[2] == "status":
         while value < len(line) and line[value] in ' \t\f':
             value += 1
         key, decoded = unescape(line[:end]), unescape(line[value:])
-        if key == 'AbandonOldChart':
+        if mode == "active":
+            if key in migrated and line.startswith(f"{key}="):
+                continue
+            if re.match(r'^db_reporting_(username|password)[ \t]*[=:]', line):
+                continue
+            active.setdefault(key, []).append(decoded)
+        elif key == 'AbandonOldChart':
             effective = decoded
-    print('ready' if effective is not None and effective.lower() == 'true' else 'absent')
+    if mode == "active":
+        print(json.dumps(active, sort_keys=True, ensure_ascii=True))
+    else:
+        # Idempotent cutover leaves an effective true even if settings follow it (#5763).
+        print('ready' if effective is not None and effective.lower() == 'true' else 'absent')
 else:
     # A later init-config can append settings after an earlier cutover entry.
     # Exempt those exact historical migration entries too, never arbitrary flags.
@@ -230,20 +246,31 @@ value=$(properties_without_cutover | sha256sum) || exit 1
 emit cfg.carlos.properties.withoutCutover.sha "${value:0:16}"
 value=$(properties_without_cutover | grep -vE "$migrated_keys_re" | { grep -vE "$reporting_keys_re" || true; } | sha256sum) || exit 1
 emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
-# The ACTIVE settings, independent of layout: comments and blank lines dropped,
-# whitespace around '=' normalised, sorted. carlos-ctl's prop_comment/prop_set
+# Fingerprint the active settings, independent of layout. Keep definitions of the
+# same decoded key in file order because Java Properties uses the last definition.
+# carlos-ctl's prop_comment/prop_set
 # can move a key without changing it -- e.g. an alpha13 renderer's postrm runs
 # init-config with no browser present (commenting the renderer keys out) and
 # the new carlos-emr's init-config then re-appends them with the same values --
 # and deb-upgrade-verify.sh must not mistake that for a changed setting. The
 # sanctioned one-time migrations are left out here too; the verifier checks
 # those keys one by one.
-value=$(properties_without_cutover | sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]]+$//' \
-    | grep -vE '^([#!]|$)' | sed -E 's/^([^=:[:space:]]+)[[:space:]]*[=:][[:space:]]*/\1=/' \
-    | grep -vE "$migrated_keys_re" | { grep -vE "$reporting_keys_re" || true; } | LC_ALL=C sort | sha256sum) || exit 1
+active_properties_hash() {
+    properties_without_cutover active health_tracker HL7_LAB_MEASUREMENT_FILTER resource_base_url \
+        "${OSCAR_DEFAULT_MIGRATIONS[@]}" "${OAUTH_ACCESS_MIGRATIONS[@]}" | sha256sum
+}
+value=$(properties_without_cutover | active_properties_hash) || exit 1
 emit cfg.carlos.properties.active.sha "${value:0:16}"
+# Also fingerprint the exact edit the one-time report lease migration may make.
+# Custom values stay in the ordinary preservation hashes.
+stock_lease='^[[:blank:]]*db_remove_abandoned_timeout([[:blank:]]*[=:][[:blank:]]*|[[:blank:]]+)15[[:space:]]*$'
+if [[ ! -e $CARLOS_STATE_DIR/.report-lease-default-migrated ]] \
+    && [[ $(LC_ALL=C grep -Ec "$stock_lease" "$CARLOS_ETC_DIR/carlos.properties" || true) == 1 ]]; then
+    value=$(properties_without_cutover | LC_ALL=C sed -E "/$stock_lease/d" | active_properties_hash) || exit 1
+    emit cfg.carlos.properties.afterLeaseMigration.sha "${value:0:16}"
+fi
 emit cfg.initialAdminTxt "$([ -e "$CARLOS_ETC_DIR/initial-admin.txt" ] && echo present || echo absent)"
-for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .oauth-access-defaults-migrated .lab-measurement-filter-migrated .help-url-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
+for s in .report-lease-default-migrated .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .oauth-access-defaults-migrated .lab-measurement-filter-migrated .help-url-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
     emit "sentinel.$s" "$([ -e "$CARLOS_STATE_DIR/$s" ] && echo yes || echo no)"
 done
 emit docs.store ok

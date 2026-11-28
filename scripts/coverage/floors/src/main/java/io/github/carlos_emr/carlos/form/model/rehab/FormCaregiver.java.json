@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormCaregiver.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "0f59890d6485f3565c4b0c8a598d6eb021412af7"
+  },
+  "evidenceSha256": "7bb84a8b231e8abdaeafed5be95f9dfb3030a7a91fde49be5a5c6ae721cf4fd2"
+}

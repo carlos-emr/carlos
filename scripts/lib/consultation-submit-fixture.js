@@ -98,8 +98,8 @@ function createConsultationSubmitFixture(sql, demographic, tempRoot) {
             // signature if any remaining consultation (including its archive) references it.
             for (const id of signatures) statements.push(`DELETE FROM DigitalSignature WHERE id=${id}
               AND demographicId=${demographic}
-              AND NOT EXISTS (SELECT 1 FROM consultationRequests WHERE signature_img='${id}')
-              AND NOT EXISTS (SELECT 1 FROM consultationRequestsArchive WHERE signature_img='${id}')`);
+              AND NOT EXISTS (SELECT 1 FROM consultationRequests WHERE demographicNo=${demographic} AND signature_img='${id}')
+              AND NOT EXISTS (SELECT 1 FROM consultationRequestsArchive WHERE demographicNo=${demographic} AND signature_img='${id}')`);
             statements.push('COMMIT');
             sql.execute(statements.join(';'));
             assert(Number(sql.value(`SELECT COUNT(*) FROM consultationRequests WHERE requestId IN (${ids})`)) === 0,

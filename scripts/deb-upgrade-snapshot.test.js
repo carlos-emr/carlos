@@ -332,6 +332,40 @@ test('upgrade verifier rejects a deleted lab filter when the skeleton lacks the 
   assert.match(result.stdout, /FAIL cfg.carlos.properties.sha changed/);
 });
 
+test('upgrade verifier accepts only the removal of the stock report lease override', t => {
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  fs.writeFileSync(props, 'db_remove_abandoned_timeout = 15\nclinic=keep\n');
+  fixture.baseline();
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, '.report-lease-default-migrated'), '');
+  fs.writeFileSync(props, 'clinic=keep\n');
+  const migrated = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(migrated.status, 0, migrated.stdout + migrated.stderr);
+  assert.match(migrated.stdout, /adopted the packaged report lease timeout/);
+  fs.writeFileSync(props, 'clinic=changed\n');
+  const overwritten = fixture.run('deb-upgrade-verify.sh');
+  assert.notEqual(overwritten.status, 0);
+  assert.match(overwritten.stdout, /FAIL cfg.carlos.properties.sha changed/);
+});
+
+for (const second of ['clinic second', String.raw`cl\u0069nic=second`]) {
+  test(`the report lease migration preserves duplicate property precedence for ${second}`, t => {
+    const fixture = setup(t);
+    const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+    fs.writeFileSync(props, `db_remove_abandoned_timeout=15\nclinic=first\nsite=kept\n${second}\n`);
+    fixture.baseline();
+    fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, '.report-lease-default-migrated'), '');
+    fs.writeFileSync(props, `site=kept\nclinic=first\n${second}\n`);
+    const migrated = fixture.run('deb-upgrade-verify.sh');
+    assert.equal(migrated.status, 0, migrated.stdout + migrated.stderr);
+    assert.match(migrated.stdout, /adopted the packaged report lease timeout/);
+    fs.writeFileSync(props, `site=kept\n${second}\nclinic=first\n`);
+    const reordered = fixture.run('deb-upgrade-verify.sh');
+    assert.equal(reordered.status, 1, reordered.stdout + reordered.stderr);
+    assert.match(reordered.stdout, /FAIL cfg.carlos.properties.sha changed/);
+  });
+}
+
 // The one-time Help-link rewrite: the old stock resource_base_url (a path that now returns 404) becomes the line the
 // package's skeleton carries. The old line is the postinst's HELP_URL_OLD; the new one is the shipped carlos.properties.
 const HELP_URL_OLD = /^\s*HELP_URL_OLD='([^']*)'$/m.exec(

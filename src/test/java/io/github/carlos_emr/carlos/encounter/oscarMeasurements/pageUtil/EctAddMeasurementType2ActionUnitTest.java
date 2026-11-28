@@ -55,6 +55,7 @@ class EctAddMeasurementType2ActionUnitTest extends CarlosUnitTestBase {
             action.setTypeDesc("Test");
             action.setTypeDisplayName("Test");
             action.setMeasuringInstrc("Test");
+            action.setValidation("1");
             if (duplicate) {
                 doReturn("Duplicate").when(action).getText("error.encounter.Measurements.duplicateTypeName");
                 assertThat(action.execute()).isEqualTo("failure");
@@ -79,7 +80,9 @@ class EctAddMeasurementType2ActionUnitTest extends CarlosUnitTestBase {
         var request = new MockHttpServletRequest("POST", "/AddMeasurementType");
         var login = mock(LoggedInInfo.class);
         when(security.hasPrivilege(login, "_admin", "w", null)).thenReturn(true);
-        String code = "a".repeat(256) + "!";
+        String codeAtLimit = "a".repeat(50);
+        String code = codeAtLimit + "<";
+        String encodedCodeField = "The type " + codeAtLimit + "&lt;";
 
         try (var servlet = mockStatic(ServletActionContext.class);
              var sessions = mockStatic(LoggedInInfo.class)) {
@@ -90,18 +93,19 @@ class EctAddMeasurementType2ActionUnitTest extends CarlosUnitTestBase {
             action.setTypeDesc("Description!");
             action.setTypeDisplayName("Display name!");
             action.setMeasuringInstrc("Instruction!");
-            doAnswer(invocation -> "Invalid: " + invocation.getArgument(1))
-                    .when(action).getText(eq("errors.invalid"), any(String.class));
+            action.setValidation("1");
+            doAnswer(invocation -> "Invalid: " + invocation.getArgument(1, String[].class)[0])
+                    .when(action).getText(eq("errors.invalid"), any(String[].class));
             doReturn("Too long").when(action).getText(eq("errors.maxlength"), any(String[].class));
 
             assertThat(action.execute()).isEqualTo("failure");
 
             assertThat(action.getActionErrors()).contains(
-                    "Invalid: The type " + code,
+                    "Invalid: " + encodedCodeField,
                     "Invalid: The type description Description!",
                     "Invalid: The display name Display name!",
                     "Invalid: The measuring instruction Instruction!");
-            verify(action).getText("errors.maxlength", new String[]{"The type " + code, "50"});
+            verify(action).getText("errors.maxlength", new String[]{encodedCodeField, "50"});
             verify(dao, never()).persist(any());
         }
     }

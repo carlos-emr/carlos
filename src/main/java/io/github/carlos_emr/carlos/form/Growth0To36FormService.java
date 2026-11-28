@@ -1,22 +1,20 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.form;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.form.model.FormGrowth0To36;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
-import java.nio.file.Path;
 import java.util.Date;
 import java.util.Properties;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -77,6 +75,22 @@ public class Growth0To36FormService {
     }
 
     /**
+     * Refuses, before the Growth page renders, what {@link #load} would refuse while it renders:
+     * no form or patient-record access, or a saved version that is missing or another patient's.
+     *
+     * @param actor the authenticated caller
+     * @param patient the positive demographic number
+     * @param id the saved version ID, or a non-positive value for a new form
+     * @throws SecurityException if the actor lacks access, or a positive ID is missing or foreign
+     * @throws IllegalArgumentException if the patient number is not positive
+     */
+    @Transactional(readOnly = true)
+    public void requireReadable(LoggedInInfo actor, int patient, int id) {
+        require(actor, patient, "r");
+        if (id > 0) requireVersion(patient, id);
+    }
+
+    /**
      * Appends a version attributed to the authenticated provider without changing the source.
      * Joins an existing transaction when present; optional XML is published only after commit.
      *
@@ -88,16 +102,20 @@ public class Growth0To36FormService {
      * @throws SecurityException if the actor lacks access, or a positive source ID is missing or foreign
      * @throws IllegalArgumentException if the patient number is not positive or the provider number is invalid
      */
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(isolation = Isolation.READ_COMMITTED, rollbackFor = Exception.class)
     public int saveVersion(LoggedInInfo actor, int patient, int sourceId, Properties values) {
         require(actor, patient, "w");
         if (sourceId > 0) requireVersion(patient, sourceId);
         FormGrowth0To36 form = Growth0To36FormValues.fromProperties(values);
+        Date now = FormXmlArchive.currentSecond();
+        Date edited = FormXmlArchive.nextEditTime("formGrowth0_36", patient, now,
+                forms.lockAndFindEditsSince(patient, now));
+        form.setFormEdited(edited);
         form.setDemographicNo(patient);
         form.setProviderNo(Integer.valueOf(actor.getLoggedInProviderNo()));
         forms.persist(form);
         forms.flush();
-        archiveAfterCommit(patient, form.getId());
+        archiveAfterCommit(patient, form.getId(), edited);
         return form.getId();
     }
 
@@ -114,17 +132,14 @@ public class Growth0To36FormService {
         PatientRecordAccess.require(security, actor, Integer.toString(patient), "_demographic", "r");
     }
 
-    private void archiveAfterCommit(int patient, int id) {
-        if (!Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("save_as_xml", "false"))) return;
+    private void archiveAfterCommit(int patient, int id, Date edited) {
+        if (!FormXmlArchive.isEnabled()) return;
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
                 try {
-                    String now = UtilDateUtilities.DateToString(new Date(), "yyyyMMddHHmmss");
-                    Path file = Path.of(CarlosProperties.getInstance().getProperty("form_record_path", "/root"))
-                            .resolve("formGrowth0_36_" + patient + "_" + now + ".xml");
-                    // JDBCUtil validates the final path under the configured archive directory.
-                    JDBCUtil.saveAsXML(forms.readArchive(patient, id), file.toString());
+                    // Named for this version's stored edit time, never replacing another version's copy.
+                    FormXmlArchive.write("formGrowth0_36", patient, edited, forms.readArchive(patient, id));
                 } catch (Exception _) {
                     MiscUtils.getLogger().error("Unable to archive committed Growth form XML; continuing without XML copy");
                 }

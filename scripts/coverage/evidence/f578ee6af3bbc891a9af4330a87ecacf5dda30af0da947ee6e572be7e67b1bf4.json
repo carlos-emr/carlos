@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "91decf227bc8183597e88dbb02a0ab881951cc5a",
+  "comparisonSha256": "00c1dbc6567ae56eacb1d176195c39d09f11c71eb53d3eeeb0056fc78837120c",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/EncounterFormDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 98.014440433213,
+      "branches": 90.74074074074075,
+      "sourceBlob": "eca32f51fd5937797313f7bec18972ed11f02f28"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/forms/FormGrowth0To36Dao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "e864305145bd996c729f793824e963dedd32cb41"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/forms/FormVersionEdits.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8558e97fd722ee9c2180b4566ddc9982b342ff60"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/forms/RehabStudyFormDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "deeba0147c24ff9330cebaf80b761ffb41e234e7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/config/PackagedReportLeaseCheck.java": {
+      "lines": 97.55244755244755,
+      "instructions": 97.24828017510944,
+      "branches": 90.07352941176471,
+      "sourceBlob": "50e78ccb00b9de422acf0d7bc0ada64bf98438bb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/EDocUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2b4a4f41138abcbc1114d5ce04b7bbcfedae933d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/ConsultationHealthCareTeamViewModel.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 94.11764705882354,
+      "sourceBlob": "b40894112710983532f530b1acc84010ddf4e218"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/FormXmlArchive.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f5d89b1ba4594e87fdd204fb0da3f7abbace0439"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/Growth0To36FormService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "06153d7c4ae65e635367ad561bf8b4e6096a0dc1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/RehabStudyFormService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "63df56da7d4c8468edb09819cec3a481b5c7f490"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/RehabStudyFormValues.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9c09a647cdd2af0cc6dfbf7704640fc0a1aa839d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormCESD.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "fb3b32a3bd160c49c535d98fd9d30bb03abeb2bb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormCaregiver.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "3b891f817753e016bab7b52b875622c86d859383"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormCostQuestionnaire.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "95cbff8b9e67daa9aff399caab99c8b6a427f8ed"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormIntakeInfo.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5e269c6a00eb824ed88943f0ae6917dd3faa4196"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormSelfManagement.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "47a5ec36e24aabba7968a17884deda71736ae325"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/RehabStudyColumn.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9df67ebfa916a8eead8f2ea67beb0fc3e6d6adb3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/SqlTableReferences.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 95.50561797752809,
+      "sourceBlob": "02f7af68ef732ca314629f9cf317ac27a076a660"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/OscarTrackingBasicDataSource.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c75db3ad596145cc3c987c69a691a173a0b73cda"
+    }
+  },
+  "baselineCommit": "8aa9f04483768306a3e2aa261efddf87de5d0bf7",
+  "baselineSourceTree": "91decf227bc8183597e88dbb02a0ab881951cc5a",
+  "baselineReportSha256": "5855067a000195ab63b0c878ec3a7449f7835c1adabf05a0b432a348fe07f07f",
+  "baselineLane": "PR #6413 release promotion review fixes and changed-source JaCoCo 0.8.16 baseline (JDK 25)",
+  "baselineTestCounts": {
+    "tests": 558,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "14dfcdf021d108c8a7cb96cfb442abca444ae11b1c1913f9eb2aa3f7d1d15b53",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoImplUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.config.PackagedReportLeaseCheckUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.EDocUtilDocumentInfoHtmlUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.EDocUtilEditDocumentPageCountUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.EDocUtilRefileQueueUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.EDocUtilTempPathLogUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.EDocUtilTicklerHtmlUnitTest",
+    "io.github.carlos_emr.carlos.encounter.data.EctFormDataRegistryBoundaryUnitTest",
+    "io.github.carlos_emr.carlos.encounter.data.EctFormDataShortcutLatestIntegrationTest",
+    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHealthCareTeamViewModelUnitTest",
+    "io.github.carlos_emr.carlos.form.FormXmlArchiveUnitTest",
+    "io.github.carlos_emr.carlos.form.FrmRecordCheckboxRestoreUnitTest",
+    "io.github.carlos_emr.carlos.form.Growth0To36FormAdapterUnitTest",
+    "io.github.carlos_emr.carlos.form.Growth0To36FormPersistenceIntegrationTest",
+    "io.github.carlos_emr.carlos.form.Growth0To36FormServiceUnitTest",
+    "io.github.carlos_emr.carlos.form.RehabStudyFormDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.form.RehabStudyFormServiceUnitTest",
+    "io.github.carlos_emr.carlos.form.RehabStudyFormValuesUnitTest",
+    "io.github.carlos_emr.carlos.form.RehabStudyFormsUnitTest",
+    "io.github.carlos_emr.carlos.form.data.FrmDataShortcutLatestIntegrationTest",
+    "io.github.carlos_emr.carlos.form.model.rehab.RehabStudyColumnUnitTest",
+    "io.github.carlos_emr.carlos.form.model.rehab.RehabStudyEntitySchemaContractUnitTest",
+    "io.github.carlos_emr.carlos.form.service.FormXmlImportServiceIntegrationTest",
+    "io.github.carlos_emr.carlos.prevention.PreventionReadSafetyServiceUnitTest",
+    "io.github.carlos_emr.carlos.prevention.SqlTableReferencesUnitTest",
+    "io.github.carlos_emr.carlos.report.reportByTemplate.ReportConnectionLeaseIntegrationTest",
+    "io.github.carlos_emr.carlos.utility.DbConnectionFilterUnitTest",
+    "io.github.carlos_emr.carlos.utility.JdbcMetadataDefaultUnitTest",
+    "io.github.carlos_emr.carlos.utility.MariaDbJdbcCompatibilityUnitTest",
+    "io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSourceUnitTest",
+    "io.github.carlos_emr.carlos.utility.RequestBoundaryFilterOrderIntegrationTest",
+    "io.github.carlos_emr.carlos.utility.WebappShutdownResourcesUnitTest"
+  ]
+}

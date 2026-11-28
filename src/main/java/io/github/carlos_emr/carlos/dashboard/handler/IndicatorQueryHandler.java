@@ -28,6 +28,9 @@
  */
 package io.github.carlos_emr.carlos.dashboard.handler;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
@@ -50,6 +53,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * ie: ${ parameter_id }
  */
 public class IndicatorQueryHandler extends AbstractQueryHandler {
+    private static final ObjectMapper PLOTS_MAPPER = new ObjectMapper();
+
 
     private static Logger logger = MiscUtils.getLogger();
     private List<GraphPlot[]> graphPlots;
@@ -241,32 +246,27 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
         return json.toString();
     }
 
+    /**
+     * Serializes the raw query rows as {@code {"results":[{"<label>":<value>},...]}}: one single-entry
+     * object per result column, in row then column order. Valid JSON for any number of rows, with labels
+     * escaped and numbers left as numbers (the shared outcomes publication reads it with a strict
+     * parser, #5335). A row without columns contributes nothing.
+     *
+     * @param queryResultList rows as returned by the indicator query ({@code Map<String, ?>})
+     * @return the JSON text
+     */
+    @SuppressWarnings("unchecked")
     public static String createOriginalGraphPlots(List<?> queryResultList) {
-
-
-        StringBuilder json = new StringBuilder("");
-        json.append("{ 'results':[");
-
+        ObjectNode root = PLOTS_MAPPER.createObjectNode();
+        ArrayNode results = root.putArray("results");
         for (Object row : queryResultList) {
             Map<String, ?> theRow = (Map<String, ?>) row;
-            for (String key : theRow.keySet()) {
-                //BigDecimal numerator = (BigDecimal)theRow.get(key);
-                json.append("{'");
-                json.append(key);
-                json.append("':");
-                json.append(theRow.get(key));
-                json.append("},");
-
+            for (Map.Entry<String, ?> column : theRow.entrySet()) {
+                ObjectNode plot = results.addObject();
+                plot.set(column.getKey(), PLOTS_MAPPER.valueToTree(column.getValue()));
             }
-            json.deleteCharAt(json.length() - 1);
         }
-
-        json.append("]}");
-
-
-        return json.toString();
-
-
+        return root.toString();
     }
 
     public static String plotsToJson(List<GraphPlot[]> graphPlots) {

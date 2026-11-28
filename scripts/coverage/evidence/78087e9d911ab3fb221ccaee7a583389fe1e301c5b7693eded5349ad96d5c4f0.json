@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "0060a81b7942d783c343cca39332f1d4725a0b9b",
+  "comparisonSha256": "d0016a50b83307dfc323af4df86617dad89c095107c2bd5c654671509d3974ee",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/config/PackagedReportLeaseCheck.java": {
+      "lines": 98.84726224783861,
+      "instructions": 98.49974133471288,
+      "branches": 92.56756756756756,
+      "sourceBlob": "7d4afef879e89c07289467af1817c4e28b04de40"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/config/PackagedReportLeaseContext.java": {
+      "lines": 95.41284403669725,
+      "instructions": 96.2914769030579,
+      "branches": 79.6875,
+      "sourceBlob": "de8780def5ab1974e075b2feb266e52c7de7d7cd"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/FormNoReplaceMove.java": {
+      "lines": 72.5,
+      "instructions": 85.22167487684729,
+      "branches": 64.28571428571429,
+      "sourceBlob": "640d9742d8e9adbc3211a36956ac8661c67e673f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/FormXmlArchive.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "fc44fdf08255e8f43a1bcfcbb676935fd61b1629"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/FormXmlArchiveStartupValidator.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "aa7c5dcda99df0d45b954a29842237e6453d3884"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/OscarTrackingBasicDataSource.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0d5d12655556fd6ad2665b620fa8e221bd7659cc"
+    }
+  },
+  "baselineCommit": "d5996cd8d0f3abbb39b03529f8d32012c7cd691e",
+  "baselineSourceTree": "0060a81b7942d783c343cca39332f1d4725a0b9b",
+  "baselineReportSha256": "ebeb8f2fb8aef8045272e4e323577abde865c9ee368e95fd9b17d14c5c1a318e",
+  "baselineLane": "PR #6413 follow-up review fixes JaCoCo 0.8.16 baseline (JDK 25)",
+  "baselineTestCounts": {
+    "tests": 214,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "e19dad1afb3a238f121c0da780f9c532ffd4cd7bb0ac502dc6c12e3f03c2ced9",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.config.PackagedReportLeaseCheckUnitTest",
+    "io.github.carlos_emr.carlos.form.FormXmlArchiveUnitTest",
+    "io.github.carlos_emr.carlos.form.Growth0To36FormPersistenceIntegrationTest",
+    "io.github.carlos_emr.carlos.form.RehabStudyFormDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.utility.JdbcMetadataDefaultUnitTest",
+    "io.github.carlos_emr.carlos.utility.MariaDbJdbcCompatibilityUnitTest",
+    "io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSourceUnitTest"
+  ]
+}

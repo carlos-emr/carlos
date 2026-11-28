@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormCESD.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "d368aac9c5f07562dc49c340c2b0bb9c300f7ea2"
+  },
+  "evidenceSha256": "7bb84a8b231e8abdaeafed5be95f9dfb3030a7a91fde49be5a5c6ae721cf4fd2"
+}

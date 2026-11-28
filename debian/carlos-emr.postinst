@@ -1044,6 +1044,98 @@ except ValueError:
             O19_IMPORT_HOLDS_LOCK=1
         fi
 
+        # BEGIN REPORT_LEASE_UPGRADE
+        # Drop the old packaged override once, under the same lock as init-config.
+        # The read-only service-user check resolves the launcher's selected file
+        # and validates it against Java Properties and Spring before publication.
+        (
+            marker="${STATE}/.report-lease-default-migrated"
+            env_file="${ENV_FILE-${CONF_DIR:-/etc/carlos-emr}/carlos-emr.env}"
+            candidate=''
+            manager_env_tmp=''
+            trap 'rm -f -- "${candidate}" "${manager_env_tmp}"' EXIT
+            trap 'exit 1' HUP INT TERM
+            stock='^[[:blank:]]*db_remove_abandoned_timeout([[:blank:]]*[=:][[:blank:]]*|[[:blank:]]+)15[[:space:]]*$'
+            # Not gated on $2: postrm purge deletes the sentinel while keeping
+            # carlos.properties (which holds encryption.util.secret.key), so a
+            # purge-then-reinstall runs configure "" with the old stock 15s line
+            # still in place. A fresh install has the 360s skeleton (0 matches).
+            if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${marker}" ] \
+                && [ -f "${PROPERTIES}" ] && [ ! -L "${PROPERTIES}" ] \
+                && [ "$(stat -c %h "${PROPERTIES}")" = 1 ] \
+                && [ "$(LC_ALL=C grep -Ec "${stock}" "${PROPERTIES}" || true)" = 1 ]; then
+                candidate="$(mktemp "${PROPERTIES}.XXXXXX")"
+                LC_ALL=C sed -E "/${stock}/d" "${PROPERTIES}" > "${candidate}"
+                cp --attributes-only --preserve=mode,ownership,xattr "${PROPERTIES}" "${candidate}"
+            fi
+
+            manager_env_file="${CARLOS_MANAGER_ENV_FILE:-}"
+            manager_env_unavailable="${CARLOS_MANAGER_ENV_UNAVAILABLE:-false}"
+            if [ -z "${CARLOS_MANAGER_ENV_FILE+x}" ] && [ -z "${CARLOS_MANAGER_ENV_UNAVAILABLE+x}" ]; then
+                if [ -d /run/systemd/system ]; then
+                    manager_env_tmp="$(mktemp)"
+                    if python3 -c 'import json, subprocess, sys
+out = subprocess.check_output([
+    "busctl", "--json=short", "get-property",
+    "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+    "org.freedesktop.systemd1.Manager", "Environment",
+])
+sys.stdout.buffer.write(b"".join(item.encode("utf-8") + b"\0" for item in json.loads(out)["data"]))
+' > "${manager_env_tmp}" 2>/dev/null; then
+                        chown carlos:carlos "${manager_env_tmp}"
+                        chmod 0600 "${manager_env_tmp}"
+                        manager_env_file="${manager_env_tmp}"
+                    else
+                        manager_env_unavailable=true
+                    fi
+                else
+                    manager_env_unavailable=true
+                fi
+            fi
+
+            REPORT_WEB_INF="${SHARE}/webapp/carlos/WEB-INF"
+            REPORT_CLASSPATH="${REPORT_WEB_INF}/classes"
+            for jar in "${REPORT_WEB_INF}"/lib/spring-core-*.jar "${REPORT_WEB_INF}"/lib/commons-logging-*.jar; do
+                REPORT_CLASSPATH="${REPORT_CLASSPATH}:${jar}"
+            done
+            unset JAVA_TOOL_OPTIONS _JAVA_OPTIONS JDK_JAVA_OPTIONS CLASSPATH
+            status=0
+            runuser -u carlos -- "/usr/lib/jvm/java-25-openjdk-$(dpkg --print-architecture)/bin/java" \
+                -Dcarlos.reportLeaseCheck.envFile="${env_file}" \
+                -Dcarlos.reportLeaseCheck.managerEnvFile="${manager_env_file}" \
+                -Dcarlos.reportLeaseCheck.managerEnvUnavailable="${manager_env_unavailable}" \
+                ${CARLOS_CATALINA_BASE:+"-Dcarlos.reportLeaseCheck.catalinaBase=${CARLOS_CATALINA_BASE}"} \
+                ${CARLOS_CATALINA_HOME:+"-Dcarlos.reportLeaseCheck.catalinaHome=${CARLOS_CATALINA_HOME}"} \
+                ${CARLOS_SYSTEMD_UNIT_DIRS:+"-Dcarlos.reportLeaseCheck.systemdDirs=${CARLOS_SYSTEMD_UNIT_DIRS}"} \
+                ${CARLOS_SYSTEMD_MANAGER_CONF_DIRS:+"-Dcarlos.reportLeaseCheck.systemdManagerConfDirs=${CARLOS_SYSTEMD_MANAGER_CONF_DIRS}"} \
+                -cp "${REPORT_CLASSPATH}" io.github.carlos_emr.carlos.config.PackagedReportLeaseCheck \
+                "${REPORT_WEB_INF}/classes" "${PROPERTIES}" ${candidate:+"${candidate}"} || status=$?
+            case "${status}" in
+                0|20) ;;
+                10)
+                    mv -fT -- "${candidate}" "${PROPERTIES}"
+                    echo "carlos-emr: migrated the old 15-second db_remove_abandoned_timeout to the packaged 360-second default."
+                    ;;
+                15|25) echo "carlos-emr: WARNING: db_remove_abandoned_timeout resolves to 15 seconds. Abandoned lease cleanup can end a running report early." >&2 ;;
+                *)  echo "carlos-emr: WARNING: could not verify db_remove_abandoned_timeout. Check the effective timeout before running long reports." >&2 ;;
+            esac
+            case "${status}" in
+                0|10|15)
+                    if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${marker}" ]; then
+                        : > "${marker}"
+                    fi ;;
+                1|20|25)
+                    if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${marker}" ] && [ -z "${2:-}" ] \
+                        && [ "$(LC_ALL=C grep -Ec "${stock}" "${PROPERTIES}" 2>/dev/null || true)" = 0 ]; then
+                        : > "${marker}"
+                    fi ;;
+            esac
+            if [ "${status}" != 0 ] && [ "${status}" != 10 ] && [ "${status}" != 20 ]; then
+                echo "carlos-emr: Check ${PROPERTIES}, ${env_file}, carlos.xml, any service or systemd manager environment override, and any service-user home carlos.properties override. To adopt the 360-second default, remove the override or set it to 360, then run sudo carlos-ctl restart." >&2
+            fi
+        )
+        # END REPORT_LEASE_UPGRADE
+
         # One-time migration (2026.08): the stock carlos.properties shipped the
         # OSCAR pre-installer template values for these clinic features (off),
         # while the OSCAR installer that template belonged to always switched

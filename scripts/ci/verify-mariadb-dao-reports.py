@@ -34,6 +34,11 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
+    "ReportConnectionLeaseIntegrationTest": {
+        "shouldRetainActiveReportConnection_untilItsQueryDeadline",
+        "shouldRetireIdleAbandonedLeases_withExplicitShortTimeoutOverride",
+        "shouldHonorConfiguredTimeout_withoutDisablingLeakDetection",
+    },
     "BillingOnOutputFilenamesIntegrationTest": {
         "shouldReserveEveryHistoricalName_acrossBothGeneratorsAndImportEvidence",
         "shouldPreservePhysicalEntries_whenMetadataIsMissing",
@@ -265,12 +270,30 @@ REQUIRED_CASES = {
             "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp",
         )
         for index in (1, 2)
+    } | {"shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection"},
+    # Issue #5693: every one of the eighteen rehabilitation-study tables must be compared with the
+    # retired writer and reader on the physical server, and each rollback and archive case must run.
+    "RehabStudyFormDaoIntegrationTest": {
+        f"shouldStoreAndShowEveryColumn_exactlyAsTheRetiredRecordDid(RehabStudyFormType)[{index}]"
+        for index in range(1, 19)
+    } | {
+        f"shouldRetainTheCommittedFormAndLogSafely_whenTheArchiveReadOrWriteFails(boolean)[{index}]"
+        for index in (1, 2)
+    } | {
+        "shouldRollBackEarlierFormWrites_whenALaterVersionIsRefused",
+        "shouldRollBackAnEarlierInsert_whenARelatedDatabaseWriteFails",
+        "shouldRollBackTheGeneratedInsert_whenTheServiceFailsAfterFlushing",
+        "shouldCommitTheDemographicAudit_whenStartingANewForm",
+        "shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection",
+        # Two versions committed together keep an XML copy each, and both restore (#5693 review).
+        "shouldKeepAndRestoreEachVersionsArchive_whenTwoVersionsCommitTogether",
     },
 }
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
 REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, "AuditLogPurgeMariaDbIntegrationTest": 7,
+                          "ReportConnectionLeaseIntegrationTest": 3,
                           "AppointmentUpdateDaoIntegrationTest": 19,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "JdbcConnectorMariaDbIntegrationTest": 47,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
@@ -295,7 +318,8 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                          "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2},
+                          "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
+                          "RehabStudyFormDaoIntegrationTest": 69},
             "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6,
                        "LegacyLabNativeMariaDbIntegrationTest": 8, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
@@ -320,7 +344,8 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                       "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2},
+                       "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
+                       "RehabStudyFormDaoIntegrationTest": 69},
             "bc-flyway": {"FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementTransactionIntegrationTest": 2, "LabRoutingLookupDaoIntegrationTest": 6,
                            "LegacyLabNativeMariaDbIntegrationTest": 8,
                            "ConsultationArchiveDaoIntegrationTest": 1,
@@ -349,7 +374,8 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                           "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2}}
+                           "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
+                           "RehabStudyFormDaoIntegrationTest": 69}}
 
 
 INBOX_CASES = (

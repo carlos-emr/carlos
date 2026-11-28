@@ -94,4 +94,98 @@ class CrossOriginOpenerPolicyFilterUnitTest {
         assertThatThrownBy(() -> filter.doFilter(request, response, failing)).isSameAs(failure);
         assertThat(response.getHeader(CrossOriginOpenerPolicyFilter.HEADER)).isEqualTo("same-origin");
     }
+
+    private static final String LAUNCHER = "/web/dashboard/display/sharedOutcomesDashboard";
+
+    private MockHttpServletRequest requestFor(String contextPath, String uri) {
+        var request = new MockHttpServletRequest("GET", uri);
+        request.setContextPath(contextPath);
+        return request;
+    }
+
+    /** Runs the filter and returns the header the client would receive, checking the in-chain value agrees. */
+    private String policyServed(MockHttpServletRequest request, jakarta.servlet.FilterChain chain) throws Exception {
+        var response = new MockHttpServletResponse();
+        filter.doFilter(request, response, chain);
+        assertThat(response.getHeaders(CrossOriginOpenerPolicyFilter.HEADER)).hasSize(1);
+        return response.getHeader(CrossOriginOpenerPolicyFilter.HEADER);
+    }
+
+    @Test
+    void shouldAllowPopups_forTheSharedOutcomesLauncherOnly() throws Exception {
+        // Issue #5335: same-origin would sever the cross-origin dashboard popup from its opener.
+        var seen = new String[1];
+        var served = policyServed(requestFor("/carlos", "/carlos" + LAUNCHER), (req, res) ->
+                seen[0] = ((HttpServletResponse) res).getHeader(CrossOriginOpenerPolicyFilter.HEADER));
+        assertThat(served).isEqualTo("same-origin-allow-popups");
+        assertThat(seen[0]).isEqualTo("same-origin-allow-popups");
+    }
+
+    @Test
+    void shouldAllowPopups_whenLauncherActionForwardsToItsJsp() throws Exception {
+        // The JSP dispatch sees the internal view path; the user's request is in the forward attributes.
+        var request = requestFor("/carlos", "/carlos/WEB-INF/jsp/web/dashboard/display/sharedOutcomesDashboard.jsp");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        request.setAttribute(jakarta.servlet.RequestDispatcher.FORWARD_REQUEST_URI, "/carlos" + LAUNCHER);
+        assertThat(policyServed(request, (req, res) -> { })).isEqualTo("same-origin-allow-popups");
+    }
+
+    @Test
+    void shouldAllowPopups_whenLauncherErrorPageIsServed() throws Exception {
+        var request = requestFor("/carlos", "/carlos/WEB-INF/jsp/error/securityError.jsp");
+        request.setDispatcherType(DispatcherType.ERROR);
+        request.setAttribute(jakarta.servlet.RequestDispatcher.ERROR_REQUEST_URI, "/carlos" + LAUNCHER);
+        assertThat(policyServed(request, (req, res) -> ((HttpServletResponse) res).sendError(403)))
+                .isEqualTo("same-origin-allow-popups");
+    }
+
+    @Test
+    void shouldKeepAllowPopups_whenLauncherResponseIsResetBeforeWriting() throws Exception {
+        var request = requestFor("/carlos", "/carlos" + LAUNCHER);
+        assertThat(policyServed(request, (req, res) -> {
+            res.reset();
+            assertThat(((HttpServletResponse) res).getHeader(CrossOriginOpenerPolicyFilter.HEADER))
+                    .isEqualTo("same-origin-allow-popups");
+        })).isEqualTo("same-origin-allow-popups");
+    }
+
+    @Test
+    void shouldAllowPopups_whenApplicationIsDeployedAtTheRoot() throws Exception {
+        assertThat(policyServed(requestFor("", LAUNCHER), (req, res) -> { })).isEqualTo("same-origin-allow-popups");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/carlos/web/dashboard/display/sharedOutcomesDashboard/",
+            "/carlos/web/dashboard/display/sharedOutcomesDashboard/extra",
+            "/carlos/web/dashboard/display/sharedOutcomesDashboard;jsessionid=ABC",
+            "/carlos/web/dashboard/display/sharedOutcomesDashboard.jsp",
+            "/carlos/web/dashboard/display/sharedoutcomesdashboard",
+            "/carlos/web/dashboard/display/DrilldownDisplay",
+            "/carlos/web/dashboard/OutcomesDashboard",
+            "/carlos/web/dashboard/display/sharedOutcomesDashboard/../DisplayDashboard",
+            "/carlos/provider/providercontrol",
+            "/carlos/admin/picker.html",
+            "/other/web/dashboard/display/sharedOutcomesDashboard",
+            "/carlos/x/carlos/web/dashboard/display/sharedOutcomesDashboard"})
+    void shouldKeepSameOrigin_forEveryOtherPathOrSpelling(String uri) throws Exception {
+        assertThat(policyServed(requestFor("/carlos", uri), (req, res) -> { })).isEqualTo("same-origin");
+    }
+
+    @Test
+    void shouldKeepSameOrigin_whenAForwardTargetsTheLauncherFromAnotherPage() throws Exception {
+        // A different user-facing page that merely forwards into the launcher's address stays isolated.
+        var request = requestFor("/carlos", "/carlos" + LAUNCHER);
+        request.setDispatcherType(DispatcherType.FORWARD);
+        request.setAttribute(jakarta.servlet.RequestDispatcher.FORWARD_REQUEST_URI, "/carlos/provider/providercontrol");
+        assertThat(policyServed(request, (req, res) -> { })).isEqualTo("same-origin");
+    }
+
+    @Test
+    void shouldKeepSameOrigin_whenContextPathIsUnknown() {
+        assertThat(CrossOriginOpenerPolicyFilter.policyFor(new MockHttpServletRequest() {
+            @Override public String getContextPath() { return null; }
+            @Override public String getRequestURI() { return LAUNCHER; }
+        })).isEqualTo("same-origin");
+    }
 }

@@ -332,10 +332,13 @@
         <spring-security.version>7.1.2</spring-security.version>
         <!-- Struts -->
         <struts.version>7.4.0</struts.version>
-        <!-- Jackson -->
+        <!-- Jackson: imported as jackson-bom, so every Jackson module moves with this one
+             property. jackson-annotations takes the BOM's major.minor version (2.20+ scheme). -->
         <jackson.version>2.22.4</jackson.version>
-        <!-- Apache HttpClient 5 -->
+        <!-- Apache HttpClient 5: every org.apache.httpcomponents.client5 artifact. -->
         <httpclient5.version>5.6.5</httpclient5.version>
+        <!-- Apache HttpCore 5: every org.apache.httpcomponents.core5 artifact. -->
+        <httpcore5.version>5.4.4</httpcore5.version>
         <!-- Version of the provided-scope Tomcat artifacts we compile against. The servlet
              container actually deployed against is a deployment concern (see the Dockerfile
              base image); this property does not constrain the runtime. -->
@@ -425,18 +428,26 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- Moving the Jackson XML override here changes dependency depth. Preserve
-                 the previously resolved Woodstox version rather than mediating to CXF's older copy. -->
+            <!-- Woodstox for Jackson XML, CXF and Santuario: a release-line maintenance pin that
+                 holds the version this line resolved (CXF 4.1.9 asks for 7.2.2, Santuario for
+                 7.1.0). Moving it is a separate upgrade; requireUpperBoundDeps lists the pin. -->
             <dependency>
                 <groupId>com.fasterxml.woodstox</groupId>
                 <artifactId>woodstox-core</artifactId>
                 <version>7.2.0</version>
             </dependency>
-            <!-- Version override for JasperReports' transitive Jackson XML module. -->
+            <!-- Every Jackson module at one version (#5711): the declared ones, JasperReports'
+                 jackson-dataformat-xml, and the jsr310 module HAPI FHIR and OpenSAML request.
+                 Maven mediates each artifact separately, so without the BOM a module only one
+                 library asks for keeps that library's version beside the rest of Jackson.
+                 Declare Jackson dependencies without a version; the require-converged-dependencies
+                 enforcer execution fails the build on a split. -->
             <dependency>
-                <groupId>com.fasterxml.jackson.dataformat</groupId>
-                <artifactId>jackson-dataformat-xml</artifactId>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
                 <version>${jackson.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
 
             <dependency>
@@ -592,22 +603,32 @@
                 <artifactId>opentelemetry-api</artifactId>
                 <version>1.67.0</version>
             </dependency>
-            <!-- Pin the httpcore5 pair reached transitively through httpclient5 and through the
-                 older httpclient5-cache 5.3.1 that is also in the tree. 5.4.3 fixes CVE-2026-54399
+            <!-- Pin the httpcore5 pair reached transitively through httpclient5 and through
+                 OpenSAML's shib-networking, which asks for HttpClient 5.3.1. 5.4.3 fixes CVE-2026-54399
                  (unbounded HTTP/1 header parsing -> memory-exhaustion DoS) and CVE-2026-54428
                  (HPackDecoder applies no header list size limit until the HTTP/2 SETTINGS frame is
                  acknowledged). The current HttpClient also resolves a patched release; this
                  pin keeps that from silently regressing if dependency depth shifts and the older
-                 httpclient5-cache branch becomes the nearest one. -->
+                 shib-networking branch becomes the nearest one. -->
             <dependency>
                 <groupId>org.apache.httpcomponents.core5</groupId>
                 <artifactId>httpcore5</artifactId>
-                <version>5.4.4</version>
+                <version>${httpcore5.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.httpcomponents.core5</groupId>
                 <artifactId>httpcore5-h2</artifactId>
-                <version>5.4.4</version>
+                <version>${httpcore5.version}</version>
+            </dependency>
+            <!-- shib-networking (cxf-rt-ws-security -> wss4j -> OpenSAML) is the only library
+                 that asks for httpclient5-cache, at 5.3.1, so nearest-wins kept that version
+                 beside the declared httpclient5 (#5711). Its caching client builders
+                 link against the 5.6 cache API unchanged (every method and field they reference
+                 is present). -->
+            <dependency>
+                <groupId>org.apache.httpcomponents.client5</groupId>
+                <artifactId>httpclient5-cache</artifactId>
+                <version>${httpclient5.version}</version>
             </dependency>
             <!-- Maintenance pins for selected transitive libraries. -->
             <!-- DBCP connection pooling. -->
@@ -622,7 +643,9 @@
                 <artifactId>stax2-api</artifactId>
                 <version>4.3.2</version>
             </dependency>
-            <!-- Drools parsing/code generation. -->
+            <!-- Drools parsing/code generation: a release-line maintenance pin that holds the
+                 version this line resolved (Drools 10.2 asks for 3.27.0). Moving it is a separate
+                 upgrade with the Drools tests; requireUpperBoundDeps lists the pin. -->
             <dependency>
                 <groupId>com.github.javaparser</groupId>
                 <artifactId>javaparser-core</artifactId>
@@ -1221,26 +1244,28 @@
         </dependency>
 
         <!-- ==================== Jackson / JSON ==================== -->
+        <!-- Jackson versions come from jackson-bom (dependencyManagement); declare none here. -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>${jackson.version}</version>
         </dependency>
 
-        <!-- Main code uses JavaTimeModule and CdsRuntimeIdentity hashes its actual JAR.
-             Keep the release line's existing version so unfinished CDS imports can resume.
-             A deliberate Jackson alignment belongs with the BOM work (#5711). -->
+        <!-- Main code uses JavaTimeModule (CDS import and export). It was held at 2.17.1 beside
+             jackson-databind 2.22.x until the BOM alignment (#5711). CdsRuntimeIdentity hashes
+             this JAR, so the move changes the CDS ruleset fingerprint, as a change to any hashed
+             dependency or CDS class does: finish or cancel imports before upgrading, as
+             docs/cds-import-operator-guide.md requires. The ISO-8601 text the CDS mappers write
+             is unchanged, and 2.22 reads back negative fractional Durations that 2.17 corrupted;
+             CdsNativePreparationServiceUnitTest pins both. -->
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
-            <version>2.17.1</version>
         </dependency>
 
         <!-- Jackson Jakarta XML Bind annotations support - provides JakartaXmlBindAnnotationIntrospector used in Spring configs -->
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
             <artifactId>jackson-module-jakarta-xmlbind-annotations</artifactId>
-            <version>${jackson.version}</version>
         </dependency>
 
 
@@ -1411,7 +1436,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.jakarta.rs</groupId>
             <artifactId>jackson-jakarta-rs-json-provider</artifactId>
-            <version>${jackson.version}</version>
         </dependency>
 
         <!-- ==================== Security (OWASP, CSRFGuard) ==================== -->
@@ -1669,17 +1693,15 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <!-- Versions from jackson-bom: jackson-annotations follows the BOM's major.minor
+             (2.22 for jackson.version 2.22.x), the rest follow jackson.version. -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <!-- Recheck this pin when jackson.version changes. Preserve the resolved
-                 annotation version unless the Jackson upgrade requires a newer API. -->
-            <version>2.22</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>${jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>jakarta.activation</groupId>
@@ -1790,9 +1812,8 @@
             <version>${jasperreports.version}</version>
         </dependency>
 
-        <!-- Additional direct imports in the current release branch (SOAP interceptors,
-             CDS JSON timestamps and nullable diagnostics). Preserve their resolved versions;
-             aligning JavaTimeModule to jackson.version is a separate dependency upgrade. -->
+        <!-- Additional direct imports in the current release branch (SOAP interceptors and
+             nullable diagnostics). Preserve their resolved versions. -->
         <dependency>
             <groupId>org.apache.cxf</groupId>
             <artifactId>cxf-core</artifactId>
@@ -2476,7 +2497,162 @@
                             </rules>
                         </configuration>
                     </execution>
+                    <!-- One version per library family, no downgraded requests, no conflicting
+                         classes in the WAR (#5711). Maven mediates each artifact on its own, so
+                         a module only one library asks for keeps that library's version beside
+                         the rest of its family (httpclient5-cache 5.3.1 beside httpclient5 5.6.5
+                         through shib-networking; jackson-datatype-jsr310 2.17.1 beside
+                         jackson-databind 2.22.4), and regenerating the dependency lock records
+                         whatever was picked. These rules fail the build at validate, whatever
+                         path brings the stray version in: the family rules in every scope, the
+                         upper-bound and duplicate-class rules over the compile and runtime
+                         dependencies, which the WAR ships. Fix a failure by
+                         managing the artifact at its family's version (its BOM or version
+                         property) in dependencyManagement; mvn dependency:tree -Dverbose
+                         -Dincludes=GROUP:ARTIFACT shows who asks for what.
+                         dependencyConvergence is not used: it also fails every harmless upward
+                         mediation (slf4j, commons-*, Guava, ...) in the CXF, HAPI and Drools trees. -->
+                    <execution>
+                        <id>require-converged-dependencies</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <!-- Families the pom keeps on one version property or BOM.
+                                     requireSameVersions compares resolved artifacts only and
+                                     prints no custom message; its failure lists each version
+                                     and the artifacts on it. -->
+                                <!-- jackson.version via jackson-bom. jackson-annotations is
+                                     left out: since 2.20 it is versioned major.minor (2.22). -->
+                                <requireSameVersions>
+                                    <dependencies>
+                                        <dependency>com.fasterxml.jackson.core:jackson-core</dependency>
+                                        <dependency>com.fasterxml.jackson.core:jackson-databind</dependency>
+                                        <dependency>com.fasterxml.jackson.dataformat</dependency>
+                                        <dependency>com.fasterxml.jackson.datatype</dependency>
+                                        <dependency>com.fasterxml.jackson.jakarta.rs</dependency>
+                                        <dependency>com.fasterxml.jackson.module</dependency>
+                                    </dependencies>
+                                </requireSameVersions>
+                                <!-- httpclient5.version -->
+                                <requireSameVersions>
+                                    <dependencies><dependency>org.apache.httpcomponents.client5</dependency></dependencies>
+                                </requireSameVersions>
+                                <!-- httpcore5.version -->
+                                <requireSameVersions>
+                                    <dependencies><dependency>org.apache.httpcomponents.core5</dependency></dependencies>
+                                </requireSameVersions>
+                                <!-- cxf.version -->
+                                <requireSameVersions>
+                                    <dependencies><dependency>org.apache.cxf</dependency></dependencies>
+                                </requireSameVersions>
+                                <!-- spring.version via spring-framework-bom -->
+                                <requireSameVersions>
+                                    <dependencies><dependency>org.springframework</dependency></dependencies>
+                                </requireSameVersions>
+                                <!-- spring-security.version -->
+                                <requireSameVersions>
+                                    <dependencies><dependency>org.springframework.security</dependency></dependencies>
+                                </requireSameVersions>
+                                <!-- log4j2.version -->
+                                <requireSameVersions>
+                                    <dependencies><dependency>org.apache.logging.log4j</dependency></dependencies>
+                                </requireSameVersions>
+                                <!-- bouncycastle.version -->
+                                <requireSameVersions>
+                                    <dependencies><dependency>org.bouncycastle</dependency></dependencies>
+                                </requireSameVersions>
+                                <!-- hapi-hl7.version: hapi-base and the hapi-structures-vNN modules -->
+                                <requireSameVersions>
+                                    <dependencies><dependency>ca.uhn.hapi</dependency></dependencies>
+                                </requireSameVersions>
+                                <!-- hapifhir.version -->
+                                <requireSameVersions>
+                                    <dependencies><dependency>ca.uhn.hapi.fhir:hapi-fhir-*</dependency></dependencies>
+                                </requireSameVersions>
+                                <!-- fhir-core.version -->
+                                <requireSameVersions>
+                                    <dependencies><dependency>ca.uhn.hapi.fhir:org.hl7.fhir.*</dependency></dependencies>
+                                </requireSameVersions>
+                                <!-- drools.version: Drools and KIE release together -->
+                                <requireSameVersions>
+                                    <dependencies>
+                                        <dependency>org.drools</dependency>
+                                        <dependency>org.kie</dependency>
+                                    </dependencies>
+                                </requireSameVersions>
+                                <!-- struts.version -->
+                                <requireSameVersions>
+                                    <dependencies><dependency>org.apache.struts</dependency></dependencies>
+                                </requireSameVersions>
+                                <!-- jasperreports.version -->
+                                <requireSameVersions>
+                                    <dependencies><dependency>net.sf.jasperreports</dependency></dependencies>
+                                </requireSameVersions>
+                                <!-- poi.version -->
+                                <requireSameVersions>
+                                    <dependencies><dependency>org.apache.poi</dependency></dependencies>
+                                </requireSameVersions>
+                                <!-- tomcat.version: provided container APIs and test embed -->
+                                <requireSameVersions>
+                                    <dependencies>
+                                        <dependency>org.apache.tomcat</dependency>
+                                        <dependency>org.apache.tomcat.embed</dependency>
+                                    </dependencies>
+                                </requireSameVersions>
+                                <!-- No resolved version below one any dependency asks for: a stale
+                                     pin or a nearer old request is how jackson-datatype-jsr310 sat
+                                     at 2.17.1 while HAPI FHIR and OpenSAML asked for 2.21. The
+                                     rule's default skips test and provided dependencies. Each
+                                     exclude is a known, reviewed downgrade; add one only with its
+                                     reason, and remove it when the downgrade goes away. -->
+                                <requireUpperBoundDeps>
+                                    <excludes>
+                                        <!-- Saxon 11.6: FHIR core asks for 13.0, but XML serialization
+                                             must not change (see its dependencyManagement entry). -->
+                                        <exclude>net.sf.saxon:Saxon-HE</exclude>
+                                        <!-- Release-line maintenance pins holding the version this
+                                             line resolved; see their dependencyManagement entries. -->
+                                        <exclude>com.fasterxml.woodstox:woodstox-core</exclude>
+                                        <exclude>com.github.javaparser:javaparser-core</exclude>
+                                        <!-- Struts asks for a newer Log4j API; Log4j stays one family
+                                             at log4j2.version (above) and moves as a whole. -->
+                                        <exclude>org.apache.logging.log4j:log4j-api</exclude>
+                                        <!-- Mediated by nearer requests and not yet reviewed for a
+                                             move (#5711): ECJ 3.21.0 from jasperreports-jdt (Drools
+                                             asks for 3.44.0), ehcache 3.10.8 from CXF (WSS4J asks for
+                                             3.12.0), jboss-logging 3.6.1.Final from Hibernate
+                                             (hibernate-models asks for 3.6.3.Final). -->
+                                        <exclude>org.eclipse.jdt:ecj</exclude>
+                                        <exclude>org.ehcache:ehcache</exclude>
+                                        <exclude>org.jboss.logging:jboss-logging</exclude>
+                                    </excludes>
+                                </requireUpperBoundDeps>
+                                <!-- What ships in WEB-INF/lib (compile and runtime scope): no class
+                                     in two jars unless the bytes are identical. Provided container
+                                     APIs and the test-only embedded Tomcat overlap by design. -->
+                                <banDuplicateClasses>
+                                    <scopes>
+                                        <scope>compile</scope>
+                                        <scope>runtime</scope>
+                                    </scopes>
+                                    <findAllDuplicates>true</findAllDuplicates>
+                                    <ignoreWhenIdentical>true</ignoreWhenIdentical>
+                                    <message>Two jars in the WAR define the same class with different bytes, usually two versions of one library or a library and a repackaged copy (#5711). Exclude or align the extra jar at the dependency that brings it in (mvn dependency:tree -Dincludes=GROUP:ARTIFACT).</message>
+                                </banDuplicateClasses>
+                            </rules>
+                        </configuration>
+                    </execution>
                 </executions>
+                <!-- banDuplicateClasses. Built against enforcer-api 3.6.3, the plugin version above. -->
+                <dependencies>
+                    <dependency>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>extra-enforcer-rules</artifactId>
+                        <version>1.12.1</version>
+                    </dependency>
+                </dependencies>
             </plugin>
 
             <!-- Javadoc HTML generation for documentation -->

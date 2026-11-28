@@ -54,3 +54,10 @@ test('actual compressed PDF circle paths yield page coordinates without counting
 test('an unclassified Bezier path cannot silently disappear from growth output',()=>{
   assert.throws(()=>oracle.circles(graphPdf('/Xf1 Do\n'+circle+'\n0 0 m 0 0 1 1 2 2 c')),/unclassified/);
 });
+test('growth clinical geometry cleanup removes control and male owned-patient measurements',()=>{
+  const fs=require('node:fs'),path=require('node:path');
+  const source=fs.readFileSync(path.join(__dirname,'form-growth-clinical-geometry-playwright-checks.js'),'utf8');
+  assert.match(source,/extra:\s*\[\s*\[\s*'measurements'\s*,\s*'demographicNo'\s*\]\s*\]/);
+  assert.match(source,/table:\s*'measurementsExt'/);
+  assert.match(source,/removeOwnedPatient\(\s*sql\s*,\s*fixture\.patient\s*,\s*fixture\.marker\s*,\s*measurementRows\s*\)/);
+});

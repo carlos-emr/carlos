@@ -15,12 +15,14 @@ import io.github.carlos_emr.carlos.managers.DemographicManagerImpl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.test.support.IntegrationTestSeedService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Properties;
 import java.util.Locale;
 import java.util.Map;
@@ -69,6 +71,10 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
     void prepareForm() {
         actor = mock(LoggedInInfo.class);
         when(actor.getLoggedInProviderNo()).thenReturn("999998");
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            IntegrationTestSeedService.ensureDemographicExists(entityManager, patient);
+            IntegrationTestSeedService.ensureDemographicExists(entityManager, patient + 1);
+        });
         values = new Properties();
         values.setProperty("demographic_no", Integer.toString(patient));
         values.setProperty("provider_no", "999998");
@@ -93,10 +99,14 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
     void removeCommittedForms() throws Exception {
         LegacyJdbcQuery.releaseThreadResources();
         try (var connection = source.getConnection();
-             var delete = connection.prepareStatement("DELETE FROM formGrowth0_36 WHERE demographic_no IN (?, ?)")) {
+             var delete = connection.prepareStatement("DELETE FROM formGrowth0_36 WHERE demographic_no IN (?, ?)");
+             var deletePatients = connection.prepareStatement("DELETE FROM demographic WHERE demographic_no IN (?, ?)")) {
             delete.setInt(1, patient);
             delete.setInt(2, patient + 1);
             delete.executeUpdate();
+            deletePatients.setInt(1, patient);
+            deletePatients.setInt(2, patient + 1);
+            deletePatients.executeUpdate();
         }
     }
 
@@ -381,6 +391,29 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
                     } catch (Exception e) { throw new AssertionError(e); }
                 });
             }
+
+            // Two more versions committed together keep a copy each, named for their own edit
+            // times; the copy named from the commit clock used to replace the first (#5693 review).
+            int[] together = transaction.execute(status -> new int[] {
+                service.saveVersion(actor, patient, 0, values), service.saveVersion(actor, patient, 0, values)});
+            List<Integer> ids = List.of(id, together[0], together[1]);
+            List<String> expected = new java.util.ArrayList<>();
+            java.util.Date previous = null;
+            for (int version : ids) {
+                java.util.Date edited = forms.findForPatient(patient, version).getFormEdited();
+                if (previous != null) assertThat(edited).isAfter(previous);
+                previous = edited;
+                expected.add("formGrowth0_36_" + patient + "_"
+                        + io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(edited, "yyyyMMddHHmmss") + ".xml");
+            }
+            try (var files = Files.list(archive)) {
+                assertThat(files.map(file -> file.getFileName().toString()).sorted().toList()).isEqualTo(expected);
+            }
+            String idColumn = isH2() ? "id" : "ID";
+            for (int index = 0; index < ids.size(); index++) {
+                assertThat(Files.readString(archive.resolve(expected.get(index))))
+                        .contains("<" + idColumn + ">" + ids.get(index) + "</" + idColumn + ">");
+            }
         } finally {
             restore(configuration, "save_as_xml", previousEnabled);
             restore(configuration, "form_record_path", previousPath);
@@ -404,7 +437,9 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
                 var target = io.github.carlos_emr.carlos.util.JDBCUtil.parseImportFileName(file.getFileName().toString());
                 assertThat(target.formName()).isEqualTo("formGrowth0_36");
                 assertThat(target.demographicNo()).isEqualTo(Integer.toString(patient));
-                assertThat(target.timeStamp()).matches("\\d{14}");
+                // Named for the version's stored edit time, the restored row's identity, not the commit clock.
+                assertThat(target.timeStamp()).isEqualTo(io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(
+                        forms.findForPatient(patient, id).getFormEdited(), "yyyyMMddHHmmss"));
                 var document = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(file.toFile());
                 assertThat(xmlColumns(document)).isEqualTo(xmlColumns(forms.readArchive(patient, id)));
                 assertThat(xmlColumns(document)).hasSize(131);
@@ -456,6 +491,41 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
             ReflectionTestUtils.setField(target, "forms", forms);
             restore(configuration, "save_as_xml", previousEnabled);
             restore(configuration, "form_record_path", previousPath);
+        }
+    }
+
+    /** The post-commit archive read uses the save's own connection, not a second pooled one. */
+    @Test
+    void shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection() throws Exception {
+        Properties configuration = CarlosProperties.getInstance();
+        String previousEnabled = configuration.getProperty("save_as_xml");
+        String previousPath = configuration.getProperty("form_record_path");
+        org.apache.commons.dbcp2.BasicDataSource pool = (org.apache.commons.dbcp2.BasicDataSource) source;
+        int previousMax = pool.getMaxTotal();
+        java.time.Duration previousWait = pool.getMaxWaitDuration();
+        java.util.List<java.sql.Connection> held = new java.util.ArrayList<>();
+        int id;
+        try (LogCapture logs = LogCapture.forLogger(Growth0To36FormService.class.getName() + "$1")) {
+            configuration.setProperty("save_as_xml", "true");
+            configuration.setProperty("form_record_path", archive.toString());
+            pool.setMaxWait(java.time.Duration.ofSeconds(2));
+            // Hold every idle connection, then allow the pool exactly one more.
+            int idle = pool.getNumIdle();
+            pool.setMaxTotal(pool.getNumActive() + idle + 1);
+            for (int i = 0; i < idle; i++) held.add(pool.getConnection());
+            id = service.saveVersion(actor, patient, 0, values);
+            assertThat(logs.events()).as("archive failures").isEmpty();
+        } finally {
+            for (java.sql.Connection connection : held) connection.close();
+            pool.setMaxTotal(previousMax);
+            pool.setMaxWait(previousWait);
+            restore(configuration, "save_as_xml", previousEnabled);
+            restore(configuration, "form_record_path", previousPath);
+        }
+        assertThat(id).isPositive();
+        assertThat(independentCount()).isEqualTo(1);
+        try (var files = Files.list(archive)) {
+            assertThat(files.filter(path -> path.getFileName().toString().endsWith(".xml"))).hasSize(1);
         }
     }
 

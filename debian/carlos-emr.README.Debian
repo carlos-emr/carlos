@@ -917,6 +917,17 @@ Your conffiles are offered as three-way merges. Your credential files are left
 alone. Read /usr/share/carlos-emr/skel/ afterwards to see whether new settings
 are available that your files predate.
 
+Earlier packages copied a 15-second db_remove_abandoned_timeout into
+/etc/carlos-emr/carlos.properties. On upgrade, configure removes that setting
+once if it is a single literal 15 and removing it restores the packaged
+360-second default. The normal package restart applies the change. Configure
+preserves custom values, duplicate definitions and service-user home
+overrides. If the effective timeout still resolves to 15 or cannot be checked,
+configure prints a warning. To change a site override, edit the effective
+carlos.properties file and run `sudo carlos-ctl restart`.
+Choose a site-specific value above the longest legitimate query or
+transaction.
+
 If a migration fails, the service will not start (the boot-time validate gate
 is doing its job). Fix the cause, run `carlos-ctl db-migrate`, then
 `systemctl start carlos-emr`.

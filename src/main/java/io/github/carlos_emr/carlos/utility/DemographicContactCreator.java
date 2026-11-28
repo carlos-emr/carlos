@@ -143,17 +143,41 @@ public class DemographicContactCreator {
             demographicContact.setDetails(contact);
         }
 
+        // A link whose target row is gone keeps no details rather than failing the whole team
+        // list (every page that shows the team, the consultation request included); callers
+        // already treat a member without ProfessionalContact details as not contactable. The
+        // name and details are cleared, not just left unset: DemographicManager enriches the
+        // same instance again (MRP, member-by-role), and a row removed in between must not
+        // leave the first lookup's values behind.
         if (demographicContact.getType() == DemographicContact.TYPE_CONTACT) {
             contact = contactDao.find(Integer.parseInt(demographicContact.getContactId()));
-            demographicContact.setContactName(contact.getFormattedName());
-            demographicContact.setDetails(contact);
+            if (contact == null) {
+                logger.warn("Health care team link {} names a contact that no longer exists",
+                        () -> LogSafe.sanitizeObject(demographicContact.getId()));
+                demographicContact.setContactName(null);
+                demographicContact.setDetails(null);
+            } else {
+                demographicContact.setContactName(contact.getFormattedName());
+                demographicContact.setDetails(contact);
+            }
         }
 
         if (demographicContact.getType() == DemographicContact.TYPE_PROFESSIONALSPECIALIST) {
             professionalSpecialist = professionalSpecialistDao.find(Integer.parseInt(demographicContact.getContactId()));
-            demographicContact.setContactName(professionalSpecialist.getFormattedName());
-            contact = buildContact(professionalSpecialist);
-            demographicContact.setDetails(contact);
+            if (professionalSpecialist == null) {
+                logger.warn("Health care team link {} names a directory specialist that no longer exists",
+                        () -> LogSafe.sanitizeObject(demographicContact.getId()));
+                demographicContact.setContactName(null);
+                demographicContact.setDetails(null);
+            } else {
+                demographicContact.setContactName(professionalSpecialist.getFormattedName());
+                contact = buildContact(professionalSpecialist);
+                // buildContact always reports a live contact; carry the directory row's own flag
+                // so a deleted specialist is not offered as a consultant the save then refuses
+                // (ConsultationHealthCareTeamViewModel, issue #6202).
+                contact.setDeleted(professionalSpecialist.isDeleted());
+                demographicContact.setDetails(contact);
+            }
         }
 
         return demographicContact;
