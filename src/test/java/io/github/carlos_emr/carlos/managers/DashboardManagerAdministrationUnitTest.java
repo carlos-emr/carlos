@@ -52,7 +52,7 @@ class DashboardManagerAdministrationUnitTest {
     void shouldRefuseWrites_whenReadOnly() {
         try (var log = mockStatic(LogAction.class)) {
             assertThat(manager.addDashboard(info, new Dashboard())).isFalse();
-            assertThat(manager.toggleDashboardActive(info, 17, false)).isFalse();
+            assertThat(manager.toggleDashboardActive(info, 17, false, null)).isFalse();
             verify(security, times(2)).hasPrivilege(info, "_dashboardManager", "w", null);
             verifyNoInteractions(dao);
             log.verify(() -> LogAction.addLog(info, "DashboardManager.addDashboard", null, null, null,
@@ -96,7 +96,7 @@ class DashboardManagerAdministrationUnitTest {
         when(dao.updateActive(eq(17), eq(false), any(), isNull())).thenReturn(false);
         try (var log = mockStatic(LogAction.class)) {
             assertThat(manager.addDashboard(info, stored)).isFalse();
-            assertThat(manager.toggleDashboardActive(info, 17, false)).isFalse();
+            assertThat(manager.toggleDashboardActive(info, 17, false, null)).isFalse();
             log.verifyNoInteractions();
         }
         verify(dao, never()).merge(any());
@@ -126,11 +126,14 @@ class DashboardManagerAdministrationUnitTest {
 
     @Test
     @DisplayName("should audit the dashboard identifier and accepted active state")
-    void shouldAuditStatus_whenUpdateAccepted() {
+    void shouldAuditStatus_whenUpdateAccepted() throws Exception {
         when(security.hasPrivilege(info, "_dashboardManager", "w", null)).thenReturn(true);
         when(dao.updateActive(eq(17), eq(false), any(), isNull())).thenReturn(true);
         try (var log = mockStatic(LogAction.class)) {
-            assertThat(manager.toggleDashboardActive(info, 17, false)).isTrue();
+            // Preserve the published JVM method descriptor for callers compiled against the release.
+            assertThat(DashboardManager.class.getMethod("toggleDashboardActive", LoggedInInfo.class,
+                    int.class, Boolean.class).getReturnType()).isEqualTo(void.class);
+            manager.toggleDashboardActive(info, 17, false);
             log.verify(() -> LogAction.addLog(info, "DashboardManager.toggleDashboardActive", "Dashboard", "17", null,
                     "Dashboard active state set to false"));
         }

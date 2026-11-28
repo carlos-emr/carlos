@@ -65,7 +65,8 @@ public class DashboardManager2Action extends ActionSupport {
     /**
      * Authorize the request, validate its intent, and render or save the dashboard form.
      *
-     * @return {@link #SUCCESS} to render the page, or {@link #NONE} after a redirect or HTTP refusal
+     * @return {@link #SUCCESS} to render the page, the shared submission-refusal result, or
+     *         {@link #NONE} after a redirect or HTTP refusal
      * @throws SecurityException when the caller lacks the required dashboard privilege
      * @throws IOException when an HTTP refusal or redirect cannot be written
      */
@@ -164,6 +165,9 @@ public class DashboardManager2Action extends ActionSupport {
 
     private String saveDashboard(HttpServletRequest request, HttpServletResponse response, LoggedInInfo loggedInInfo,
             Integer dashboardId, String revision, FormSubmissionGuard.Claim claim) throws IOException {
+        // Redisplayed fields still belong to the submitted snapshot, even when the list loaded
+        // a newer row. Giving them that row's revision would let a retry overwrite its changes.
+        request.setAttribute("dashboardRevision", revision);
         String name = request.getParameter("name");
         String description = request.getParameter("description");
         name = name == null ? "" : name.trim();
@@ -195,10 +199,12 @@ public class DashboardManager2Action extends ActionSupport {
             }
             response.setStatus(HttpServletResponse.SC_CONFLICT);
         }
-        request.setAttribute("dashboardManagerError", "dashboard.dashboardmanager.saveFailed");
+        request.setAttribute("dashboardManagerError", claim == null
+                ? "dashboard.dashboardmanager.conflict" : "dashboard.dashboardmanager.saveFailed");
         return SUCCESS;
     }
 
+    // Redirects use only the container context path and the constant dashboard route.
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNVALIDATED_REDIRECT",
             justification = "Container context path plus a constant application route; no request parameter determines the destination")
     private static String redirectToDashboardList(HttpServletRequest request, HttpServletResponse response) throws IOException {

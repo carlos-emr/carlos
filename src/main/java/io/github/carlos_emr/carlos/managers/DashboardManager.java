@@ -97,12 +97,14 @@ public interface DashboardManager {
      * @param loggedInInfo LoggedInInfo identifying the caller whose write privilege is checked
      * @param dashboardId int identifier of the dashboard to update
      * @param state Boolean desired active state, never null: true for active, false for inactive
-     * @return boolean true when the update was accepted; false for denied access, a locked dashboard,
-     *         or a missing dashboard
      */
-    boolean toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state);
+    void toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state);
 
-    /** Accept a status form only if its revision is current or the desired status already holds. */
+    /**
+     * Accept a status form only if its revision is current or the desired status already holds.
+     *
+     * @return true when accepted; false for denied access, a locked/missing dashboard or a stale change
+     */
     boolean toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state, String revision);
 
     /**

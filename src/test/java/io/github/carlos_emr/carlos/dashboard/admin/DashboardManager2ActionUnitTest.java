@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import java.util.List;
+import java.io.IOException;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -120,7 +121,8 @@ class DashboardManager2ActionUnitTest {
         assertThat(execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(response.getStatus()).isEqualTo("existing".equals(kind) ? 409 : 500);
         assertThat(request.getAttribute("dashboardName")).isEqualTo("Submitted");
-        assertThat(request.getAttribute("dashboardManagerError")).isEqualTo("dashboard.dashboardmanager.saveFailed");
+        assertThat(request.getAttribute("dashboardManagerError")).isEqualTo("existing".equals(kind)
+                ? "dashboard.dashboardmanager.conflict" : "dashboard.dashboardmanager.saveFailed");
         assertThat(response.getRedirectedUrl()).isNull();
     }
 
@@ -223,6 +225,56 @@ class DashboardManager2ActionUnitTest {
         verify(manager, never()).addDashboard(any(), any());
     }
 
+    @Test
+    void shouldPermitCreateRetry_whenValidationWroteNothing() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("operation", "save");
+        issueCreateToken();
+        assertThat(execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(response.getStatus()).isEqualTo(400);
+
+        request.setParameter("name", "FAKE corrected name");
+        when(manager.addDashboard(eq(info), any())).thenReturn(true);
+        response = new MockHttpServletResponse();
+        servlet.when(ServletActionContext::getResponse).thenReturn(response);
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(302);
+        verify(manager, times(1)).addDashboard(eq(info), any());
+    }
+
+    @Test
+    void shouldRefuseCreateRetry_whenStorageOutcomeIsUnknown() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("operation", "save");
+        request.setParameter("name", "FAKE new dashboard");
+        issueCreateToken();
+        when(manager.addDashboard(eq(info), any())).thenThrow(new IllegalStateException("Unconfirmed write"));
+        assertThatThrownBy(this::execute).isInstanceOf(IllegalStateException.class);
+
+        assertThat(execute()).isEqualTo(FormSubmissionGuard.REFUSED_RESULT);
+        assertThat(response.getStatus()).isEqualTo(409);
+        verify(manager, times(1)).addDashboard(eq(info), any());
+    }
+
+    @Test
+    void shouldReturnTheSavedResult_whenTheFirstRedirectFailed() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("operation", "save");
+        request.setParameter("name", "FAKE new dashboard");
+        issueCreateToken();
+        when(manager.addDashboard(eq(info), any())).thenReturn(true);
+        response = spy(response);
+        doThrow(new IOException("Disconnected client")).when(response).sendRedirect(anyString());
+        servlet.when(ServletActionContext::getResponse).thenReturn(response);
+        assertThatThrownBy(this::execute).isInstanceOf(IOException.class);
+
+        response = new MockHttpServletResponse();
+        servlet.when(ServletActionContext::getResponse).thenReturn(response);
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/web/dashboard/admin/DashboardManager");
+        verify(manager, times(1)).addDashboard(eq(info), any());
+    }
+
     private void issueCreateToken() {
         request.setParameter(FormSubmissionGuard.PARAMETER,
                 FormSubmissionGuard.issue(request.getSession(), FormSubmissionGuard.Scope.DASHBOARD_CREATE, null));
@@ -289,7 +341,7 @@ class DashboardManager2ActionUnitTest {
     }
 
     @Test
-    void shouldRejectAnEditWithoutItsOriginalRevision() throws Exception {
+    void shouldRejectAnEdit_withoutItsOriginalRevision() throws Exception {
         request.setMethod("POST");
         request.setParameter("operation", "save");
         request.setParameter("dashboardId", "17");
@@ -301,7 +353,7 @@ class DashboardManager2ActionUnitTest {
     }
 
     @Test
-    void shouldRejectAnInvalidActiveStatusWithoutUpdatingTheDashboard() throws Exception {
+    void shouldRejectAnInvalidActiveStatus_withoutUpdatingTheDashboard() throws Exception {
         request.setMethod("POST");
         request.setParameter("operation", "status");
         request.setParameter("dashboardId", "17");

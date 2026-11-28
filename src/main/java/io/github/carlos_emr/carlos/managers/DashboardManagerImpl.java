@@ -260,8 +260,8 @@ public class DashboardManagerImpl implements DashboardManager {
      * active.
      */
     @Override
-    public boolean toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state) {
-        return toggleDashboardActive(loggedInInfo, dashboardId, state, null);
+    public void toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state) {
+        toggleDashboardActive(loggedInInfo, dashboardId, state, null);
     }
 
     @Override

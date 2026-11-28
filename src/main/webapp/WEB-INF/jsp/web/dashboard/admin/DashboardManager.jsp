@@ -24,7 +24,8 @@
   Features: localized labels, context-safe output encoding, and privilege-aware write controls.
   Request attributes: dashboards (the list), dashboardCanWrite (write controls), editedDashboard
   (selected dashboard), dashboardName/dashboardDescription (submitted values after a refusal),
-  and dashboardManagerError (the localized error-message key).
+  dashboardRevision (the revision those submitted values came from), and dashboardManagerError
+  (the localized error-message key).
   Forms: CSRF-protected POST operation=save submits name/description and an optional dashboardId;
   operation=status submits dashboardId and the explicit desired active state.
 
@@ -104,7 +105,7 @@
             <input type="hidden" name="operation" value="save">
             <c:if test="${not empty editedDashboard}">
                 <input type="hidden" name="dashboardId" value="${editedDashboard.id}">
-                <input type="hidden" name="dashboardRevision" value="${carlos:forHtmlAttribute(editedDashboard.administrationRevision)}">
+                <input type="hidden" name="dashboardRevision" value="${carlos:forHtmlAttribute(dashboardRevision != null ? dashboardRevision : editedDashboard.administrationRevision)}">
             </c:if>
             <c:if test="${empty editedDashboard}">
                 <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>"
@@ -120,6 +121,10 @@
                 <textarea id="dashboard-description" name="description" class="form-control" maxlength="255">${carlos:forHtmlContent(dashboardDescription != null ? dashboardDescription : editedDashboard.description)}</textarea>
             </div>
             <button type="submit" class="btn btn-primary"><fmt:message key="dashboard.dashboardmanager.dashboard.save"/></button>
+            <c:if test="${not empty editedDashboard and not empty dashboardManagerError}">
+                <c:url var="reopenUrl" value="/web/dashboard/admin/DashboardManager"><c:param name="dashboardId" value="${editedDashboard.id}"/></c:url>
+                <a id="dashboard-reopen" href="${carlos:forHtmlAttribute(reopenUrl)}" class="btn btn-secondary"><fmt:message key="dashboard.dashboardmanager.reopen"/></a>
+            </c:if>
             <a href="${carlos:forHtmlAttribute(managerUrl)}" class="btn btn-secondary"><fmt:message key="dashboard.dashboardmanager.dashboard.close"/></a>
         </form>
     </c:if>
