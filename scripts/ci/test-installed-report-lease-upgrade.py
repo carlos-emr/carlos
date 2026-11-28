@@ -394,7 +394,10 @@ class TestReportLeaseUpgrade(unittest.TestCase):
                 f'[Manager]\nDefaultEnvironment="_JAVA_OPTIONS=-Dcarlos_override_properties={site}"\n',
                 encoding="utf-8",
             )
-            res = self.configure(managed, extra_env={"CARLOS_MANAGER_ENV_FILE": ""})
+            res = self.configure(managed, extra_env={
+                "CARLOS_MANAGER_ENV_FILE": "",
+                "CARLOS_SYSTEMD_MANAGER_CONF_DIRS": str(mgr_dir),
+            })
             self.assertIn("resolves to 15 seconds", res.stderr)
             self.assertFalse(marker.exists())
 
