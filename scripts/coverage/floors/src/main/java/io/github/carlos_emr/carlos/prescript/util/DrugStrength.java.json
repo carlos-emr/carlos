@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugStrength.java",
   "kind": "floor",
   "floor": {
-    "lines": 96.875,
-    "instructions": 95.61170212765957,
-    "branches": 76.7605633802817,
-    "sourceBlob": "e98442ee0f38d99a8acd8ed509069a9abd9cd430"
+    "lines": 97.03703703703704,
+    "instructions": 95.82806573957016,
+    "branches": 78.0,
+    "sourceBlob": "6a6e3285f636711cbea802cbf584289f5cd16386"
   },
-  "evidenceSha256": "3962531a28c69114e5a3102b066c2f9fff931f1dbe2cde28dafa1dc92a610b37"
+  "evidenceSha256": "79dfd21103aa4940478c6c4c2e1f4c3f21c53162e2dc94f7468437aa84518218"
 }
