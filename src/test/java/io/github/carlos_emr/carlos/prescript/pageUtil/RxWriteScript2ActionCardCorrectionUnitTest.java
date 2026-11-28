@@ -291,7 +291,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         @ParameterizedTest(name = "typed \"{0}\" -> quantity {1}, unit {2}")
         @CsvSource(nullValues = "NULL", value = {
             "42, 42, NULL", "30.0, 30, NULL", ".5, 0.5, NULL", "2.50, 2.5, NULL",
-            "2.5 mL, 2.5, mL", "30.0 mL, 30, mL", ".5 mL, 0.5, mL"})
+            "2.5 mL, 2.5, mL", "30.0 mL, 30, mL", ".5 mL, 0.5, mL", "1/2 bottle, 1/2, bottle"})
         @DisplayName("should stage a typed quantity as a plain decimal, with or without a unit")
         void shouldStagePlainDecimalQuantity_whenQuantityIsTyped(String typed, String quantity, String unit) throws Exception {
             card.setFrequencyCode("OD");
@@ -343,7 +343,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         "'12.5 tabs', 12.5, 12.5",
         "'.5 tabs', 0.5, 0.5",
         "'30 30 tabs', '30 30 tabs',",
-        "'1/2 bottle', '1/2 bottle',",
+        "'1/2 bottle', '1/2',",
         "'one bottle', 'one bottle',",
         "30.0, 30, 30",
         ".5, 0.5, 0.5",
@@ -644,6 +644,42 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             drug.setDemographicId(DEMOGRAPHIC_NO);
             drug.setArchived(archived);
             return drug;
+        }
+
+        @Test
+        @DisplayName("should preserve fractional quantity and unit from selection through Save and REST readback")
+        void shouldPreserveFractionalQuantityAndUnit_fromSelectionThroughSaveAndRestReadback() throws Exception {
+            io.github.carlos_emr.carlos.prescript.util.RxUtil.normalizeCarriedQuantity(card, "1/2", "bottle");
+            assertThat(card.getQuantity()).isEqualTo("1/2");
+            assertThat(card.getUnitName()).isEqualTo("bottle");
+
+            // prescribe.jsp submits quantity + unit together as "1/2 bottle".
+            request.setParameter("drugName_1", "SYNTHETIC DRUG");
+            request.setParameter("quantity_1", card.getQuantity() + " " + card.getUnitName());
+            request.setParameter("draftRevision_1", card.getDraftRevision());
+
+            java.util.List<Drug> persisted = new java.util.ArrayList<>();
+            doAnswer(invocation -> {
+                Drug saved = invocation.getArgument(0);
+                saved.setId(nextDrugIds.removeFirst());
+                persisted.add(saved);
+                return null;
+            }).when(mockDrugDao).persist(any(Drug.class));
+
+            try (var _ = mockConstruction(RxPrescriptionData.class,
+                    (mock, context) -> when(mock.saveScript(any(), any())).thenReturn("77"))) {
+                assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+            }
+
+            assertThat(persisted).hasSize(1);
+            Drug saved = persisted.getFirst();
+            assertThat(saved.getQuantity()).isEqualTo("1/2");
+            assertThat(saved.getUnitName()).isEqualTo("bottle");
+            assertThat(saved.getSpecial()).endsWith("Qty:1/2 bottle Repeats:2");
+
+            var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+            var dto = converter.getAsTransferObject(mockLoggedInInfo, saved);
+            assertThat(dto.getQuantity()).isNull();
         }
 
         @ParameterizedTest

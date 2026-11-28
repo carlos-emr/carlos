@@ -164,7 +164,9 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
 
     private static void applyFavoriteQuantity(RxPrescriptionData.Favorite fav, String rawQuantity) {
         RxUtil.QuantityParts split = RxUtil.splitLeadingQuantityAndUnit(rawQuantity);
-        if (split != null && split.unit().length() <= FAVORITE_UNIT_NAME_MAX_LENGTH) {
+        if (split != null
+                && split.amount().length() <= FAVORITE_QUANTITY_MAX_LENGTH
+                && split.unit().length() <= FAVORITE_UNIT_NAME_MAX_LENGTH) {
             fav.setQuantity(split.amount());
             fav.setUnitName(split.unit());
             return;

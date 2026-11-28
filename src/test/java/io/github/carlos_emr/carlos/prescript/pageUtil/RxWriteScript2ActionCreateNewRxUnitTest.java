@@ -250,6 +250,25 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should apply Mitte default quantity cleanly when staging a new prescription")
+    void shouldApplyMitteDefaultQuantity_whenStagingNewRx() throws Exception {
+        io.github.carlos_emr.carlos.prescript.util.RxUtil.setDefaultQuantity("7 days");
+        request.setParameter("text", "SYNTHETIC SINGLE");
+
+        try {
+            RxPrescriptionData.Prescription staged = stage(combination("CAPSULE",
+                    new String[] {"SYNTHETIC 250MG", "250.0", "MG"}));
+
+            assertThat(staged.getDuration()).isEqualTo("7");
+            assertThat(staged.getDurationUnit()).isEqualTo("D");
+            assertThat(staged.getQuantity()).isEqualTo("7");
+            assertThat(staged.getUnitName()).isEqualTo("days");
+        } finally {
+            io.github.carlos_emr.carlos.prescript.util.RxUtil.setDefaultQuantity("20");
+        }
+    }
+
+    @Test
     @DisplayName("should not repeat a strength when the ingredient name omits its leading zero")
     void shouldNotRepeatStrength_whenIngredientNameOmitsLeadingZero() throws Exception {
         request.setParameter("text", "LORAZEPAM .5MG");

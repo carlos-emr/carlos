@@ -601,8 +601,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             String durationUnit = RxUtil.getDurationUnitFromQuantityText(quantity);
             rx.setDuration(duration);
             rx.setDurationUnit(durationUnit);
-            rx.setQuantity(RxUtil.getQuantityFromQuantityText(quantity));
-            rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity)); // this is actually an indicator for Mitte prescript
+            RxUtil.applyQuantityText(rx, quantity); // unitName is an indicator for Mitte prescript
         } else rx.setDuration(RxUtil.findDuration(rx));
 
         return rx;

@@ -319,6 +319,39 @@ class BpmhDrugUnitTest {
         drug.setSpecial("APO-METOPROLOL 50MG\nPrendre 1 comprime par jour\nQt\u00E9/Mitte:30 \nRepeats:1\n");
         drug.usePrescriptionDirections("APO-METOPROLOL 50MG", null, "Tabs");
         assertThat(drug.getHow()).isEqualTo("Prendre 1 comprime par jour");
+
+        drug.setSpecial("Take once daily\nSupply blister pack\nQty:2 prefilled syringes Repeats:0");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null, "2", "prefilled syringes");
+        assertThat(drug.getHow()).isEqualTo("Take once daily");
+
+        drug.setSpecial("Take once daily\nSupply blister pack\nQty:2mL Repeats:0");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null, "2", "mL");
+        assertThat(drug.getHow()).isEqualTo("Take once daily");
+
+        drug.setSpecial("Take once daily\nSupply blister pack\nQty:one bottle Repeats:0");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null, "one bottle", null);
+        assertThat(drug.getHow()).isEqualTo("Take once daily");
+
+        drug.setSpecial("Take once daily\nSupply blister pack\nQty:1/2 bottle Repeats:0");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Take once daily");
+
+        drug.setSpecial("Take once daily\nQty:1/2 Repeats:0");
+        drug.usePrescriptionDirections(null, null, null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Take once daily");
+
+        for (String malformedFractionFooter : java.util.List.of(
+                "Take daily\nQty:1/ Repeats:0",
+                "Take daily\nQty:1/ bottle Repeats:0",
+                "Take daily\nQty:1/a bottle Repeats:0",
+                "Take daily\nQty:1.5/2 bottle Repeats:0",
+                "Take daily\nQty:1/2/3 Repeats:0",
+                "Take daily\nQty:1/2.5 bottle Repeats:0",
+                "Take daily\nQty:one bottle Repeats:0")) {
+            drug.setSpecial(malformedFractionFooter);
+            drug.usePrescriptionDirections(null, null, null, null, null);
+            assertThat(drug.getHow()).isEqualTo(malformedFractionFooter);
+        }
     }
 
     @Nested

@@ -483,7 +483,7 @@ public class RxUtil {
         if (qStr == null) {
             return null;
         }
-        NumberToken amount = findFirstDecimal(qStr);
+        NumberToken amount = findFirstQuantityAmount(qStr);
         if (amount == null) {
             return null;
         }
@@ -492,9 +492,9 @@ public class RxUtil {
     }
 
     /**
-     * The amount of a quantity typed with a unit ("2.5 mL" gives "2.5"): its first decimal number,
-     * written by {@link DoseText} so that an amount typed as ".5" or "30.0" is saved, and printed
-     * after {@code Qty:}, as "0.5" or "30".
+     * The amount of a quantity typed with a unit ("2.5 mL" gives "2.5", "1/2 bottle" gives "1/2"):
+     * its first decimal or simple fraction, written by {@link DoseText} so that an amount typed as
+     * ".5" or "30.0" is saved, and printed after {@code Qty:}, as "0.5" or "30".
      *
      * @param qStr the quantity as typed or stored, which may be {@code null}
      * @return the amount, or {@code null} when the text has no number
@@ -503,23 +503,46 @@ public class RxUtil {
         if (qStr == null) {
             return null;
         }
-        NumberToken amount = findFirstDecimal(qStr);
+        NumberToken amount = findFirstQuantityAmount(qStr);
         return amount == null ? null : DoseText.ofNumericText(amount.value);
     }
 
     /**
-     * The first decimal number in the text: digits with an optional fraction ("2.5", "30"), or a
-     * fraction typed without its leading zero (".5"). A full stop with no digit after it is not
-     * part of the number.
+     * The first decimal or simple fraction ("2.5", "30", ".5", "1/2") in quantity text. A full stop
+     * with no digit after it is not part of the number.
      */
-    private static NumberToken findFirstDecimal(String text) {
+    private static NumberToken findFirstQuantityAmount(String text) {
         for (int index = 0; index < text.length(); index++) {
             NumberToken token = findDecimalAt(text, index);
             if (token != null) {
-                return token;
+                int end = fractionEnd(text, token.start, token.end);
+                return end == token.end ? token : new NumberToken(text, token.start, end);
             }
         }
         return null;
+    }
+
+    /** Extends an integer token across a simple fraction ("1/2") when no further "/" or "." follows. */
+    private static int fractionEnd(String text, int start, int numeratorEnd) {
+        if (numeratorEnd + 1 >= text.length() || text.charAt(numeratorEnd) != '/') {
+            return numeratorEnd;
+        }
+        for (int i = start; i < numeratorEnd; i++) {
+            if (!isDigit(text.charAt(i))) {
+                return numeratorEnd;
+            }
+        }
+        int denomEnd = numeratorEnd + 1;
+        while (denomEnd < text.length() && isDigit(text.charAt(denomEnd))) {
+            denomEnd++;
+        }
+        if (denomEnd == numeratorEnd + 1) {
+            return numeratorEnd;
+        }
+        if (denomEnd < text.length() && (text.charAt(denomEnd) == '/' || text.charAt(denomEnd) == '.')) {
+            return numeratorEnd;
+        }
+        return denomEnd;
     }
 
     public static boolean isMitte(String qStr) {
@@ -626,8 +649,8 @@ public class RxUtil {
             return null;
         }
         String quantityUnit = getUnitNameFromQuantityText(typedQuantity);
-        if (quantityUnit != null) {
-            // Ambiguous text such as "1/2" or "1/2 bottle" cannot yield a duration or a clean unit.
+        if (quantityUnit != null || number.indexOf('/') >= 0) {
+            // Ambiguous text such as "1/2" or "1 to 2 bottles" cannot yield a duration or a clean unit.
             return null;
         }
         rx.setQuantity(number);
@@ -635,10 +658,10 @@ public class RxUtil {
     }
 
     /**
-     * Parsed leading decimal amount (normalized via {@link DoseText#ofNumericText}) and recognized
-     * dispense unit split from a single quantity string.
+     * Parsed leading decimal or simple fraction amount (normalized via {@link DoseText#ofNumericText})
+     * and recognized dispense unit split from a single quantity string.
      *
-     * @param amount String normalized leading numeric amount
+     * @param amount String normalized leading numeric or fractional amount
      * @param unit String recognized dispense unit
      * @since 2026-11-28
      */
@@ -646,8 +669,9 @@ public class RxUtil {
     }
 
     /**
-     * Splits a leading decimal amount and clean dispense unit (such as {@code "2.5 mL"} or
-     * {@code "1 bottle (120 mL)"}) when the suffix passes {@link Drug#isEmbeddedDispenseUnit}.
+     * Splits a leading decimal or simple fraction amount and clean dispense unit (such as
+     * {@code "2.5 mL"}, {@code "1/2 bottle"}, or {@code "1 bottle (120 mL)"}) when the suffix passes
+     * {@link Drug#isEmbeddedDispenseUnit}.
      *
      * @param text String quantity text to inspect, which may be {@code null}
      * @return QuantityParts when {@code text} splits cleanly into amount and dispense unit, otherwise {@code null}
@@ -658,7 +682,11 @@ public class RxUtil {
         }
         String trimmed = text.strip();
         int end = DoseText.numberEnd(trimmed, 0);
-        if (end == 0 || end == trimmed.length()) {
+        if (end == 0) {
+            return null;
+        }
+        end = fractionEnd(trimmed, 0, end);
+        if (end == trimmed.length()) {
             return null;
         }
         String unit = trimmed.substring(end).stripLeading();
@@ -670,8 +698,8 @@ public class RxUtil {
 
     /**
      * Applies submitted quantity text onto a staged prescription, splitting a clean leading decimal
-     * amount and dispense unit while preserving ambiguous fractions ({@code "1/2 bottle"}), ranges
-     * ({@code "1 to 2 bottles"}), or word-only quantities ({@code "one bottle"}) unsplit.
+     * or simple fraction amount and dispense unit while preserving ambiguous ranges
+     * ({@code "1 to 2 bottles"}) or word-only quantities ({@code "one bottle"}) unsplit.
      *
      * @param rx RxPrescriptionData.Prescription staged prescription to update
      * @param quantityText String submitted quantity text
@@ -703,6 +731,8 @@ public class RxUtil {
      * @param sourceQuantity String stored quantity value, which may be {@code null}
      * @param sourceUnitName String stored dispense unit, which may be {@code null}
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void normalizeCarriedQuantity(RxPrescriptionData.Prescription rx,
                                                 String sourceQuantity,
                                                 String sourceUnitName) {

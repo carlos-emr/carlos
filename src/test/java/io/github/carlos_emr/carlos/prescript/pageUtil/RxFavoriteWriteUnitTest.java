@@ -168,6 +168,8 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
             "NULL, 30.0 mL, 30, mL, false",
             "NULL, .5, 0.5, NULL, false",
             "NULL, 1e25, 1e25, NULL, false",
+            "NULL, 1e25 mL, 1e25 mL, NULL, false",
+            "NULL, 1/2 bottle, 1/2, bottle, false",
             "NULL, 100000000000000000000.00, 100000000000000000000, NULL, false",
             "NULL, 1 bottle (120 mL), 1 bottle (120 mL), NULL, false",
             "NULL, NULL, NULL, NULL, false"

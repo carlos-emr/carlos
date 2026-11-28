@@ -93,7 +93,7 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
             f.setFrequencyCode(t.getFrequency());
             f.setPrn(t.getPrn());
 
-            f.setDuration(t.getDuration().toString());
+            f.setDuration(t.getDuration() == null ? null : t.getDuration().toString());
             f.setDurationUnit(t.getDurationUnit());
 
             if (t.getRepeats() != null) {

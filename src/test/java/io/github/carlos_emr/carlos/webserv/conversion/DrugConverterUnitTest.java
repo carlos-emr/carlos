@@ -352,6 +352,12 @@ class DrugConverterUnitTest {
             "0.05% w/w, 0.05, % w/w",
             "0.1% w/v, 0.1, % w/v",
             "5% v/v, 5, % v/v",
+            "500 mg/capsule, 500, mg/capsule",
+            "500mg / tab, 500, mg / tab",
+            "10 mg/2 tablets, 10, mg/2 tablets",
+            "500 mg per capsule, 500, mg per capsule",
+            "20 mg / 2 caplets, 20, mg / 2 caplets",
+            "10 mg / suppository, 10, mg / suppository",
             "5 mg \u00BD tablet, 5, mg"
         })
         @DisplayName("should read the first ingredient's strength and unit, and keep a unit of concentration whole")

@@ -140,7 +140,7 @@ class RxPrescriptionDataNullRepeatUnitTest extends CarlosUnitTestBase {
             "1/2,bottle,1/2,bottle", "1.0E7,units,10000000,units", "100 mL,mL,100,mL",
             "100 ML,mL,100,mL", "2.5,NULL,2.5,NULL", "30.0,NULL,30,NULL",
             "2.5 mL,NULL,2.5,mL", "30.0 mL,NULL,30,mL",
-            "1 bottle (120 mL),NULL,1,bottle (120 mL)", "1/2 bottle,NULL,1/2 bottle,NULL",
+            "1 bottle (120 mL),NULL,1,bottle (120 mL)", "1/2 bottle,NULL,1/2,bottle",
             "one bottle,NULL,one bottle,NULL", "NULL,mL,30,mL"
     })
     @DisplayName("should carry the amount together with either form of the stored unit")

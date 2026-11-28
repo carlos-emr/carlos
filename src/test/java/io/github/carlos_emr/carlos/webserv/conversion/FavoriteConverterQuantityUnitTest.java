@@ -68,5 +68,13 @@ class FavoriteConverterQuantityUnitTest {
 
         assertThat(dto.getDuration()).isEqualTo(expected);
         assertThat(dto.getQuantity()).isNull();
+
+        LoggedInInfo info = new LoggedInInfo();
+        var provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+        provider.setProviderNo("999998");
+        info.setLoggedInProvider(provider);
+        Favorite roundTripped = new FavoriteConverterImpl().getAsDomainObject(info, dto);
+        assertThat(roundTripped.getDuration()).isEqualTo(expected == null ? null : expected.toString());
+        assertThat(roundTripped.getQuantity()).isNull();
     }
 }

@@ -988,8 +988,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         }
 
         @ParameterizedTest(name = "ambiguous quantity \"{0}\"")
-        @ValueSource(strings = {"1/2", "1/2 bottle", "1 to 2 bottles", "1 tab to 2 tabs"})
-        @DisplayName("should derive no duration or invented unit for fractional or range quantities")
+        @ValueSource(strings = {"1/2", "1 to 2 bottles", "1 tab to 2 tabs"})
+        @DisplayName("should derive no duration or invented unit for bare fractional or range quantities")
         void shouldLeaveAmbiguousQuantityUnmodified_whenDerivingDuration(String typed) {
             RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab po bid");
             rx.setQuantity(typed);
@@ -997,6 +997,17 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertThat(RxUtil.findDuration(rx)).isNull();
             assertThat(rx.getQuantity()).isEqualTo(typed);
             assertThat(rx.getUnitName()).isNull();
+        }
+
+        @Test
+        @DisplayName("should split fractional dispense quantity and unit when deriving duration")
+        void shouldSplitFractionAndUnit_whenDerivingDuration() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab po bid");
+            rx.setQuantity("1/2 bottle");
+
+            assertThat(RxUtil.findDuration(rx)).isNull();
+            assertThat(rx.getQuantity()).isEqualTo("1/2");
+            assertThat(rx.getUnitName()).isEqualTo("bottle");
         }
 
         @ParameterizedTest(name = "unitless quantity \"{0}\" -> \"{1}\" (duration {2})")
@@ -1019,7 +1030,12 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
                 ".5, 0.5, NULL",
                 "2.5 mL, 2.5, mL",
                 "1 bottle (120 mL), 1, bottle (120 mL)",
-                "1/2 bottle, 1/2 bottle, NULL",
+                "1/2 bottle, 1/2, bottle",
+                "1/2, 1/2, NULL",
+                "1/2/3, 1/2/3, NULL",
+                "1/2.5 bottle, 1/2.5 bottle, NULL",
+                "1.5/2 mL, 1.5/2 mL, NULL",
+                "1/ bottle, 1/ bottle, NULL",
                 "one bottle, one bottle, NULL",
                 "1 tab to 2 tabs, 1 tab to 2 tabs, NULL"
         })

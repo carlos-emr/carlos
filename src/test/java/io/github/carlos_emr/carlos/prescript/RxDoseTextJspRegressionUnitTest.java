@@ -111,7 +111,7 @@ class RxDoseTextJspRegressionUnitTest {
 
         assertThat(jsp)
                 .doesNotContain("<td><%= drug.getRepeat() %>")
-                .contains("drug.getRepeat() != null ? drug.getRepeat() : \"\"");
+                .contains("SafeEncode.forHtmlContent(drug.getRepeat() != null ? String.valueOf(drug.getRepeat()) : null)");
     }
 
     @Test

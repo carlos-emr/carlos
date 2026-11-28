@@ -260,7 +260,7 @@ The matching package release and installed transfer rehearsal are tracked in
 [#6420](https://github.com/carlos-emr/carlos/issues/6420).
 
 MariaDB can print only six significant digits when dumping an OSCAR19 `FLOAT`. A dose
-stored as the nearest float to one third can therefore restore as a different number.
+stored as the nearest float to one-third can therefore restore as a different number.
 Once only the rounded dump remains, the original dose cannot be recovered by formatting it.
 
 Use a quiescent source and the same database identity for the dump, the precision supplement
@@ -278,7 +278,7 @@ digests have been generated.
 set -euo pipefail
 umask 077
 mysqldump --single-transaction --quick --skip-triggers oscar |
-  python3 export-medication-floats.py --complete-dump --db oscar |
+  python3 /usr/share/carlos-emr/o19-manifest/export-medication-floats.py --complete-dump --db oscar |
   gzip > o19.sql.gz.partial
 mv o19.sql.gz.partial o19.sql.gz
 ```

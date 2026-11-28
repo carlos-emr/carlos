@@ -102,4 +102,20 @@ class RxUtilQuantityTextUnitTest {
         assertThat(RxUtil.getQuantityFromQuantityText("30. tabs")).isEqualTo("30");
         assertThat(RxUtil.getUnitNameFromQuantityText("30. tabs")).isEqualTo(". tabs");
     }
+
+    @ParameterizedTest(name = "\"{0}\" -> amount {1}, unit {2}")
+    @CsvSource(nullValues = "NULL", value = {
+        "1/2 bottle, 1/2, bottle",
+        "3/4 tube, 3/4, tube",
+        "1/2, 1/2, NULL",
+        "1.5/2 mL, 1.5, /2 mL",
+        "1/ bottle, 1, / bottle",
+        "1/2/3, 1, /2/3",
+        "1/2.5 bottle, 1, /2.5 bottle"
+    })
+    @DisplayName("should keep simple fractional amounts intact without treating malformed ratios as fractions")
+    void shouldKeepSimpleFractionAmountIntact_whenSplittingQuantityText(String typed, String amount, String unit) {
+        assertThat(RxUtil.getQuantityFromQuantityText(typed)).isEqualTo(amount);
+        assertThat(RxUtil.getUnitNameFromQuantityText(typed)).isEqualTo(unit);
+    }
 }

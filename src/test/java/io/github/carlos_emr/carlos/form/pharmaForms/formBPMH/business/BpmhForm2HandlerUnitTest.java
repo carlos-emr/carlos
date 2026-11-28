@@ -229,6 +229,31 @@ class BpmhForm2HandlerUnitTest {
     }
 
     @Test
+    void shouldStripPharmacyInstructions_forMultiwordAndFractionalDispenseFooters() {
+        Drug multiword = structuredDrug(1, 1);
+        multiword.setQuantity("2");
+        multiword.setUnitName("prefilled syringes");
+        multiword.setSpecialInstruction("Supply blister pack");
+        multiword.setSpecial("Take once daily\nSupply blister pack\nQty:2 prefilled syringes Repeats:0");
+        assertThat(formRowFor(multiword).getHow()).isEqualTo("Take once daily");
+
+        Drug fractional = structuredDrug(1, 1);
+        fractional.setQuantity("1/2");
+        fractional.setUnitName("bottle");
+        fractional.setSpecialInstruction("Supply blister pack");
+        fractional.setSpecial("Take once daily\nSupply blister pack\nQty:1/2 bottle Repeats:0");
+        assertThat(formRowFor(fractional).getHow()).isEqualTo("Take once daily");
+
+        Drug authoredOnQtyLine = structuredDrug(1, 1);
+        authoredOnQtyLine.setQuantity("2");
+        authoredOnQtyLine.setUnitName("prefilled syringes");
+        authoredOnQtyLine.setSpecialInstruction("Supply blister pack");
+        authoredOnQtyLine.setSpecial("Take once daily\nQty:2 prefilled syringes. Keep refrigerated. Repeats:0");
+        assertThat(formRowFor(authoredOnQtyLine).getHow())
+                .isEqualTo("Take once daily\nQty:2 prefilled syringes. Keep refrigerated. Repeats:0");
+    }
+
+    @Test
     void shouldBuildAnEmptyMedicationList_whenTheDaoReturnsNull() {
         DrugDao drugDao = mock(DrugDao.class);
         when(drugDao.findByDemographicId(1001, false)).thenReturn(null);

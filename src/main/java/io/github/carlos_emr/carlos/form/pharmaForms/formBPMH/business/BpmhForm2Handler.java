@@ -490,7 +490,7 @@ public class BpmhForm2Handler {
                             || cdsDose != null
                             || StringUtils.equalsIgnoreCase(drug.getUnit(), drug.getDrugForm());
                     bpmhDrug.usePrescriptionDirections(drug.getBrandName(), drug.getSpecialInstruction(),
-                            recordedDoseUnit ? drug.getUnit() : null);
+                            recordedDoseUnit ? drug.getUnit() : null, drug.getQuantity(), drug.getUnitName());
                     if (postedRows != null) {
                         for (BpmhDrug postedRow : postedRows) {
                             if (postedRow != null && drugId.equals(postedRow.getId())) {
