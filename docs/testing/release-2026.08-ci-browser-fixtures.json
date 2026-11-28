@@ -91,6 +91,16 @@
       "minimumAssertions": 1383
     },
     {
+      "id": "eform-select-prefill-fixture-check",
+      "command": [
+        "node",
+        "scripts/eform-select-prefill-fixture-check.js"
+      ],
+      "source": "scripts/eform-select-prefill-fixture-check.js",
+      "sourceSha256": "7b9f3bfc93b433dee03972e3f2180850960330762877e7b3bc50c3aca6ac03f8",
+      "minimumAssertions": 83
+    },
+    {
       "id": "dashboard-tickler-picker-browser-check",
       "command": [
         "node",
@@ -237,5 +247,5 @@
       ]
     }
   ],
-  "workflowSha256": "fb464d4f9cd7c6dbf1ccefdbedd236cdee1223d66a9e6b7cf631635757df8730"
+  "workflowSha256": "c42b7699c892b9e5eb451b358901e781ea6ec1c376b0eab803b97d543604238a"
 }

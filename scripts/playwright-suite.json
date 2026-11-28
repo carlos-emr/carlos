@@ -17260,6 +17260,24 @@
       "notes": "Issue #3552: a drawn canvas signature and jSignature strokes save through the toolbar as carlos-data-uri references, eform_values and the reopened form hold the signatures themselves, an SVG carried value is refused with 400 before storage and the same rendering then saves once, and through the packaged front door data:text/html or an uncarried signature in an ordinary field gets the WAF's 403 (WAF rule 1040 is per-argument)."
     },
     {
+      "name": "eform-select-prefill",
+      "script": "scripts/eform-select-prefill-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Owned synthetic patient and owned eForm template inserted by unique name; all revisions, values, template, and patient are deleted and asserted gone. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "PR #6284: eForm <select> prefill from oscarDB=patient_alias (prefix sibling, entity-encoded value, template default after stored value, unquoted value before selected and slash), dependent oscarDB=e$count lookup binding the browser-submitted value (ignoring inert template select and disabled duplicate select), untouched toolbar save and reopen, and no-break space text-only option restoration."
+    },
+    {
       "name": "demographic-add-relation",
       "script": "scripts/demographic-add-relation-playwright-checks.js",
       "tiers": [
