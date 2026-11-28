@@ -68,11 +68,15 @@ function inspectGraph(evidence){
 async function workflow(s){
   const {sql,provider}=s,owned=[];
   // Register partial-setup recovery before claiming either extra patient's name.
+  const measurementRows={
+    extra:[['measurements','demographicNo']],
+    via:[{table:'measurementsExt',column:'measurement_id',parent:'measurements',key:'id',patient:'demographicNo'}],
+  };
   for(const role of ['male','control']){
     const fixture={marker:newOwnedMarker(),role};owned.push(fixture);
     s.cleanup(()=>{
       fixture.patient||=sql.value(`SELECT demographic_no FROM demographic WHERE last_name=${q(fixture.marker)}`);
-      if(fixture.patient)removeOwnedPatient(sql,fixture.patient,fixture.marker);
+      if(fixture.patient)removeOwnedPatient(sql,fixture.patient,fixture.marker,measurementRows);
     });
     fixture.patient=createOwnedPatient(sql,{marker:fixture.marker,provider});
   }
