@@ -160,6 +160,18 @@ class RxUniquePrescriptionsUnitTest extends CarlosUnitTestBase {
         assertThat(uniqueIds(before, after)).containsExactly(2);
     }
 
+    @Test
+    void shouldListTheRenewalOnce_whenEarlierStrengthOmittedLeadingZero() {
+        Drug before = drug(1, "Synthetic X");
+        before.setGenericName("synthetic .5mg tablet");
+        before.setDosage(".5mg");
+        Drug after = drug(2, "Synthetic X");
+        after.setGenericName("synthetic 0.5mg tablet");
+        after.setDosage("0.5mg");
+
+        assertThat(uniqueIds(before, after)).containsExactly(2);
+    }
+
     /**
      * A strength of ten million units was stored as the float's own text ("1.0E7unit") before
      * #6185 and is stored as "10000000unit" since.

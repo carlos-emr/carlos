@@ -613,6 +613,13 @@ public class RxUtil {
         }
         // The amount is the whole decimal: reading "2.5" as 2 with the unit ".5" left the duration
         // unset and saved ".5" as the quantity's unit (#6185).
+        QuantityParts split = splitLeadingQuantityAndUnit(typedQuantity);
+        if (split != null) {
+            // A quantity typed with its own unit (a Mitte quantity) leaves the duration incalculable.
+            rx.setQuantity(split.amount());
+            rx.setUnitName(split.unit());
+            return null;
+        }
         String number = getQuantityFromQuantityText(typedQuantity);
         if (number == null) {
             logger.error("quantity is not specified");
@@ -620,11 +627,29 @@ public class RxUtil {
         }
         String quantityUnit = getUnitNameFromQuantityText(typedQuantity);
         if (quantityUnit != null) {
-            // A quantity typed with its own unit (a Mitte quantity) leaves the duration incalculable.
-            rx.setUnitName(quantityUnit);
+            // Ambiguous text such as "1/2" or "1/2 bottle" cannot yield a duration or a clean unit.
             return null;
         }
         return durationForQuantity(rx, Double.parseDouble(number));
+    }
+
+    private record QuantityParts(String amount, String unit) {
+    }
+
+    private static QuantityParts splitLeadingQuantityAndUnit(String text) {
+        if (StringUtils.isBlank(text)) {
+            return null;
+        }
+        String trimmed = text.strip();
+        int end = DoseText.numberEnd(trimmed, 0);
+        if (end == 0 || end == trimmed.length()) {
+            return null;
+        }
+        String unit = trimmed.substring(end).stripLeading();
+        if (!Drug.isEmbeddedDispenseUnit(unit)) {
+            return null;
+        }
+        return new QuantityParts(DoseText.ofNumericText(trimmed.substring(0, end)), unit);
     }
 
     /** True when the parser left no calculated quantity behind: null, empty or "0". */
@@ -3010,10 +3035,17 @@ public class RxUtil {
     private static void setResultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx, Drug d) {
         // Imported quantities can carry their unit in the quantity text instead of the unit column.
         String unitName = d.getUnitName();
-        String quantity = StringUtils.isBlank(unitName)
-                ? DoseText.ofNumericText(d.getQuantity()) : getQuantityFromQuantityText(d.getQuantity());
-        if (StringUtils.isNotBlank(quantity)) {
-            rx.setQuantity(quantity);
+        String quantity = d.getQuantity();
+        if (StringUtils.isBlank(unitName)) {
+            QuantityParts split = splitLeadingQuantityAndUnit(quantity);
+            if (split != null) {
+                quantity = split.amount();
+                unitName = split.unit();
+            }
+        }
+        String normalized = DoseText.ofNumericText(quantity);
+        if (StringUtils.isNotBlank(normalized)) {
+            rx.setQuantity(normalized);
         }
         rx.setUnitName(unitName);
 

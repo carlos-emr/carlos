@@ -250,6 +250,17 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should not repeat a strength when the ingredient name omits its leading zero")
+    void shouldNotRepeatStrength_whenIngredientNameOmitsLeadingZero() throws Exception {
+        request.setParameter("text", "LORAZEPAM .5MG");
+
+        RxPrescriptionData.Prescription staged = stage(combination("TABLET",
+                new String[] {"LORAZEPAM .5MG", ".5", "MG"}));
+
+        assertThat(staged.getGenericName()).isEqualTo("LORAZEPAM .5MG tablet");
+    }
+
+    @Test
     @DisplayName("should not repeat a strength the ingredient's name states with a trailing zero")
     void shouldNotRepeatStrength_whenIngredientNameStatesItWithTrailingZero() throws Exception {
         request.setParameter("text", "SYNTHETIC SINGLE");

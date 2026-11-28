@@ -264,8 +264,8 @@ class RxManagerUnitTest extends RxManagerImpl {
         @ParameterizedTest
         @CsvSource(nullValues = "NULL", value = {
                 "30.0,mL,,mL", "30,mL,,mL", "030,mL,,mL", "2.5,mL,,mL", "100 mL,mL,,mL",
-                "30,mL,60,mL", "2.5,mL,60,mL", "2.5 mL,NULL,60,mL", "3e1,NULL,60,NULL",
-                "NULL,NULL,60,NULL", "-2.5,NULL,60,NULL", "+2.5,NULL,60,NULL"
+                "30,mL,60,mL", "2.5,mL,60,mL", "2.5 mL,NULL,60,mL", "1 bottle (120 mL),NULL,2,bottle (120 mL)",
+                "3e1,NULL,60,NULL", "NULL,NULL,60,NULL", "-2.5,NULL,60,NULL", "+2.5,NULL,60,NULL"
         })
         void shouldKeepDispenseUnit_whenRestEditsSameProduct(String quantity, String unitName, Integer submittedQuantity,
                                                            String expectedUnit) throws Exception {
@@ -293,7 +293,10 @@ class RxManagerUnitTest extends RxManagerImpl {
         }
 
         @ParameterizedTest
-        @org.junit.jupiter.params.provider.ValueSource(strings = {"1/2 mL", "one bottle"})
+        @org.junit.jupiter.params.provider.ValueSource(strings = {
+                "1/2 mL", "one bottle", "1 and 1/2 tablets", "1 to 2 bottles",
+                "2 x 100 mL", "2x100 mL", "1 or 2 boxes", "1 \u00E0 2 flacons"
+        })
         void shouldKeepOriginalPrescription_whenRestCannotRecoverTheDispenseUnit(String quantity) throws Exception {
             Drug stored = new Drug();
             stored.setId(4);

@@ -179,6 +179,15 @@ class BpmhForm2HandlerUnitTest {
     }
 
     @Test
+    void shouldPreserveExtraTextOnQtyLine_whenLegacyEditorWritesRepeatsOnTheirOwnLine() {
+        Drug drug = structuredDrug(1, 1);
+        drug.setSpecial("Take one tablet daily\nQty:7 tablets. Take with food.\nRepeats:0");
+
+        assertThat(formRowFor(drug).getHow())
+                .isEqualTo("Take one tablet daily\nQty:7 tablets. Take with food.\nRepeats:0");
+    }
+
+    @Test
     void shouldUseTheRecordedCdsUnit_whenProductFormAndStrengthDiffer() {
         Drug drug = structuredDrug(5, 5);
         drug.setDosage("10 mg");

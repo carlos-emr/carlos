@@ -157,6 +157,35 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
         assertThat(stored.isPrn()).isTrue();
     }
 
+    @ParameterizedTest(name = "quantity \"{0}\" -> \"{1}\" (ajax={2})")
+    @CsvSource({
+            "30.0, 30, true",
+            ".5, 0.5, true",
+            "1/2, 1/2, true",
+            "30.0, 30, false",
+            ".5, 0.5, false",
+            "1/2, 1/2, false"
+    })
+    @DisplayName("should write plain decimals for pure numeric favourite quantities in both edit paths")
+    void shouldNormalizeNumericQuantity_whenEditingFavorite(String submitted, String expected, boolean ajax) throws Exception {
+        if (ajax) {
+            editParameters(String.valueOf(FAVORITE_ID), "0");
+            request.setParameter("quantity", submitted);
+            assertThat(ajaxEdit()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(204);
+        } else {
+            RxUpdateFavorite2Action action = new RxUpdateFavorite2Action();
+            action.setFavoriteId(String.valueOf(FAVORITE_ID));
+            action.setFavoriteName("renamed");
+            action.setRepeat("0");
+            action.setTakeMin("1");
+            action.setTakeMax("1");
+            action.setQuantity(submitted);
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        }
+        assertThat(stored.getQuantity()).isEqualTo(expected);
+    }
+
     @Test
     @DisplayName("should answer 404 without an NPE when the favourite does not exist")
     void shouldReturnNotFound_whenFavoriteMissing() throws Exception {

@@ -290,6 +290,12 @@ reports a medication-table difference. [carlos-ctl transfer verification](https:
 
 ## Building the rehearsal fixture
 
+`build-o19-fixture.sh` embeds the exact medication `FLOAT` supplement (`export-medication-floats.py`)
+and checks before creating the bundle that a compatible `carlos-ctl` importer (digest format 4 and
+the medication `FLOAT` supplement, tracked in [#6420](https://github.com/carlos-emr/carlos/issues/6420))
+is available in `/usr/lib/carlos-ctl`, `CARLOS_CTL_SRC`, or `--carlos-ctl-dir`. It refuses early
+against the bundled 1.3.6 importer rather than emitting a dump that staging will reject.
+
 ```bash
 scripts/migration/o19/build-o19-fixture.sh \
     --oscar-src /tmp/oscar19 --out /tmp/o19-inputs \

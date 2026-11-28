@@ -316,10 +316,9 @@ public class PDFController {
             _Logger.debug("Filling BPMH PDF field type={}", LogSafe.sanitizeObject(fieldType));
 
             replaceWith = invokeValue(cleanKey);
-            if (instructionNotes.containsKey(cleanKey)) {
-                replaceWith = "See instructions #" + instructionNumber(cleanKey);
-            } else if (continuedFields.contains(cleanKey)) {
-                replaceWith = "See #" + instructionNumber(cleanKey);
+            if (continuedFields.contains(cleanKey)) {
+                replaceWith = (cleanKey.endsWith(".instruction") ? "See instructions #" : "See #")
+                        + instructionNumber(cleanKey);
             }
 
             //count the characters and compare to limit.

@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.utility.DoseText;
+import java.util.Locale;
+import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 
 /*
@@ -112,6 +114,9 @@ public class BpmhDrug {
         return how;
     }
 
+    private static final Set<String> HEADING_STRENGTH_UNITS = Set.of(
+            "mg", "mcg", "g", "ml", "l", "iu", "u", "unit", "units", "%");
+
     /**
      * Sets how to the saved administration directions or to a dose assembled from recorded fields.
      *
@@ -128,8 +133,10 @@ public class BpmhDrug {
         if (hasHeading) {
             text = lineBreak < 0 ? "" : text.substring(lineBreak + 1);
         }
-        text = withoutDispensingFooter(text);
-        if (hasHeading && StringUtils.isNotBlank(pharmacyInstruction)) {
+        String withoutFooter = withoutDispensingFooter(text);
+        boolean hasFooter = !withoutFooter.equals(text);
+        text = withoutFooter;
+        if ((hasHeading || hasFooter) && StringUtils.isNotBlank(pharmacyInstruction)) {
             String pharmacy = pharmacyInstruction.replace("\r\n", "\n").replace('\r', '\n').stripTrailing();
             String body = text.stripTrailing();
             String suffix = "\n" + pharmacy;
@@ -179,23 +186,53 @@ public class BpmhDrug {
     }
 
     private static boolean isDispenseAmount(String line) {
-        boolean quantity = line.startsWith("Qty:");
-        if (!quantity && !line.startsWith("Mitte:")) return false;
+        if (!line.startsWith("Qty:") && !line.startsWith("Mitte:")) return false;
         String amount = line.substring(line.indexOf(':') + 1).stripLeading();
         int numberEnd = DoseText.numberEnd(amount, 0);
-        return numberEnd > 0 && (quantity || amount.substring(numberEnd).strip().codePoints().allMatch(Character::isLetter));
+        return numberEnd > 0 && isDispenseUnit(amount.substring(numberEnd).strip());
     }
 
-    // Possessive digit runs, a single optional space and a fixed unit vocabulary bound the match to linear time.
-    @SuppressFBWarnings(value = "REDOS", justification = "Possessive digit runs, a single optional space and a fixed unit vocabulary bound the match to linear time.")
+    private static boolean isDispenseUnit(String unit) {
+        if (unit.isEmpty()) return true;
+        int wordEnd = lettersEnd(unit);
+        if (wordEnd == 0) return false;
+        if (wordEnd == unit.length()) return true;
+        String rest = unit.substring(wordEnd).stripLeading();
+        if (!rest.startsWith("(") || !rest.endsWith(")")) return false;
+        String container = rest.substring(1, rest.length() - 1).strip();
+        int numberEnd = DoseText.numberEnd(container, 0);
+        if (numberEnd == 0) return false;
+        String containerUnit = container.substring(numberEnd).strip();
+        return !containerUnit.isEmpty() && lettersEnd(containerUnit) == containerUnit.length();
+    }
+
+    private static int lettersEnd(String text) {
+        int index = 0;
+        while (index < text.length()) {
+            int codePoint = text.codePointAt(index);
+            if (!Character.isLetter(codePoint)) break;
+            index += Character.charCount(codePoint);
+        }
+        return index;
+    }
+
     private boolean isMedicationHeading(String first, String name) {
         if (StringUtils.isBlank(name)) return false;
         String heading = first.strip();
-        if (heading.equals(name)) return true;
-        if (!heading.startsWith(name + " ")) return false;
-        String suffix = heading.substring(name.length() + 1);
-        return suffix.equals(getDosage()) || suffix.equals(getDosage().strip() + " " + getUnit().strip())
-                || suffix.matches("[0-9]++(?:\\.[0-9]++)?+ ?(?:mg|mcg|g|mL|%)");
+        String trimmedName = name.strip();
+        if (heading.equals(trimmedName)) return true;
+        if (!heading.startsWith(trimmedName + " ")) return false;
+        String suffix = heading.substring(trimmedName.length() + 1).strip();
+        String normalizedSuffix = suffix.toLowerCase(Locale.ROOT);
+        String dosageText = getDosage().strip();
+        String dosageWithUnit = (dosageText + " " + getUnit().strip()).strip();
+        if (normalizedSuffix.equals(dosageText.toLowerCase(Locale.ROOT))
+                || normalizedSuffix.equals(dosageWithUnit.toLowerCase(Locale.ROOT))) {
+            return true;
+        }
+        int numberEnd = DoseText.numberEnd(suffix, 0);
+        return numberEnd > 0
+                && HEADING_STRENGTH_UNITS.contains(suffix.substring(numberEnd).strip().toLowerCase(Locale.ROOT));
     }
 
     public void setHow(String how) {

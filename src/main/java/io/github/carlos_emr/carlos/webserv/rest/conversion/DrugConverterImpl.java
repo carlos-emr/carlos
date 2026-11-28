@@ -309,7 +309,8 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
         boolean hasStrength = t.getStrengthUnit() != null && t.getStrength() != null;
         // A replacement with missing fields may be echoing an incomplete reading of the
         // stored strength. Let the manager reconcile it with the row it is replacing.
-        if (!hasStrength && (d.getId() != null || !populateTo1Strength(t, d))) {
+        boolean isReplacement = d.getId() != null && d.getId() > 0;
+        if (!hasStrength && (isReplacement || !populateTo1Strength(t, d))) {
             return false;
         }
         d.setDosage(new DrugStrength(t.getStrength(), t.getStrengthUnit()).dosageText());

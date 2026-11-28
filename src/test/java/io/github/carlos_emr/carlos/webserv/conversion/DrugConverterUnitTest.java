@@ -294,6 +294,15 @@ class DrugConverterUnitTest {
         @ParameterizedTest(name = "stored \"{0}\" -> {1} {2}")
         @CsvSource({
             "5 mg / 20 mg, 5, mg",
+            "875 mg / 125 mg, 875, mg",
+            "875mg/125mg, 875, mg",
+            "500mg/125mg, 500, mg",
+            "50mcg/250mcg, 50, mcg",
+            "4g/0.5g, 4, g",
+            "4 g / 0.5 g, 4, g",
+            "2kg/1kg, 2, kg",
+            "5g/5mL, 5, g/5mL",
+            "5kg/5mL, 5, kg/5mL",
             "5mg+20mg, 5, mg",
             "5mg+ .5mg, 5, mg",
             "5 mg + 20 mg, 5, mg",
@@ -308,6 +317,18 @@ class DrugConverterUnitTest {
             "250mg/5ml, 250, mg/5ml",
             "250mg/5mL+20mg, 250, mg/5mL",
             "250mg/5g+20mg, 250, mg/5g",
+            "250 mg / 5 g, 250, mg / 5 g",
+            "20mg/g, 20, mg/g",
+            "20 mg / g, 20, mg / g",
+            "25mcg/hr, 25, mcg/hr",
+            "25 mcg / hr, 25, mcg / hr",
+            "50 mcg / 24 hr, 50, mcg / 24 hr",
+            "100 mcg/actuation, 100, mcg/actuation",
+            "100 mcg / actuation, 100, mcg / actuation",
+            "50 mcg / spray, 50, mcg / spray",
+            "25 mcg / patch, 25, mcg / patch",
+            "5 mg/kg/day, 5, mg/kg/day",
+            "5 mg / 20, 5, mg",
             "250mg/1E+2mL+20mg, 250, mg/1E+2mL",
             "250 mg/5mL, 250, mg/5mL",
             "250 mg/5 mL, 250, mg/5 mL",
@@ -666,6 +687,18 @@ class DrugConverterUnitTest {
 
             assertThat(d.getDosage()).isNull();
             assertThat(d.getUnit()).isNull();
+        }
+
+        @ParameterizedTest(name = "drugId={0}")
+        @ValueSource(ints = {0, -1})
+        void shouldPopulateStrengthFromDrugLookup_whenDrugIdIsNotPositive(int drugId) {
+            DrugTo1 t = restDrug("aspirin");
+            t.setDrugId(drugId);
+
+            Drug d = converter.getAsDomainObject(info, t);
+
+            assertThat(d.getDosage()).isEqualTo("1 mg");
+            assertThat(d.getUnit()).isEqualTo("mg");
         }
 
         @Test

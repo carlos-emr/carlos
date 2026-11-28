@@ -212,6 +212,41 @@ class PDFControllerUnitTest {
         assertThat(continued).doesNotContain("null");
     }
 
+    @Test
+    void shouldKeepEmptyAndShortInstructionCellsOnPageOne_whenOnlyOtherRowFieldsOverflow(@TempDir Path output) throws Exception {
+        BpmhDrug multiReason = new BpmhDrug();
+        multiReason.setWhat("atorvastatin 20 mg tablet");
+        multiReason.setHow("Take 1 tablet daily");
+        multiReason.setWhy("Hyperlipidemia\nCoronary artery disease");
+        multiReason.setInstruction("");
+
+        BpmhDrug taperWithShortNote = new BpmhDrug();
+        taperWithShortNote.setWhat("prednisone 5 mg tablet");
+        taperWithShortNote.setHow("Take 4 tablets daily for 3 days\nThen take 2 tablets daily for 3 days");
+        taperWithShortNote.setWhy("Asthma flare");
+        taperWithShortNote.setInstruction("With food");
+
+        data.setDrugs(new ArrayList<>(List.of(multiReason, taperWithShortNote)));
+        data.setNote("FAKE preserved note");
+        pdfController.setContinueInstructions(true);
+        pdfController.setOutputPath(output.toString());
+        pdfController.writeDataToPDF(data, new String[]{"1"}, "FAKE-UNIT");
+        byte[] bytes = Files.readAllBytes(Path.of(pdfController.getOutputPath()));
+
+        try (var pdf = Loader.loadPDF(bytes)) {
+            assertThat(pdf.getNumberOfPages()).isEqualTo(2);
+            PDFTextStripper first = new PDFTextStripper();
+            first.setEndPage(1);
+            String pageOne = first.getText(pdf);
+            assertThat(pageOne).contains("See #1", "See #2", "With food")
+                    .doesNotContain("See instructions #1")
+                    .doesNotContain("See instructions #2");
+        }
+        String continued = continuationTextAndCheckGeometry(bytes);
+        assertThat(continued).contains("Hyperlipidemia", "Coronary artery disease",
+                "Take 4 tablets daily for 3 days", "Then take 2 tablets daily for 3 days", "With food");
+    }
+
     private byte[] renderInstructions(Path output, List<String> instructions, boolean continueInstructions) throws IOException {
         List<BpmhDrug> drugs = new ArrayList<>();
         for (int i = 0; i < instructions.size(); i++) {

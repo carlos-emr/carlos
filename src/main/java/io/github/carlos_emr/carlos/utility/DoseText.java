@@ -144,10 +144,10 @@ public final class DoseText {
      * that may differ only in how a number was written.
      *
      * <p>Until #6185 the product strength was stored with DrugRef's trailing zero in the generic
-     * name and the dosage of a prescription ("amoxicillin 250.0mg capsule", "250.0mg"); since then
-     * it is stored without ("amoxicillin 250mg capsule", "250mg"). Both name the same product, and
-     * both give the same text here, as do "1.0E7unit" and "10000000unit". Different strengths stay
-     * different: "250mg", "25mg" and "2.5mg" are unchanged.
+     * name and the dosage of a prescription ("amoxicillin 250.0mg capsule", "250.0mg"), or without
+     * a leading zero (".5mg"); since then it is stored as a plain decimal ("250mg", "0.5mg"). Both
+     * name the same product, and both give the same text here, as do "1.0E7unit" and "10000000unit".
+     * Different strengths stay different: "250mg", "25mg" and "2.5mg" are unchanged.
      *
      * <p>This is for comparison. Text shown to a person is shown as it is stored.
      *
@@ -184,12 +184,15 @@ public final class DoseText {
 
     /**
      * The index after a number with a fraction or exponent that starts at {@code index}
-     * ("250.0", "1.0E7", "1E7"). Returns {@code index} for text that starts with a non-digit
-     * or with a whole number that needs no decimal normalization.
+     * ("250.0", ".5", "1.0E7", "1E7"). Returns {@code index} for text that starts with a
+     * non-number or with a whole number that needs no decimal normalization.
      */
     private static int decimalEnd(String text, int index) {
         int integerEnd = digitsEnd(text, index);
         if (integerEnd == index) {
+            if (isFractionAt(text, index) && canStartLeadingFraction(text, index)) {
+                return exponentEnd(text, digitsEnd(text, index + 1));
+            }
             return index;
         }
         if (isFractionAt(text, integerEnd)) {
@@ -197,6 +200,15 @@ public final class DoseText {
         }
         int end = exponentEnd(text, integerEnd);
         return end == integerEnd ? index : end;
+    }
+
+    /** A leading decimal point starts a number only when not attached to a word, digit or dot. */
+    private static boolean canStartLeadingFraction(String text, int index) {
+        if (index == 0) {
+            return true;
+        }
+        int before = text.codePointBefore(index);
+        return !Character.isLetterOrDigit(before) && before != '.';
     }
 
     /**

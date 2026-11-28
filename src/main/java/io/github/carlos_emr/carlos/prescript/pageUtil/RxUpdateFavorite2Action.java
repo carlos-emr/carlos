@@ -37,6 +37,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -94,7 +95,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         fav.setFrequencyCode(this.getFrequencyCode());
         fav.setDuration(this.getDuration());
         fav.setDurationUnit(this.getDurationUnit());
-        fav.setQuantity(this.getQuantity());
+        fav.setQuantity(DoseText.ofNumericText(this.getQuantity()));
         fav.setRepeat(repeatCount);
         fav.setNosubs(this.getNosubs());
         fav.setPrn(this.getPrn());
@@ -139,7 +140,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         fav.setFrequencyCode(request.getParameter("frequencyCode"));
         fav.setDuration(request.getParameter("duration"));
         fav.setDurationUnit(request.getParameter("durationUnit"));
-        fav.setQuantity(request.getParameter("quantity"));
+        fav.setQuantity(DoseText.ofNumericText(request.getParameter("quantity")));
         fav.setRepeat(repeatCount);
         fav.setNosubs("true".equalsIgnoreCase(request.getParameter("nosubs")));
         fav.setPrn("true".equalsIgnoreCase(request.getParameter("prn")));

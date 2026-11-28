@@ -248,6 +248,71 @@ class BpmhDrugUnitTest {
         assertThat(drug.toString()).isEqualTo("BpmhDrug[protected]");
     }
 
+    @Test
+    void shouldPreserveUnrecognizedText_whenFooterLineContainsPatientDirections() {
+        drug.setSpecial("Take one tablet daily\nQty:7 tablets. Take with food.\nRepeats:0");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Take one tablet daily\nQty:7 tablets. Take with food.\nRepeats:0");
+
+        drug.setSpecial("Take one tablet daily\nQty:7 tablets. Take with food. Repeats:0");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Take one tablet daily\nQty:7 tablets. Take with food. Repeats:0");
+
+        for (String malformedFooter : java.util.List.of(
+                "Take daily\nQty:30. tabs Repeats:0",
+                "Take daily\nQty:1 bottle (120 mL Repeats:0",
+                "Take daily\nQty:1 bottle (large) Repeats:0",
+                "Take daily\nQty:1 bottle (120) Repeats:0",
+                "Take daily\nQty:1 bottle (120 mL.) Repeats:0")) {
+            drug.setSpecial(malformedFooter);
+            drug.usePrescriptionDirections(null, null, null);
+            assertThat(drug.getHow()).isEqualTo(malformedFooter);
+        }
+    }
+
+    @Test
+    void shouldStripContainerUnitsAndPharmacyNotes_whenHeadingsOrFootersArePresent() {
+        drug.setSpecial("AMOXICILLIN\nTake 5 mL TID\nDispense oral syringe\nQty:1 bottle (120 mL) Repeats:0");
+        drug.usePrescriptionDirections("AMOXICILLIN", "Dispense oral syringe", null);
+        assertThat(drug.getHow()).isEqualTo("Take 5 mL TID");
+
+        drug.setSpecial("AMOXICILLIN\nTake 5 mL TID\nDispense oral syringe\nMitte:1 bottle (120 mL) Repeats:0");
+        drug.usePrescriptionDirections("AMOXICILLIN", "Dispense oral syringe", null);
+        assertThat(drug.getHow()).isEqualTo("Take 5 mL TID");
+
+        drug.setDosage("250mg");
+        drug.setUnit("mg");
+        drug.setSpecial("AMOXICILLIN 250 MG\nTake 1 capsule PO TID\nDispense in blister pack\nQty:21 Repeats:0");
+        drug.usePrescriptionDirections("AMOXICILLIN", "Dispense in blister pack", null);
+        assertThat(drug.getHow()).isEqualTo("Take 1 capsule PO TID");
+
+        drug.setDosage("1000iu");
+        drug.setUnit("IU");
+        drug.setSpecial("VITAMIN D 1000 IU\nTake 1 tablet daily\nFax renewal to clinic\nQty:90 Repeats:3");
+        drug.usePrescriptionDirections("VITAMIN D", "Fax renewal to clinic", null);
+        assertThat(drug.getHow()).isEqualTo("Take 1 tablet daily");
+
+        drug.setDosage("");
+        drug.setUnit("");
+        drug.setSpecial("Synthetic 5 drops daily");
+        drug.usePrescriptionDirections("Synthetic", null, null);
+        assertThat(drug.getHow()).isEqualTo("Synthetic 5 drops daily");
+
+        drug.setSpecial("Take 1 tablet daily\nDispense in blister pack\nQty:30 Repeats:0");
+        drug.usePrescriptionDirections(null, "Dispense in blister pack", null);
+        assertThat(drug.getHow()).isEqualTo("Take 1 tablet daily");
+
+        drug.setSpecial("Take with food");
+        drug.usePrescriptionDirections(null, "Take with food", null);
+        assertThat(drug.getHow()).isEqualTo("Take with food");
+
+        BpmhDrug direct = new BpmhDrug();
+        direct.setGenericName("atorvastatin 20mg tablet");
+        direct.setSpecial("LIPITOR\nTake 1 tablet daily\nDo not crush\nQty:30 Repeats:0");
+        direct.setSpecial_instruction("Do not crush");
+        assertThat(direct.getHow()).isEqualTo("LIPITOR\nTake 1 tablet daily");
+    }
+
     @Nested
     @DisplayName("instruction property")
     class InstructionProperty {

@@ -6,6 +6,8 @@ package io.github.carlos_emr.carlos.prescript.util;
 
 import io.github.carlos_emr.carlos.utility.DoseText;
 
+import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -18,23 +20,34 @@ public record DrugStrength(Float amount, String unit) {
 
     private static final DrugStrength UNKNOWN = new DrugStrength(null, null);
     private static final int UNIT_FLAGS = Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS;
-    private static final Pattern UNIT_AFTER_NUMBER =
-            Pattern.compile("\\s*+(international\\s++units?\\b|[\\p{L}%]++)\\S*+", UNIT_FLAGS);
-    // A volume denominator can contain spaces on either side of the slash or its amount.
-    // A second ingredient such as "5 mg / 20 mg" still ends the first ingredient's unit.
-    private static final Pattern PER_VOLUME = Pattern.compile("\\s*+(?:/|per\\b)\\s*+", UNIT_FLAGS);
-    private static final Pattern VOLUME_UNIT =
-            Pattern.compile("\\s*+(?:[mµμun]?l|(?:milli|micro)?lit(?:er|re)s?)\\b\\S*+", UNIT_FLAGS);
-    // A plus can belong to the unit or to an exponent. It separates ingredients when it introduces another amount.
-    private static final Pattern INGREDIENT_SEPARATOR =
-            Pattern.compile("[,;]|(?<![0-9]e)\\+(?=\\s*+(?:[0-9]|\\.[0-9]))", UNIT_FLAGS);
+    // Matches only the primary unit token (retaining a trailing '+' such as "e+" when not followed by a number).
+    private static final Pattern UNIT_AFTER_NUMBER = Pattern.compile(
+            "\\s*+(international\\s++units?\\b|[\\p{L}%]++(?:\\+(?!\\s*+(?:[0-9]|\\.[0-9])))?+)", UNIT_FLAGS);
+    // A concentration or delivery-rate denominator can have spaces around '/' or 'per',
+    // while a second active ingredient such as "875mg/125mg" or "875 mg / 125 mg" stops at the first unit.
+    private static final Pattern PER_DENOMINATOR = Pattern.compile("\\s*+(?:/|per\\b)\\s*+", UNIT_FLAGS);
+    private static final Pattern DENOMINATOR_TOKEN = Pattern.compile("\\s*+([\\p{L}\\u00B22]++)(?!\\p{Nd})", UNIT_FLAGS);
+    private static final Set<String> GRAM_UNITS = Set.of("g", "gm", "gram", "grams");
+    private static final Set<String> DENOMINATOR_UNITS = Set.of(
+            "l", "ml", "ul", "\u00B5l", "\u03BCl", "nl", "liter", "liters", "litre", "litres",
+            "milliliter", "milliliters", "millilitre", "millilitres",
+            "microliter", "microliters", "microlitre", "microlitres", "cc",
+            "g", "gm", "gram", "grams", "kg",
+            "h", "hr", "hrs", "hour", "hours", "min", "mins", "minute", "minutes",
+            "sec", "secs", "day", "days", "wk", "wks", "week", "weeks",
+            "m2", "m\u00B2", "cm2", "cm\u00B2",
+            "act", "actuation", "actuations", "dose", "doses", "puff", "puffs",
+            "spray", "sprays", "inh", "inhalation", "inhalations",
+            "patch", "patches", "drop", "drops", "gtt",
+            "vial", "vials", "amp", "amps", "ampoule", "ampoules",
+            "syringe", "syringes", "sachet", "sachets", "packet", "packets");
 
     /**
      * Reads the leading strength from stored dosage text. For a combination it returns the first
-     * component, and for a concentration it keeps a unit such as {@code mg/5 mL} intact.
-     * A leading number followed by another number before the unit is ambiguous, for example
-     * {@code 1,000 mg}, {@code 1½ mg}, or {@code 5-10 mg}. A unit with no amount is kept whole
-     * when it starts the text, as in {@code mg/5mL}.
+     * component, and for a concentration or delivery rate it keeps units such as {@code mg/5 mL},
+     * {@code mg / 5 g}, or {@code mcg / hr} intact. A leading number followed by another number
+     * before the unit is ambiguous, for example {@code 1,000 mg}, {@code 1½ mg}, or {@code 5-10 mg}.
+     * A unit with no amount is kept whole when it starts the text, as in {@code mg/5mL}.
      */
     public static DrugStrength fromDosage(String dosage) {
         if (dosage == null) {
@@ -57,22 +70,38 @@ public record DrugStrength(Float amount, String unit) {
         if (!unitMatch.lookingAt()) {
             return new DrugStrength(strength, null);
         }
-        int unitEnd = unitMatch.end();
-        Matcher separator = PER_VOLUME.matcher(text).region(unitMatch.end(1), text.length());
-        if (separator.lookingAt()) {
-            int amountEnd = DoseText.numberEnd(text, separator.end());
-            Matcher volume = VOLUME_UNIT.matcher(text).region(amountEnd, text.length());
-            if (volume.lookingAt()) unitEnd = Math.max(unitEnd, volume.end());
+        int unitStart = unitMatch.start(1);
+        int unitEnd = unitMatch.end(1);
+        String baseUnit = text.substring(unitStart, unitEnd);
+        while (unitEnd < text.length()) {
+            Matcher separator = PER_DENOMINATOR.matcher(text).region(unitEnd, text.length());
+            if (!separator.lookingAt()) {
+                break;
+            }
+            int amountStart = separator.end();
+            int amountEnd = DoseText.numberEnd(text, amountStart);
+            Matcher denominator = DENOMINATOR_TOKEN.matcher(text).region(amountEnd, text.length());
+            if (!denominator.lookingAt()) {
+                break;
+            }
+            String denomUnit = denominator.group(1);
+            if (!DENOMINATOR_UNITS.contains(denomUnit.toLowerCase(Locale.ROOT))) {
+                break;
+            }
+            // Same-unit mass pairs with a second amount (e.g., "4g/0.5g") name a second ingredient.
+            if (amountEnd > amountStart && isSameMassUnit(baseUnit, denomUnit)) {
+                break;
+            }
+            unitEnd = denominator.end();
         }
-        Matcher nextIngredient = INGREDIENT_SEPARATOR.matcher(text).region(unitMatch.end(1), text.length());
-        if (nextIngredient.find() && nextIngredient.start() < unitEnd) {
-            unitEnd = nextIngredient.start();
-        }
-        // A trailing slash may be attached to the first unit before the next ingredient.
-        while (text.charAt(unitEnd - 1) == '/') {
-            unitEnd--;
-        }
-        return new DrugStrength(strength, text.substring(unitMatch.start(1), unitEnd));
+        return new DrugStrength(strength, text.substring(unitStart, unitEnd));
+    }
+
+    private static boolean isSameMassUnit(String baseUnit, String denomUnit) {
+        String base = baseUnit.toLowerCase(Locale.ROOT);
+        String denom = denomUnit.toLowerCase(Locale.ROOT);
+        return (GRAM_UNITS.contains(base) && GRAM_UNITS.contains(denom))
+                || ("kg".equals(base) && "kg".equals(denom));
     }
 
     /** Distinguishes underflow from a written zero in a number already recognized by DoseText. */

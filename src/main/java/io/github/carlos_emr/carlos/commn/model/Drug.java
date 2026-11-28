@@ -38,6 +38,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Locale;
+import java.util.Set;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -585,14 +586,35 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         if (source.startDateUnknown == null && !getStartDateUnknown()) startDateUnknown = null;
     }
 
+    private static final Set<String> QUANTITY_CONNECTIVES = Set.of(
+            "and", "to", "or", "thru", "through", "plus", "minus", "by", "x", "et", "ou", "a", "\u00E0");
+
     private static String embeddedDispenseUnit(String storedQuantity) {
         String text = StringUtils.stripToEmpty(storedQuantity);
         int amountStart = text.startsWith("+") || text.startsWith("-") ? 1 : 0;
         int amountEnd = DoseText.numberEnd(text, amountStart);
         String suffix = text.substring(amountEnd).stripLeading();
         if (suffix.isEmpty()) return null;
-        if (amountEnd > amountStart && Character.isLetter(suffix.codePointAt(0))) return suffix;
+        if (amountEnd > amountStart && isEmbeddedDispenseUnit(suffix)) return suffix;
         throw new IllegalArgumentException("The stored dispense unit could not be determined");
+    }
+
+    /**
+     * Reports whether the text following a leading decimal quantity names a dispense unit rather than
+     * a fraction, range or multiplier (such as {@code "/2 bottle"}, {@code "and 1/2 tablets"},
+     * {@code "to 2 bottles"}, or {@code "x 100 mL"}).
+     *
+     * @param suffix String text immediately following the leading decimal amount, already stripped of leading blanks
+     * @return boolean {@code true} when {@code suffix} starts with a unit word rather than a quantity connective
+     */
+    public static boolean isEmbeddedDispenseUnit(String suffix) {
+        int wordEnd = 0;
+        while (wordEnd < suffix.length()) {
+            int codePoint = suffix.codePointAt(wordEnd);
+            if (!Character.isLetter(codePoint)) break;
+            wordEnd += Character.charCount(codePoint);
+        }
+        return wordEnd > 0 && !QUANTITY_CONNECTIVES.contains(suffix.substring(0, wordEnd).toLowerCase(Locale.ROOT));
     }
 
     /**

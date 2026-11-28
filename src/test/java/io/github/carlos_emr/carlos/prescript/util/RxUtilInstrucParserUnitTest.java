@@ -975,15 +975,28 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertThat(rx.getUnitName()).isNull();
         }
 
-        /** A quantity typed with its own unit leaves the duration incalculable; the unit is the unit alone. */
+        /** A quantity typed with its own unit leaves the duration incalculable; the unit is split off cleanly. */
         @Test
-        @DisplayName("should keep only the unit of a decimal quantity typed with a unit")
+        @DisplayName("should separate the plain amount and unit when a decimal quantity is typed with a unit")
         void shouldKeepOnlyTheUnit_whenDecimalQuantityIsTypedWithUnit() {
             RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 2.5 mL po bid");
             rx.setQuantity("2.5 mL");
 
             assertThat(RxUtil.findDuration(rx)).isNull();
+            assertThat(rx.getQuantity()).isEqualTo("2.5");
             assertThat(rx.getUnitName()).isEqualTo("mL");
+        }
+
+        @ParameterizedTest(name = "ambiguous quantity \"{0}\"")
+        @ValueSource(strings = {"1/2", "1/2 bottle", "1 to 2 bottles"})
+        @DisplayName("should derive no duration or invented unit for fractional or range quantities")
+        void shouldLeaveAmbiguousQuantityUnmodified_whenDerivingDuration(String typed) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab po bid");
+            rx.setQuantity(typed);
+
+            assertThat(RxUtil.findDuration(rx)).isNull();
+            assertThat(rx.getQuantity()).isEqualTo(typed);
+            assertThat(rx.getUnitName()).isNull();
         }
 
         /** Periodic frequencies divide by their exact interval, so three doses every three months last nine months. */
