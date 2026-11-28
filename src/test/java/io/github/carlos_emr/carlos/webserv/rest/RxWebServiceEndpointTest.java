@@ -156,6 +156,7 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
 
     private static Stream<Arguments> replacementsWithoutRequiredFlags() {
         return Stream.of(
+                Arguments.of(MediaType.APPLICATION_JSON, "null", "archived, prn"),
                 Arguments.of(MediaType.APPLICATION_JSON, """
                         {"instructions":"synthetic private text"}
                         """, "archived, prn"),
@@ -179,7 +180,7 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
     void shouldRejectUpdateBeforeConversion_whenRequiredFlagsAreMissing(String mediaType, String body, String fields) {
         try (LogCapture logs = LogCapture.forLogger(RxWebService.class);
              Response response = request().path("/rx/update").query("demographicNo", "100")
-                     .type(mediaType).accept(mediaType).post(body)) {
+                     .type(mediaType).replaceHeader("Accept", mediaType).post(body)) {
             assertThat(response.getStatus()).isEqualTo(400);
             assertThat(response.getMediaType().isCompatible(MediaType.valueOf(mediaType))).isTrue();
             DrugResponse failure = response.readEntity(DrugResponse.class);
@@ -214,7 +215,7 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
         when(mockDrugConverter.getAsTransferObject(any(), eq(replacement))).thenReturn(aspirinTransfer());
 
         try (Response response = request().path("/rx/update").query("demographicNo", "100")
-                .type(mediaType).accept(mediaType).post(body)) {
+                .type(mediaType).replaceHeader("Accept", mediaType).post(body)) {
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(response.getMediaType().isCompatible(MediaType.valueOf(mediaType))).isTrue();
             DrugResponse success = response.readEntity(DrugResponse.class);
