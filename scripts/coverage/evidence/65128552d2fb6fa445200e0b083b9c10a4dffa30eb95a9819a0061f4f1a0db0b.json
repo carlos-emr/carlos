@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "beac938b9f6385837d460da106bf177f5b4de5cd",
+  "comparisonSha256": "f0306f6a93f9644a622116ae987b1de392f1a867d8d71617e999d7bf122f012c",
+  "baselineCommit": "f39db80932e955ef9ce10ec589c382998d033cba",
+  "baselineSourceTree": "beac938b9f6385837d460da106bf177f5b4de5cd",
+  "baselineReportSha256": "6a4893646101eb73c38430e792bccd5e1c9c02431e613a3ac75056a9deb451d5",
+  "baselineLane": "Focused Java 25 dashboard, persistence, authorization and submission guard tests",
+  "baselineTestCounts": {
+    "tests": 404,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "fdceb753b7fdaf207cf607a772865328c207760e5d215ceb8c513837bdb84a58",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/dashboard/admin/DashboardManager2Action.java": {
+      "lines": 100.0,
+      "instructions": 99.10714285714286,
+      "branches": 92.3076923076923,
+      "sourceBlob": "01d52a8133ee5107dcc0d38fe97c35481c05aad3"
+    }
+  }
+}

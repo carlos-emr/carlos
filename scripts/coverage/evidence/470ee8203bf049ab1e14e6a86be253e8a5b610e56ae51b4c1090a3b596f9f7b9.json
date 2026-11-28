@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "47315f3f14144da87026a005bad5cdab30005c2d",
+  "comparisonSha256": "bc3135ed172628718b50d930e6c76b6f9421f9b5f850e552f60c8bf205c4720f",
+  "baselineCommit": "0cdd6542e85ab1f2bb2b00b998dc7937247c4a5b",
+  "baselineSourceTree": "47315f3f14144da87026a005bad5cdab30005c2d",
+  "baselineReportSha256": "89f0b201b0eee705239dc7671df98868dded12a5835b3d3305c9ec4caf12fba6",
+  "baselineLane": "Java 25 focused dashboard, real Jasper rendering, persistence, HTTP guards and submission recovery tests during Maven package; supplemental shared-dashboard provider-context and CSV export tests against the same compiled sources",
+  "baselineTestCounts": {
+    "tests": 466,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "01faaf7d0f18a21e4bd8f7e8c9c7d495cf119ac77a35672e627a07f11803c8da",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/dashboard/admin/DashboardManager2Action.java": {
+      "lines": 100.0,
+      "instructions": 99.56140350877193,
+      "branches": 93.75,
+      "sourceBlob": "9d6cd5eb95eb05804213f4641802820ec4ae0c9b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DashboardManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "aa20c0b9ed7c54898fc43e67115b8ecf5dc633c8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DashboardManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "31ea613fe7ac1f3bd0fecbedc2df33d04523c8ed"
+    }
+  }
+}

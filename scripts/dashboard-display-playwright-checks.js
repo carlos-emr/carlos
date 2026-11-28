@@ -14,9 +14,9 @@
  * recorded (their exact HTTP failure/console error consumed) and asserted together in the last
  * step, so every provable step is proven first; the check fails while any of them stands.
  *
- * Fixtures: no dashboard ships with the demo data and the Dashboard Manager the
- * Administration menu links to has no route, so the dashboard and one indicator
- * template are seeded by SQL. A throwaway login (lib/throwaway-login-fixture.js)
+ * Fixtures: no dashboard ships with the demo data, so this display check seeds
+ * its dashboard and indicator template by SQL. Dashboard administration is covered
+ * by dashboard-manager-playwright-checks.js. A throwaway login (lib/throwaway-login-fixture.js)
  * holds per-provider _dashboardDisplay/_dashboardDrilldown/_dashboardManager grants
  * (no role holds them on the demo data); its three FAKE- patients are the
  * indicator's whole "loggedInProvider" scope. Cleanup removes the grants, the

@@ -28,6 +28,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.managers;
 
@@ -87,11 +88,24 @@ public interface DashboardManager {
      */
     boolean addDashboard(LoggedInInfo loggedInInfo, Dashboard dashboard);
 
+    /** Save an edit from an administration form whose revision was issued with the displayed row. */
+    boolean addDashboard(LoggedInInfo loggedInInfo, Dashboard dashboard, String revision);
+
     /**
-     * Toggles the Dashboard active boolean switch. True for active, false for not
-     * active.
+     * Set the active state of an unlocked dashboard. Requires dashboard write access.
+     *
+     * @param loggedInInfo LoggedInInfo identifying the caller whose write privilege is checked
+     * @param dashboardId int identifier of the dashboard to update
+     * @param state Boolean desired active state, never null: true for active, false for inactive
      */
     void toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state);
+
+    /**
+     * Accept a status form only if its revision is current or the desired status already holds.
+     *
+     * @return true when accepted; false for denied access, a locked/missing dashboard or a stale change
+     */
+    boolean toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state, String revision);
 
     /**
      * Retrieves an XML file from a servlet request object and then saves it to

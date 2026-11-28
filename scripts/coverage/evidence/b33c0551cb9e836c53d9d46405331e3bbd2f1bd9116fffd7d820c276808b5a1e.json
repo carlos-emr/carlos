@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "1e30a3382a1b41a3693488f797281f54c4f2798a",
+  "comparisonSha256": "7d96df4d3239b528397d9a9b4c9604cd3b20f1b0175b7290e2b6aed039adee06",
+  "baselineCommit": "606436fc57e0272804beb5783eb26faf0e2b98c1",
+  "baselineSourceTree": "1e30a3382a1b41a3693488f797281f54c4f2798a",
+  "baselineReportSha256": "4a83fb2414c8c147ac209b03a42b2b7d55ace0cc5fb009c6d4d9201802c6dae9",
+  "baselineLane": "Focused Java 25 dashboard, audit purge, HTTP method guard and locale tests",
+  "baselineTestCounts": {
+    "tests": 366,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "a344d016e7e8a276cc50afd1b7590466064b1a140a0609c911650ff7f8296bb0",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.admin.web.AuditLogPurgeActionUnitTest",
+    "io.github.carlos_emr.carlos.app.HttpMethodGuardFilterUnitTest",
+    "io.github.carlos_emr.carlos.app.contract.MutatorActionGetRejectionContractUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.DashboardDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.dashboard.admin.DashboardManager2ActionUnitTest",
+    "io.github.carlos_emr.carlos.i18n.OscarResourcesBundleParseTest",
+    "io.github.carlos_emr.carlos.managers.DashboardManagerAdministrationUnitTest"
+  ],
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/app/HttpMethodGuardFilter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d48d89db7157817f3f8619dbbb32f4a1be3a1c02"
+    }
+  }
+}
