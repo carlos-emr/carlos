@@ -735,27 +735,46 @@
             // patient-scoped list keeps its own channel. Each list listens on exactly one, so a
             // save reloads it once (#4993).
             var ticklerChannel = null;
+            function reloadTicklerList() {
+                if (typeof ticklerResultsTable !== 'undefined' && ticklerResultsTable) {
+                    ticklerResultsTable.ajax.reload(null, false);
+                } else {
+                    location.reload();
+                }
+            }
             function onTicklerRefresh(event) {
                 var data = event.data;
                 if (data && (data === 'refresh' || data.action === 'refresh')) {
-                    if (typeof ticklerResultsTable !== 'undefined' && ticklerResultsTable) {
-                        ticklerResultsTable.ajax.reload(null, false);
-                    } else {
-                        location.reload();
-                    }
+                    reloadTicklerList();
                 }
             }
-            try {
-                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= isDemoView ? demographic_no : "all" %>' context="javaScript"/>');
-                ticklerChannel.onmessage = onTicklerRefresh;
-                ticklerChannel.onmessageerror = function(event) {
-                    console.error('[ticklerMain] BroadcastChannel message deserialization error:', event);
-                };
-            } catch (e) {
-                console.warn('[ticklerMain] BroadcastChannel not available:', e);
+            function openTicklerChannel() {
+                try {
+                    ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= isDemoView ? demographic_no : "all" %>' context="javaScript"/>');
+                    ticklerChannel.onmessage = onTicklerRefresh;
+                    ticklerChannel.onmessageerror = function(event) {
+                        console.error('[ticklerMain] BroadcastChannel message deserialization error:', event);
+                    };
+                } catch (e) {
+                    console.warn('[ticklerMain] BroadcastChannel not available:', e);
+                }
             }
-            window.addEventListener('unload', function() {
-                if (ticklerChannel) { ticklerChannel.close(); }
+            openTicklerChannel();
+            // Close the channel on pagehide, never unload: Chromium refuses unload listeners (on every
+            // page load from Chrome 155) and logs a console error for each one (#6346). pagehide also
+            // runs when the page enters the back/forward cache, where the closed channel misses saves,
+            // so a restored page reopens its one channel and reloads the list once.
+            window.addEventListener('pagehide', function () {
+                if (ticklerChannel) {
+                    ticklerChannel.close();
+                    ticklerChannel = null;
+                }
+            });
+            window.addEventListener('pageshow', function (event) {
+                if (event.persisted && !ticklerChannel) {
+                    openTicklerChannel();
+                    reloadTicklerList();
+                }
             });
 
         </script>
