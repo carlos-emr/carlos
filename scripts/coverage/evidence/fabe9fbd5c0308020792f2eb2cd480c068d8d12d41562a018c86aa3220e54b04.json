@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "977e3e1ed57339610abf870de158aa920ce0ce6e",
+  "comparisonSha256": "a3b2a91fffa2d8bc91c998ba2d635ca8ae8e21032baa0989684645ac18bf60d8",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/bean/BpmhDrug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "43391c2dc531fa74627940774e33c1a74a2fbaba"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/business/BpmhForm2Handler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "41ec1ab277ea5231fb0e7ce9f0c8a26a15152bba"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxUpdateFavorite2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9a92f77c91ccfe651c704e2806057a4d468c753e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2Action.java": {
+      "lines": 89.55223880597015,
+      "instructions": 88.17498291182501,
+      "branches": 80.55555555555556,
+      "sourceBlob": "01b473d36e90503226a74e73df3c2202391b16ab"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugStrength.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 98.57142857142857,
+      "sourceBlob": "b2f4846248bee9839ca511529473d3a9f2529598"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/RxUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "af4525ee6f028751881617bddf107a5bb20c090c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/FavoriteConverterImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6b067407fab528c722af4ee0968fe372c52c11e7"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "a8eeadd36fc8510a44b6d78a5646446681c9026e",
+  "baselineSourceTree": "977e3e1ed57339610abf870de158aa920ce0ce6e",
+  "baselineReportSha256": "39bd1d090e32decf3305fe7aace42f83a734022eb79a03f0dfcac5032cc9bf4c",
+  "baselineLane": "PR #6367 focused JDK 25 Maven unit tests covering the 3-pass review fixes across DoseText, Drug, DrugStrength, BPMH, REST converters, CDS lookup, RxUtil, RxWriteScript2Action, RxRePrescribe2Action, and RxUpdateFavorite2Action.",
+  "baselineTestCounts": {
+    "tests": 1748,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "d7b6430ce37644ed136ef9a81383a28325081221639deb53fa591458ae0cc040",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the final Surefire TEST-*.xml reports, with one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "a8eeadd36fc8510a44b6d78a5646446681c9026e",
+  "baselineAdditionalTestRuns": []
+}
