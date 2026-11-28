@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "908a537fb326e3aea860ce43c081ff62b79d2f16",
+  "comparisonSha256": "542893e22d88c7bf2873e49fbaaa100e1d88dcc00cac71b319b08120d90fb819",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "43ab3211e732c7e79728df5a64a80984f3054676"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/bean/BpmhDrug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "14a7d35cdac137f3b9d1b42d274177245ecab3e6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/business/BpmhForm2Handler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "acc70e6652ea966a8350bf3a5a1ac21fe4ae65ca"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugStrength.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 98.21428571428571,
+      "sourceBlob": "6624fcb9e43cbf3ba946bb7316415924b9412e03"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/RxUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "dedf0567f5bf1faef876181bb86f10a2b1714fa1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/DoseText.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "bf9937cb75a1a6db4360a93bb692fc01d9734033"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "6ebd9e262892192d6cf32d175c58e0f84e8ebc14",
+  "baselineSourceTree": "908a537fb326e3aea860ce43c081ff62b79d2f16",
+  "baselineReportSha256": "6f17bff580118d1d50adb1c97b508df7889c2ea06957748a81ef159058406d12",
+  "baselineLane": "PR #6367 focused JDK 25 Maven unit and H2 integration tests with a renal dosing and REST control retake using the same production classes. Counts describe the final Surefire XML reports.",
+  "baselineTestCounts": {
+    "tests": 3064,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "3596e597e90ab497ad10b92276d5d013af39188c8f3367dda8acd1e54a2b9ced",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the final Surefire TEST-*.xml reports, with one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "6ebd9e262892192d6cf32d175c58e0f84e8ebc14",
+  "baselineAdditionalTestRuns": []
+}
