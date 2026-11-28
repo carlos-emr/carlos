@@ -300,6 +300,52 @@ class OAuthInterceptorScopeEnforcementUnitTest {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0} {1} with {2} -> allowed={3}")
+    @org.junit.jupiter.params.provider.CsvSource({
+        "POST,/services/measurements/123,measurement.read,true",
+        "POST,/services/measurements/123.json,measurement.read,true",
+        "POST,/services/measurements/123/new,measurement.read,false",
+        "POST,/services/measurements/123/new.json,measurement.read,false",
+        "POST,/services/measurements/123/new/,measurement.read,false",
+        "POST,/services/measurements/123/NEW,measurement.read,false",
+        "POST,/services/measurements/update,measurement.read,false",
+        "POST,/services/measurements/123/new,measurement.write,true",
+        "POST,/services/measurements/123/new,demographic.write,false"
+    })
+    @DisplayName("should require measurement.write for a new measurement and keep the patient read on measurement.read")
+    void shouldEnforceMeasurementScopes_whenMeasurementEndpointRequested(String method, String pathInfo, String scope,
+            boolean allowed) {
+        enableEnforcement();
+        OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting(scope));
+        MockHttpServletRequest request = servletRequest(method, pathInfo);
+
+        Message message = messageWith(request);
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(message), Fault.class);
+
+        if (allowed) {
+            assertThat(fault).isNull();
+            assertThat(request.getAttribute(new LoggedInInfo().getLoggedInInfoKey())).isInstanceOf(LoggedInInfo.class);
+        } else {
+            assertThat(fault).isNotNull();
+            assertThat(fault.getStatusCode()).isEqualTo(403);
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse a new measurement under restricted legacy access even with measurement.write")
+    void shouldRaiseFault_withHttp403ForNewMeasurementUnderRestrictedLegacyAccess() {
+        legacyMode("restricted");
+        OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("measurement.write"));
+        MockHttpServletRequest request = servletRequest("POST", "/services/measurements/123/new");
+
+        Message message = messageWith(request);
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(message), Fault.class);
+
+        assertThat(fault).isNotNull();
+        assertThat(fault.getStatusCode()).isEqualTo(403);
+        assertThat(fault.getCause()).hasMessage("restricted_endpoint");
+    }
+
     /**
      * Builds an interceptor whose collaborators authenticate {@link #TOKEN} successfully (valid client,
      * good signature, resolvable provider) and return the supplied access token from the single token load.

@@ -161,7 +161,9 @@ class EmbeddedRecordSnapshotsUnitTest extends CarlosUnitTestBase {
     @Test void shouldContainNoJpaEntityFields_inTheNamedResponseGraphs() {
         var pending = new java.util.ArrayDeque<java.lang.reflect.Type>();
         pending.addAll(List.of(AppointmentTo1.class,ConsultationRequestSearchResult.class,
-                ConsultationResponseSearchResult.class,MeasurementResponse.class,NoteTo1.class));
+                ConsultationResponseSearchResult.class,
+                io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedMeasurementTo1.class,
+                MeasurementResponse.class,NoteTo1.class));
         var visited = new java.util.HashSet<java.lang.reflect.Type>();
         while (!pending.isEmpty()) {
             var type = pending.remove(); if (!visited.add(type)) continue;

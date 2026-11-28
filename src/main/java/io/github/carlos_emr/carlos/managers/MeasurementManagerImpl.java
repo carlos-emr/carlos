@@ -37,7 +37,9 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
@@ -50,10 +52,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.Objects;
 
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet;
 
 @Service
@@ -64,8 +69,15 @@ public class MeasurementManagerImpl implements MeasurementManager {
     @Autowired
     private MeasurementMapDao measurementMapDao;
 
+    private DemographicDao demographicDao;
+
     @Autowired
     private PatientConsentManager patientConsentManager;
+
+    @Autowired
+    public void setDemographicDao(DemographicDao demographicDao) {
+        this.demographicDao = Objects.requireNonNull(demographicDao);
+    }
 
     @Override
     public List<Measurement> getCreatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive,
@@ -143,8 +155,61 @@ public class MeasurementManagerImpl implements MeasurementManager {
     @Override
     public Measurement addMeasurement(LoggedInInfo loggedInInfo, Measurement measurement) {
         measurementDao.persist(measurement);
-        LogAction.addLogSynchronous(loggedInInfo, "MeasurementManager.addMeasurement", "id=" + measurement.getId());
+        // Filed under the patient, so the write appears in that patient's access audit.
+        LogAction.addLogSynchronous(loggedInInfo, "MeasurementManager.addMeasurement", LogConst.CON_MEASUREMENT,
+                String.valueOf(measurement.getId()), measurement.getDemographicId(), "id=" + measurement.getId());
         return (measurement);
+    }
+
+    @Override
+    @Transactional
+    public Measurement addMeasurementUnlessStored(LoggedInInfo loggedInInfo, Measurement measurement) {
+        Objects.requireNonNull(measurement, "measurement must not be null");
+        // The patient row is the lock: two identical requests serialize here, and the second finds the
+        // first one's reading below instead of inserting its own. No unique key is needed, so readings
+        // the encounter form or an import stored twice in the past are left as they are.
+        if (demographicDao.findForUpdate(measurement.getDemographicId()) == null) {
+            throw new IllegalArgumentException("The measurement's patient does not exist");
+        }
+        MeasurementDaoImpl.SearchCriteria criteria = new MeasurementDaoImpl.SearchCriteria();
+        criteria.setDemographicNo(measurement.getDemographicId());
+        criteria.setType(measurement.getType());
+        criteria.setDataField(measurement.getDataField());
+        criteria.setMeasuringInstrc(measurement.getMeasuringInstruction());
+        criteria.setComments(measurement.getComments());
+        criteria.setDateObserved(measurement.getDateObserved());
+        List<Measurement> stored = measurementDao.find(criteria);
+        if (stored != null) {
+            for (Measurement existing : stored) {
+                if (matchesReadingIdentity(existing, measurement)) {
+                    return existing;
+                }
+            }
+        }
+        return addMeasurement(loggedInInfo, measurement);
+    }
+
+    /**
+     * Compares all deduplication identity fields exactly in Java so case-insensitive or
+     * pad-space database collations (e.g. {@code utf8mb4_general_ci}) never collapse distinct
+     * readings whose text differs only by letter case or trailing spaces.
+     */
+    private static boolean matchesReadingIdentity(Measurement existing, Measurement candidate) {
+        return existing != null
+                && Objects.equals(existing.getDemographicId(), candidate.getDemographicId())
+                && Objects.equals(existing.getType(), candidate.getType())
+                && Objects.equals(existing.getDataField(), candidate.getDataField())
+                && Objects.equals(existing.getMeasuringInstruction(), candidate.getMeasuringInstruction())
+                && Objects.equals(existing.getComments(), candidate.getComments())
+                && sameTimestamp(existing.getDateObserved(), candidate.getDateObserved());
+    }
+
+    private static boolean sameTimestamp(Date existing, Date candidate) {
+        if (existing == null || candidate == null) {
+            return existing == candidate;
+        }
+        // Compare epoch milliseconds so Hibernate java.sql.Timestamp instances match java.util.Date.
+        return existing.getTime() == candidate.getTime();
     }
 
     /**

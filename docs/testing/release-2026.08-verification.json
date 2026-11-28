@@ -1131,7 +1131,8 @@
       "sources": [
         "scripts/login-mfa-playwright-checks.js",
         "scripts/account-lockout-address-playwright-checks.js",
-        "scripts/oauth-rest-surfaces-playwright-checks.js"
+        "scripts/oauth-rest-surfaces-playwright-checks.js",
+        "scripts/oauth-clinical-api-playwright-checks.js"
       ],
       "implementation": "Retain Java security/MFA/token unit families and qualify session/OAuth authorization on installed default, no-PIN and address-lock profiles.",
       "cases": "MFA replay/expiry/reset, lockout/reset/session invalidation; missing/revoked/expired tokens; authorization after import; no principal or patient spoofing; 401/403 and unchanged state.",
@@ -1152,6 +1153,7 @@
         "packaged-profile-no-pin",
         "packaged-profile-private-consent",
         "manual-account-unlock-address-mode",
+        "manual-oauth-clinical-api",
         "java-native-release-services"
       ]
     },
@@ -6787,6 +6789,43 @@
         "--strict-release",
         "--only",
         "account-unlock-address-mode",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "manual-oauth-clinical-api",
+      "kind": "browser",
+      "profiles": [
+        "ON"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "oauth-clinical-api"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "EXPECT_OAUTH_MODE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 960,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "oauth-clinical-api",
         "--province",
         "{profile}",
         "--residue-audit",

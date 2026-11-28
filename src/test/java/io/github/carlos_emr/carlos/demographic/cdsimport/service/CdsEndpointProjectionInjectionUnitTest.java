@@ -73,6 +73,15 @@ class CdsEndpointProjectionInjectionUnitTest {
                             && registered.add(field.getType())) {
                         registerMock(context, field.getType());
                     }
+                // Endpoints that keep the no-arg constructor may take collaborators through
+                // @Autowired setters instead of fields (MeasurementService); the guard's own
+                // setter is satisfied by the registered guard above.
+                for (var method : endpoint.getDeclaredMethods())
+                    if (method.isAnnotationPresent(Autowired.class))
+                        for (Class<?> type : method.getParameterTypes())
+                            if (type != CdsLegacyProjectionService.class && registered.add(type)) {
+                                registerMock(context, type);
+                            }
                 var definition =
                         BeanDefinitionBuilder.genericBeanDefinition(endpoint).getBeanDefinition();
                 definition.setAutowireMode(AbstractBeanDefinition.AUTOWIRE_BY_NAME);

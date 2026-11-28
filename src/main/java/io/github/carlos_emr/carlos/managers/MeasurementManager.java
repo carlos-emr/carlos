@@ -157,6 +157,21 @@ public interface MeasurementManager {
      */
     public Measurement addMeasurement(LoggedInInfo loggedInInfo, Measurement measurement);
 
+    /**
+     * Adds the measurement unless the patient already has an identical reading: the exact same
+     * (case-sensitive) type, measuring instruction, value, comments and {@code dateObserved}. Then
+     * it returns that stored reading and adds nothing. The lookup and the insert run in one
+     * transaction under the patient's row lock, so overlapping identical requests (a client retrying
+     * a request whose response it lost) store one reading.
+     *
+     * @param loggedInInfo the caller, for the audit row
+     * @param measurement the reading to add; its {@code dateObserved} must already be at the stored
+     *                    (whole-second) precision so the lookup can match it
+     * @return the added measurement, or the identical one already stored
+     * @throws IllegalArgumentException when the measurement's patient does not exist
+     */
+    public Measurement addMeasurementUnlessStored(LoggedInInfo loggedInInfo, Measurement measurement);
+
     public List<Measurement> getMeasurementsByProgramProviderDemographicDate(LoggedInInfo loggedInInfo,
                                                                              Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive,
                                                                              int itemsToReturn);
