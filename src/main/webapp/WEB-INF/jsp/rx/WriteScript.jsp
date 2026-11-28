@@ -522,7 +522,9 @@
                             }
                         }
                     }
-                    const unitMatch = /^(?:[ \t]+[A-Za-z\u00C0-\u024F/%-]+){0,2}(?:[ \t]*\(\d+(?:\.\d+)?[ \t]*[A-Za-z\u00C0-\u024F/%-]+\))?/.exec(afterNumber);
+                    // Free text such as "dispense weekly" is not evidence of a unit. Only
+                    // known units/packages, or the recorded unit above, may be replaced.
+                    const unitMatch = /^(?:[ \t]+(?:tabs?|tablets?|caps?|capsules?|mL|L|g|gm|mg|mcg|µg|units?|drops?|patch(?:es)?|puffs?|inhalations?|bottles?|tubes?|vials?|ampoules?|syringes?|pens?|packs?|blister[ \t]+packs?)(?=$|[ \t;,]))?(?:[ \t]*\(\d+(?:\.\d+)?[ \t]*(?:mL|L|g|gm|mg|mcg|µg|units?)\))?/i.exec(afterNumber);
                     if (unitMatch) {
                         spanEnd += unitMatch[0].length;
                     }

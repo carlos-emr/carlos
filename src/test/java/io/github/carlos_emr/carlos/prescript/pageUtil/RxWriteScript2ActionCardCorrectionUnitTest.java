@@ -174,6 +174,8 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         RxSessionBeanResolver.register(request.getSession(), bean);
 
         action = new RxWriteScript2Action(mockSignatureStampService);
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationAck", "0");
     }
 
     @AfterEach
@@ -453,6 +455,86 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRefuseInlineEdit_whenAnotherWindowHasAdvancedTheCard() throws Exception {
+        var newer = card.copyForCalculation();
+        newer.setQuantity("60");
+        card.applyCalculation(newer, 1);
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationAck", "0");
+        request.setParameter("elementId", "route_1");
+        request.setParameter("propertyValue", "SL");
+        String originalRoute = card.getRoute();
+
+        assertThat(action.updateProperty()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("STALE_RX_STASH");
+        assertThat(card.getQuantity()).isEqualTo("60");
+        assertThat(card.getRoute()).isEqualTo(originalRoute);
+        assertThat(card.getCalculationSequence()).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"missing-revision", "wrong-revision", "missing-ack", "invalid-ack", "ahead-ack", "pending-save"})
+    void shouldKeepInlineDraft_whenItsObservedStateCannotBeVerified(String condition) throws Exception {
+        request.setParameter("elementId", "route_1");
+        request.setParameter("propertyValue", "SL");
+        switch (condition) {
+            case "missing-revision" -> request.removeParameter("draftRevision");
+            case "wrong-revision" -> request.setParameter("draftRevision", "other-draft");
+            case "missing-ack" -> request.removeParameter("calculationAck");
+            case "invalid-ack" -> request.setParameter("calculationAck", "2147483648");
+            case "ahead-ack" -> request.setParameter("calculationAck", "1");
+            case "pending-save" -> card.setPendingSubmission("saved-request");
+            default -> throw new AssertionError(condition);
+        }
+        String route = card.getRoute();
+        assertThat(action.updateProperty()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("STALE_RX_STASH");
+        assertThat(card.getRoute()).isEqualTo(route);
+        assertThat(card.getCalculationSequence()).isZero();
+    }
+
+    @Test
+    void shouldKeepInlineDraft_whenAcknowledgementCannotBeWritten() throws Exception {
+        request.setParameter("elementId", "maximum_1");
+        request.setParameter("propertyValue", "2");
+        var failingResponse = spy(response);
+        doThrow(new java.io.IOException("Synthetic response failure")).when(failingResponse).getOutputStream();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(failingResponse);
+        var failingAction = new RxWriteScript2Action(mockSignatureStampService);
+        assertThatThrownBy(failingAction::updateProperty).isInstanceOf(java.io.IOException.class);
+        assertThat(card.getTakeMax()).isEqualTo(1f);
+        assertThat(card.getCalculationSequence()).isZero();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1/3,90", "2/3,45", "5/6,36"})
+    void shouldKeepExactFraction_whenInstructionsAndQuantityAreCalculated(String dose, String days) throws Exception {
+        request.setParameter("action", "parseInstructions");
+        request.setParameter("randomId", "1");
+        request.setParameter("instruction", dose + " tab PO OD");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationSequence", "1");
+        assertThat(action.updateDrug()).isNull();
+        assertThat(new ObjectMapper().readTree(response.getContentAsString()).path("duration").asText()).isEqualTo(days);
+        assertThat(card.getDuration()).isEqualTo(days);
+
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setParameter("action", "updateQty");
+        request.setParameter("quantity", "30");
+        request.setParameter("calculationSequence", "2");
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isNull();
+        assertThat(new ObjectMapper().readTree(response.getContentAsString()).path("duration").asText()).isEqualTo(days);
+        assertThat(card.getDuration()).isEqualTo(days);
+
+        card.setTakeMax(0.5f);
+        action.calculateStagedQuantity(card, "30");
+        assertThat(card.getDuration()).isEqualTo("60");
+    }
+
+    @Test
     void shouldMarkDurationSpecifiedByUser_whenDurationUpdatedInline() throws Exception {
         card.setDurationSpecifiedByUser(false);
         card.setDuration("30");
@@ -497,6 +579,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         calculated.setDuration("7");
         calculated.setDurationUnit("D");
         card.applyCalculation(calculated, 1);
+        request.setParameter("calculationAck", "1");
 
         request.setParameter("elementId", "duration_1");
         request.setParameter("propertyValue", "14");
@@ -636,6 +719,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
                 action = new RxWriteScript2Action(mockSignatureStampService);
                 request.setParameter("elementId", edit[0]);
                 request.setParameter("propertyValue", edit[1]);
+                request.setParameter("calculationAck", String.valueOf(card.getCalculationSequence()));
 
                 assertThat(action.updateProperty()).as(edit[0]).isNull();
                 expectedSequence++;
@@ -656,6 +740,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             action = new RxWriteScript2Action(mockSignatureStampService);
             request.setParameter("elementId", "repeats_1");
             request.setParameter("propertyValue", "3");
+            request.setParameter("calculationAck", String.valueOf(card.getCalculationSequence()));
             assertThat(action.updateProperty()).isNull();
             assertThat(card.getRepeat()).isEqualTo(3);
             assertThat(card.getCalculationSequence()).isEqualTo(expectedSequence);

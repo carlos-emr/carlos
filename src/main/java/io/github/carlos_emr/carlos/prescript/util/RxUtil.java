@@ -622,11 +622,7 @@ public class RxUtil {
         if (quantity.amount() == null || quantity.unit() != null || hasTypedUnit || rx.getPrn()) {
             return null;
         }
-        float takeMax = rx.getTakeMax();
-        return Float.isFinite(takeMax) && takeMax > 0f
-                ? wholeDurationUnits(quantity.amount(), new BigDecimal(Float.toString(takeMax)), BigDecimal.ONE,
-                        rx.getFrequencyCode(), rx.getDurationUnit())
-                : null;
+        return wholeDurationUnits(typedQuantity, rx, rx.getDurationUnit());
     }
 
     /** True when the unit name is non-blank and not the legacy placeholder string {@code "null"}. */
@@ -668,6 +664,23 @@ public class RxUtil {
                 ? wholeDurationUnits(parsed.amount(), new BigDecimal(Float.toString(dosePerAdministration)),
                         BigDecimal.ONE, frequency, durationUnit)
                 : null;
+    }
+
+    /**
+     * Derives duration using the exact authored dose when parsing recorded one. Legacy float-only
+     * records keep their numeric value; this method never infers a fraction from a float.
+     *
+     * @param quantity String unambiguous dispense count
+     * @param rx Prescription staged medication containing dose and frequency
+     * @param durationUnit String duration unit code
+     * @return String whole duration, or null when the calculation is unavailable
+     */
+    public static String wholeDurationUnits(String quantity, RxPrescriptionData.Prescription rx, String durationUnit) {
+        if (rx.getTakeMaxNumerator() == null || rx.getTakeMaxDenominator() == null) {
+            return wholeDurationUnits(quantity, rx.getTakeMax(), rx.getFrequencyCode(), durationUnit);
+        }
+        return wholeDurationUnits(quantity, new ExactAmount(rx.getTakeMaxNumerator(), rx.getTakeMaxDenominator()),
+                rx.getFrequencyCode(), durationUnit);
     }
 
     private static String wholeDurationUnits(String quantity, ExactAmount dosePerAdministration, String frequency,
@@ -1327,7 +1340,7 @@ public class RxUtil {
             rx.setRoute(route);
         }
 
-        rx.setTakeMax(maximumDose.floatValue());
+        rx.setTakeMax(maximumDose.numerator(), maximumDose.denominator());
         rx.setTakeMin(minimumDose.floatValue());
         rx.setMethod(method);
         rx.setFrequencyCode(frequency);

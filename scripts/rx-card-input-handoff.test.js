@@ -101,9 +101,11 @@ function cardFields() {
     ctx: '/carlos', Math, encodeURIComponent, jsMsg, RxInputValidation,
     alert: message => alerts.push(message),
     reportRefusedRequest: transport => refused.push(transport),
+    showRxCalculationState(card) { card.blocked = card._rxCalculationConflict; },
     document: { getElementById: id => elements[id] },
     CarlosAjax: { request(url, options) { requests.push({ url, options }); } },
   };
+  vm.runInNewContext(slice(searchDrug, 'function isStaleRxCalculationConflict(', 'function requestRxCalculation('), context);
   vm.runInNewContext(source, context);
   const element = (id, props) => (elements[id] = { id, className: '', attributes: {}, setAttribute(k, v) { this.attributes[k] = v; }, ...props });
   return { context, requests, alerts, refused, element };
@@ -271,9 +273,29 @@ test('an accepted inline dose edit supersedes a pending quantity calculation', (
   s.context.updateProperty(max.id);
   assert.equal(card._rxPropertyVersions.maximum, 1);
   assert.equal(card._rxNeedsReconciliation, true);
+  assert.equal(s.requests.length, 0, 'inline edits wait for the pending calculation');
+  card._rxCalculationPending = false;
+  card._rxPendingPropertyEdits[max.id]();
   s.requests[0].options.onSuccess({ status: 200 });
   assert.equal(card._rxNeedsReconciliation, false);
   assert.deepEqual(recalculated, [qty]);
+});
+
+test('a repeat edit waits for its pending calculation without requesting dose reconciliation', () => {
+  const s = cardFields();
+  const card = s.element('set_5', { _rxCalculationPending: true });
+  const ack = s.element('calculationAck_5', { value: '1' });
+  const repeats = s.element('repeats_5', { value: '2', removeAttribute() {} });
+  s.context.updateProperty(repeats.id);
+  assert.equal(s.requests.length, 0);
+  assert.equal(Boolean(card._rxNeedsReconciliation), false);
+  card._rxCalculationPending = false;
+  ack.value = '2';
+  card._rxPendingPropertyEdits[repeats.id]();
+  assert.equal(new URLSearchParams(s.requests[0].options.parameters).get('calculationAck'), '2');
+  s.requests[0].options.onSuccess({ status: 200 });
+  assert.equal(ack.value, '2');
+  assert.equal(Boolean(card._rxNeedsReconciliation), false);
 });
 
 test('an inline dose edit still reconciles when the prior calculation finishes before updateProperty succeeds', () => {
@@ -286,12 +308,16 @@ test('an inline dose edit still reconciles when the prior calculation finishes b
   s.context.updateQty = el => recalculated.push({ el, seq: card._rxSequence });
   s.context.updateProperty(max.id);
   // Prior calculation finishes before updateProperty completes
+  assert.equal(s.requests.length, 0);
   card._rxCalculationPending = false;
+  ack.value = '3';
+  card._rxPendingPropertyEdits[max.id]();
+  assert.equal(new URLSearchParams(s.requests[0].options.parameters).get('calculationAck'), '3');
   s.requests[0].options.onSuccess({ status: 200, responseJSON: { calculationSequence: 4 } });
   assert.equal(card._rxNeedsReconciliation, false);
   assert.equal(card._rxSequence, 4);
   assert.equal(card.dataset.calculationSequence, '4');
-  assert.equal(ack.value, '1', 'acknowledgement waits for the reconciling updateQty response');
+  assert.equal(ack.value, '3', 'acknowledgement waits for the reconciling updateQty response');
   assert.deepEqual(recalculated, [{ el: qty, seq: 4 }]);
 });
 
@@ -305,4 +331,24 @@ test('an idle inline clinical edit advances card._rxSequence and calculationAck 
   assert.equal(card._rxSequence, 3);
   assert.equal(card.dataset.calculationSequence, '3');
   assert.equal(ack.value, '3');
+});
+
+
+test('a stale inline edit sends its observed revision and acknowledgement and requires reopening', () => {
+  const s = cardFields();
+  const card = s.element('set_5', { _rxSequence: 7, _rxCalculationPending: false });
+  const ack = s.element('calculationAck_5', { value: '2' });
+  s.element('draftRevision_5', { value: 'window-b-draft' });
+  const route = s.element('route_5', { textContent: 'SL', removeAttribute() {} });
+  s.context.updateProperty(route.id);
+  const parameters = new URLSearchParams(s.requests[0].options.parameters);
+  assert.equal(parameters.get('draftRevision'), 'window-b-draft');
+  assert.equal(parameters.get('calculationAck'), '2', 'an unacknowledged local sequence is not observed server state');
+  s.requests[0].options.onFailure({status: 409, responseText: '{"error":"STALE_RX_STASH"}'});
+  assert.equal(card._rxCalculationConflict, true);
+  assert.equal(card.blocked, true);
+  assert.equal(ack.value, '2');
+  assert.equal(route.textContent, 'SL', 'the typed edit remains available');
+  s.context.updateProperty(route.id);
+  assert.equal(s.requests.length, 1, 'further edits cannot acknowledge a conflicted card');
 });

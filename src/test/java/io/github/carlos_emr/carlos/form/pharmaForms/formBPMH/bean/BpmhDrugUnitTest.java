@@ -273,12 +273,23 @@ class BpmhDrugUnitTest {
     }
 
     @Test
+    void shouldPreserveDispensingDirections_whenTrailerContainsUnrecognizedWords() {
+        for (String text : java.util.List.of("dispense weekly", "hold", "then stop", "tablets daily", "tablets (1 daily)")) {
+            String directions = "Take one tablet daily\nQty:7 " + text + " Repeats:0";
+            drug.setHow(null);
+            drug.setSpecial(directions);
+            assertThat(drug.getHow()).isEqualTo(directions);
+        }
+    }
+
+    @Test
     void shouldLeaveDirectionsMissing_whenOnlyDispensingInstructionsWereRecorded() {
         drug.setSpecial("Qty:30 Repeats:1");
         assertThat(drug.getHow()).isEmpty();
 
         drug.setHow(null);
         drug.setSpecial("Qty:1 pre-filled/mL (120 mL) Repeats:0");
+        drug.usePrescriptionDirections(null, null, null, false, "pre-filled/mL (120 mL)");
         assertThat(drug.getHow()).isEmpty();
 
         drug.setGenericName("Synthetic");

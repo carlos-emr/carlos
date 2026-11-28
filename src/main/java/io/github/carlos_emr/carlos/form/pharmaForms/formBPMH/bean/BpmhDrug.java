@@ -238,6 +238,21 @@ public class BpmhDrug implements java.io.Serializable {
      * @param prn boolean {@code true} if the source prescription is marked PRN (as needed)
      */
     public void usePrescriptionDirections(String brandName, String pharmacyInstruction, String doseUnit, boolean prn) {
+        usePrescriptionDirections(brandName, pharmacyInstruction, doseUnit, prn, null);
+    }
+
+    /**
+     * Uses recorded directions, recognizing a dispensing trailer only by a known unit/package or
+     * the separately stored dispense unit. Unrecognized words remain part of the directions.
+     *
+     * @param brandName String medication heading, or null
+     * @param pharmacyInstruction String separately recorded pharmacy instructions, or null
+     * @param doseUnit String verified administered dose unit, or null
+     * @param prn boolean whether structured fallback directions are as needed
+     * @param dispenseUnit String separately stored dispense unit/package, or null
+     */
+    public void usePrescriptionDirections(String brandName, String pharmacyInstruction, String doseUnit, boolean prn,
+            String dispenseUnit) {
         String text = StringUtils.defaultString(getSpecial()).replace("\r\n", "\n").replace('\r', '\n');
         int lineBreak = text.indexOf('\n');
         String first = lineBreak < 0 ? text : text.substring(0, lineBreak);
@@ -249,7 +264,7 @@ public class BpmhDrug implements java.io.Serializable {
         String withoutTrailingSpace = text.stripTrailing();
         int lastBreak = withoutTrailingSpace.lastIndexOf('\n');
         String last = withoutTrailingSpace.substring(lastBreak + 1);
-        if (isDispensingTrailer(last)) {
+        if (isDispensingTrailer(last, dispenseUnit)) {
             text = lastBreak < 0 ? "" : text.substring(0, lastBreak);
         }
         if (hasHeading && StringUtils.isNotBlank(pharmacyInstruction)) {
@@ -328,7 +343,7 @@ public class BpmhDrug implements java.io.Serializable {
         return false;
     }
 
-    private static boolean isDispensingTrailer(String line) {
+    private static boolean isDispensingTrailer(String line, String dispenseUnit) {
         if (!line.startsWith("Qty:")) return false;
         int repeatsIndex = line.lastIndexOf(" Repeats:");
         if (repeatsIndex < 4) return false;
@@ -339,7 +354,7 @@ public class BpmhDrug implements java.io.Serializable {
         if (numberEnd == 0) return false;
         if (numberEnd == qtyPart.length()) return true;
         if (!Character.isWhitespace(qtyPart.charAt(numberEnd))) return false;
-        return isDispenseUnitTrailer(qtyPart.substring(numberEnd).strip());
+        return isDispenseUnitTrailer(qtyPart.substring(numberEnd).strip(), dispenseUnit);
     }
 
     private static boolean isPlainInteger(String value) {
@@ -351,41 +366,27 @@ public class BpmhDrug implements java.io.Serializable {
         return true;
     }
 
-    private static boolean isDispenseUnitTrailer(String unit) {
-        if (!Character.isLetter(unit.codePointAt(0))) return false;
-        int depth = 0;
-        int parenStart = -1;
-        boolean closedParen = false;
-        int wordsOutsideParens = 0;
-        boolean inWord = false;
-        for (int index = 0; index < unit.length();) {
-            int ch = unit.codePointAt(index);
-            int nextIndex = index + Character.charCount(ch);
-            if (ch == '(') {
-                if (depth > 0 || closedParen) return false;
-                depth = 1;
-                parenStart = nextIndex;
-                inWord = false;
-            } else if (ch == ')') {
-                if (depth != 1 || !isPackageQualifier(unit.substring(parenStart, index))) return false;
-                depth = 0;
-                closedParen = true;
-                inWord = false;
-            } else if (depth == 0) {
-                if (Character.isWhitespace(ch)) {
-                    inWord = false;
-                } else {
-                    if (closedParen || (!Character.isLetter(ch) && ch != '/' && ch != '-')) return false;
-                    if (!inWord) {
-                        wordsOutsideParens++;
-                        if (wordsOutsideParens > 2) return false;
-                        inWord = true;
-                    }
-                }
+    private static final java.util.List<String> DISPENSE_UNITS = java.util.List.of(
+            "tab", "tabs", "tablet", "tablets", "cap", "caps", "capsule", "capsules",
+            "mL", "L", "g", "gm", "mg", "mcg", "µg", "unit", "units", "drop", "drops",
+            "patch", "patches", "puff", "puffs", "inhalation", "inhalations", "bottle", "bottles",
+            "tube", "tubes", "vial", "vials", "ampoule", "ampoules", "syringe", "syringes",
+            "pen", "pens", "pack", "packs", "blister pack", "blister packs");
+
+    private static boolean isDispenseUnitTrailer(String unit, String recordedUnit) {
+        if (StringUtils.isNotBlank(recordedUnit)
+                && org.apache.commons.lang3.Strings.CI.equals(unit, recordedUnit.strip())) return true;
+        int qualifier = unit.indexOf('(');
+        if (qualifier >= 0) {
+            if (!unit.endsWith(")") || !isPackageQualifier(unit.substring(qualifier + 1, unit.length() - 1))) {
+                return false;
             }
-            index = nextIndex;
+            unit = unit.substring(0, qualifier).stripTrailing();
         }
-        return depth == 0;
+        for (String known : DISPENSE_UNITS) {
+            if (org.apache.commons.lang3.Strings.CI.equals(unit, known)) return true;
+        }
+        return false;
     }
 
     private static boolean isPackageQualifier(String content) {
@@ -394,12 +395,10 @@ public class BpmhDrug implements java.io.Serializable {
         if (numberEnd == 0 || numberEnd == trimmed.length()) return false;
         String measureUnit = trimmed.substring(numberEnd).stripLeading();
         if (measureUnit.isEmpty()) return false;
-        for (int index = 0; index < measureUnit.length();) {
-            int ch = measureUnit.codePointAt(index);
-            index += Character.charCount(ch);
-            if (!Character.isLetter(ch) && ch != '%' && ch != '/' && ch != '-') return false;
+        for (String known : DISPENSE_UNITS) {
+            if (org.apache.commons.lang3.Strings.CI.equals(measureUnit, known)) return true;
         }
-        return true;
+        return false;
     }
 
     private static int plainDecimalEnd(String value) {

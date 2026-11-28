@@ -254,6 +254,19 @@ test('legacy redraw keeps the package description and reads repeats from its own
   assert.equal(context.replaceQuantityAndRepeats(' Days\nQty:7 tabs dispense weekly\nRepeats:0'), null);
 });
 
+test('legacy redraw preserves unrecognized dispensing prose with an empty or changed unit', () => {
+  const frm = {quantity: {value: '14'}, unitName: {value: '', defaultValue: ''}, txtRepeat: {value: '0'}};
+  const context = {frm, getNoSubs: () => ''};
+  vm.runInNewContext(functionSource('findInlineRepeatClause', 'function removePRNifNeeded('), context);
+  for (const text of ['dispense weekly', 'hold', 'then stop', 'tabs daily']) {
+    for (const separator of ['\n', ' ']) {
+      assert.equal(context.replaceQuantityAndRepeats(` Days\nQty:7 ${text}${separator}Repeats:0`), null);
+    }
+  }
+  frm.unitName = {value: 'capsules', defaultValue: 'tabs'};
+  assert.equal(context.replaceQuantityAndRepeats(' Days\nQty:7 tabs daily\nRepeats:0'), null);
+});
+
 test('submitForm preserves unchanged stored non-decimal quantities and alerts on invalid edits', () => {
   const actionField = {value: ''};
   let submitted = null;

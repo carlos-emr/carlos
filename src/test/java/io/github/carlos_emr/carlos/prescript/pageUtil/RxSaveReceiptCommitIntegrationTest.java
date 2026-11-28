@@ -515,6 +515,8 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
             inlineRequest.addParameter("demographicNo", "1001");
             inlineRequest.addParameter("elementId", "duration_123");
             inlineRequest.addParameter("propertyValue", "14");
+            inlineRequest.addParameter("draftRevision", saved.card.getDraftRevision());
+            inlineRequest.addParameter("calculationAck", String.valueOf(saved.card.getCalculationSequence()));
             var inlineResponse = new MockHttpServletResponse();
             saved.servlet.when(ServletActionContext::getRequest).thenReturn(inlineRequest);
             saved.servlet.when(ServletActionContext::getResponse).thenReturn(inlineResponse);

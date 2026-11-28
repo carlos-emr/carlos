@@ -511,7 +511,7 @@ public class BpmhForm2Handler {
                     String doseUnit = RxUtil.recordedDoseUnit(drug.getUnit(), drug.getDrugForm(),
                             drug.getDosage(), drug.getCdsDoseText());
                     bpmhDrug.usePrescriptionDirections(drug.getBrandName(), drug.getSpecialInstruction(),
-                            StringUtils.isBlank(drug.getCdsDoseText()) ? doseUnit : null, drug.isPrn());
+                            StringUtils.isBlank(drug.getCdsDoseText()) ? doseUnit : null, drug.isPrn(), drug.getUnitName());
                     if (StringUtils.isBlank(bpmhDrug.getHow()) && StringUtils.isNotBlank(drug.getCdsDoseText())) {
                         bpmhDrug.useRecordedDoseText(drug.getCdsDoseText(), doseUnit, drug.isPrn());
                     }

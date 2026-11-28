@@ -166,7 +166,7 @@ test('a 409 STALE_RX_STASH calculation conflict offers Reopen instead of Retry',
   assert.equal(f.elements.get('rxCalculationReopen_11').hidden, false);
 });
 
-test('a returning calculation does not unblock Save or advance calculationAck while inline reconciliation is pending', () => {
+test('a returning calculation acknowledges its version but keeps Save blocked during inline reconciliation', () => {
   const f = fixture();
   f.elements.set('calculationAck_11', { value: '0' });
   f.context.updateQty(f.field('quantity'));
@@ -175,6 +175,29 @@ test('a returning calculation does not unblock Save or advance calculationAck wh
   f.field('maximum').textContent = '2';
   f.reply(f.requests[0], { takeMax: 1, duration: '30' });
   assert.equal(f.field('maximum').textContent, '2');
-  assert.equal(f.elements.get('calculationAck_11').value, '0');
+  assert.equal(f.elements.get('calculationAck_11').value, 1);
   assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+});
+
+
+test('editing a conflicted quantity cannot silently bypass the reopen requirement', () => {
+  const f = fixture();
+  f.context.updateQty(f.field('quantity'));
+  f.requests[0].options.onFailure({status: 409, responseJSON: {error: 'STALE_RX_STASH'}});
+  f.field('quantity').value = '31';
+  assert.equal(f.context.updateQty(f.field('quantity')), false);
+  assert.equal(f.requests.length, 1);
+  assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+});
+
+test('pending inline edits resume only after calculation fields and acknowledgement are applied', () => {
+  const f = fixture();
+  const ack = {value: '0'};
+  f.elements.set('calculationAck_11', ack);
+  f.context.updateQty(f.field('quantity'));
+  const resumed = [];
+  f.field('set')._rxNeedsReconciliation = true;
+  f.field('set')._rxPendingPropertyEdits = {route: () => resumed.push([ack.value, f.field('duration').textContent])};
+  f.reply(f.requests[0], {duration: '90'});
+  assert.deepEqual(resumed, [[1, '90']]);
 });

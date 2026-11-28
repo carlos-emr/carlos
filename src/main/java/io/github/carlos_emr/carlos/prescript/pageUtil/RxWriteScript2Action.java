@@ -1237,7 +1237,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             resolvedDurationUnit = "D";
         }
         String derivedDuration = rx.getPrn() || hasUnit ? null
-                : RxUtil.wholeDurationUnits(quantityAmount, rx.getTakeMax(), rx.getFrequencyCode(), resolvedDurationUnit);
+                : RxUtil.wholeDurationUnits(quantityAmount, rx, resolvedDurationUnit);
         rx.setDuration(derivedDuration);
         rx.setDurationUnit(derivedDuration == null ? null : resolvedDurationUnit);
     }
@@ -1377,12 +1377,17 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (strArr.length > 1) {
             String num = strArr[1];
             num = num.trim();
-            RxPrescriptionData.Prescription rx = stagedCard(bean, num);
-            if (rx == null) {
-                // A malformed or stale card key names nothing to update: 400, not a 500.
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            RxPrescriptionData.Prescription current = stagedCard(bean, num);
+            String revision = request.getParameter("draftRevision");
+            String acknowledgement = request.getParameter("calculationAck");
+            if (current == null || current.getPendingSubmission() != null
+                    || !current.getDraftRevision().equals(revision)
+                    || acknowledgement == null || !acknowledgement.matches(UP_TO_NINE_DIGITS)
+                    || Integer.parseInt(acknowledgement) != current.getCalculationSequence()) {
+                refuseStaleStash();
                 return NONE;
             }
+            RxPrescriptionData.Prescription rx = current.copyForCalculation();
             boolean clinicalFieldUpdated = false;
             if (elem.equals("method_" + num)) {
                 if (!val.equals("") && !Strings.CI.equals(val, "null")) {
@@ -1440,8 +1445,11 @@ public final class RxWriteScript2Action extends ActionSupport {
                 int sequence = rx.advanceCalculationSequence();
                 byte[] body = objectMapper.writeValueAsBytes(Map.of("calculationSequence", sequence));
                 response.setContentType("application/json");
-                response.getOutputStream().write(body);
+                // Only a server-generated integer is serialized, with an explicit JSON content type.
+                response.getOutputStream().write(body); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON sequence acknowledgement; no request text is emitted
             }
+            current.applyCalculation(rx, rx.getCalculationSequence());
+            current.setRepeat(rx.getRepeat());
         }
         return null;
     }

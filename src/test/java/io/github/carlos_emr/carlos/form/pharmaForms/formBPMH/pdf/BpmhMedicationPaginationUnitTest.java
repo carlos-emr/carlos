@@ -77,6 +77,28 @@ class BpmhMedicationPaginationUnitTest {
     }
 
     @Test
+    void shouldPrintDispensingDirections_whenQuantityTrailerContainsClinicalText(@TempDir Path output) throws Exception {
+        var bean = new BpmhForm2Bean();
+        var patient = new Demographic();
+        patient.setFirstName("Synthetic");
+        patient.setLastName("BPMH-Patient");
+        bean.setDemographic(patient);
+        var drug = new BpmhDrug();
+        drug.setWhat("Synthetic medication");
+        drug.setSpecial("Take one tablet daily\nQty:7 dispense weekly Repeats:0");
+        bean.setDrugs(java.util.List.of(drug));
+        var template = getClass().getResource("/oscar/form/prop/bpmh_template_marked.pdf");
+        var pdf = new PDFController(Path.of(template.toURI()).toString());
+        pdf.setOutputPath(output.toString());
+        pdf.setContinueInstructions(true);
+        pdf.writeDataToPDF(bean, new String[]{"1"}, "synthetic");
+        try (var rendered = Loader.loadPDF(Path.of(pdf.getOutputPath()).toFile())) {
+            assertThat(new PDFTextStripper().getText(rendered))
+                    .contains("Take one tablet daily", "Qty:7 dispense weekly Repeats:0");
+        }
+    }
+
+    @Test
     void refusesAMissingMedicationField(@TempDir Path output) throws Exception {
         Path wrongTemplate = output.resolve("missing.pdf");
         try (var stream = Files.newOutputStream(wrongTemplate); var document = new Document()) {

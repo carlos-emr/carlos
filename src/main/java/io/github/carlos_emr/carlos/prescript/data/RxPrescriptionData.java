@@ -776,6 +776,8 @@ public class RxPrescriptionData {
             method = calculated.method;
             takeMin = calculated.takeMin;
             takeMax = calculated.takeMax;
+            takeMaxNumerator = calculated.takeMaxNumerator;
+            takeMaxDenominator = calculated.takeMaxDenominator;
             duration = calculated.duration;
             durationUnit = calculated.durationUnit;
             durationSpecifiedByUser = calculated.durationSpecifiedByUser;
@@ -819,6 +821,8 @@ public class RxPrescriptionData {
         String customName = null; // custom
         float takeMin = 0;
         float takeMax = 0;
+        private java.math.BigDecimal takeMaxNumerator;
+        private java.math.BigDecimal takeMaxDenominator;
         String frequencyCode = null;
         String duration = null;
         String durationUnit = null;
@@ -1443,7 +1447,30 @@ public class RxPrescriptionData {
 
         public void setTakeMax(float RHS) {
             this.takeMax = RHS;
+            takeMaxNumerator = null;
+            takeMaxDenominator = null;
         }
+
+        /**
+         * Records an authored exact dose for calculations while retaining the legacy float projection.
+         * A later numeric edit through {@link #setTakeMax(float)} discards this parsed fraction.
+         *
+         * @param numerator BigDecimal exact parsed dose numerator
+         * @param denominator BigDecimal positive parsed dose denominator
+         * @throws IllegalArgumentException when the denominator is not positive
+         */
+        public void setTakeMax(java.math.BigDecimal numerator, java.math.BigDecimal denominator) {
+            if (denominator.signum() <= 0) throw new IllegalArgumentException("Dose denominator must be positive");
+            takeMax = numerator.divide(denominator, java.math.MathContext.DECIMAL64).floatValue();
+            takeMaxNumerator = numerator;
+            takeMaxDenominator = denominator;
+        }
+
+        /** @return BigDecimal exact parsed numerator, or null for legacy/numerically edited doses */
+        public java.math.BigDecimal getTakeMaxNumerator() { return takeMaxNumerator; }
+
+        /** @return BigDecimal exact parsed denominator, or null for legacy/numerically edited doses */
+        public java.math.BigDecimal getTakeMaxDenominator() { return takeMaxDenominator; }
 
         public String getTakeMaxString() {
             return RxUtil.FloatToString(this.takeMax);

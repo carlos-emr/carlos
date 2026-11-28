@@ -4294,7 +4294,7 @@
     "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayRx2Action.java": "4e6b1ce3e46d4b89b614fa0b36c350c22c07cd4d650d964bc355ed72d12763d4",
     "src/main/java/io/github/carlos_emr/carlos/form/pageUtil/FrmSetupForm2Action.java": "387827d927a2daa2d34531984fe4e785e8b7c85bf106144f799148c3e6ec49c7",
     "src/main/java/io/github/carlos_emr/carlos/managers/AllergyManagerImpl.java": "6d2103aa328451900b4cbacd04c37e74686e2af6d33e6c78198259afd4102bbf",
-    "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionData.java": "d706e14e547576f4fe471a75472717efdb42e51c416f34214301add86b0de74c",
+    "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionData.java": "a770642f1082ff6a6292c8a5beb193bb0c230b669d746a953bec8524c5240296",
     "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionDateService.java": "18b51f8d5979549d64bb99860bb7de63abb38026f94ee0ddd9a753332bbe92c5",
     "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java": "018128bcf9bdff95e22c61ffc61e0fd9fb7c746da72227d28406809ab3b05b47",
     "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/summary/RxSummary.java": "12edfb82b90fad9f53ecee01c6c101744425c74d802b79caf49ecff6c7b58c0c",

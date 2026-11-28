@@ -1471,13 +1471,14 @@ function renderRxStage() {
              var version = (el.carlosPropertyVersion || 0) + 1;
              el.carlosPropertyVersion = version;
              var card = document.getElementById('set_' + randomId);
+             if (card && card._rxCalculationConflict) return;
              var affectsCalculation = /^(method|route|frequency|minimum|maximum|duration|durationUnit|prnVal)_/.test(elementId);
-             var startedDuringCalculation = Boolean(affectsCalculation && card && card._rxCalculationPending);
+             var startedDuringCalculation = Boolean(card && card._rxCalculationPending);
              if (card) {
                  card._rxPropertyVersions = card._rxPropertyVersions || {};
                  var propName = elementId.split('_')[0];
                  card._rxPropertyVersions[propName] = (card._rxPropertyVersions[propName] || 0) + 1;
-                 if (startedDuringCalculation) {
+                 if (startedDuringCalculation && affectsCalculation) {
                      card._rxNeedsReconciliation = true;
                  }
              }
@@ -1493,7 +1494,18 @@ function renderRxStage() {
                  reportInvalidProperty(el, RxInputValidation.format(jsMsg.doseInvalid, value));
                  return;
              }
-             data="elementId="+elementId+"&propertyValue="+encodeURIComponent(value);
+             if (startedDuringCalculation) {
+                 // Wait for this window's calculation acknowledgement before sending a
+                 // conditional edit; a synchronous XHR cannot run the pending callback.
+                 card._rxPendingPropertyEdits = card._rxPendingPropertyEdits || {};
+                 card._rxPendingPropertyEdits[elementId] = function () { updateProperty(elementId); };
+                 return;
+             }
+             var revision = document.getElementById('draftRevision_' + randomId);
+             var acknowledgement = document.getElementById('calculationAck_' + randomId);
+             data="elementId="+elementId+"&propertyValue="+encodeURIComponent(value)
+                 + "&draftRevision=" + encodeURIComponent(revision ? revision.value : '')
+                 + "&calculationAck=" + encodeURIComponent(acknowledgement ? acknowledgement.value : '');
              data = data + "&rand="+Math.floor(Math.random()*10001);
              // Finish the card update before a Save click can submit the previous staged dose.
              CarlosAjax.request(url, {method: 'post',parameters:data,synchronous:true,
@@ -1534,6 +1546,17 @@ function renderRxStage() {
                      }
                  },
                  onFailure: function (transport) {
+                     if (isStaleRxCalculationConflict(transport)) {
+                         if (card) {
+                             card._rxCalculation = null;
+                             card._rxCalculationPending = false;
+                             card._rxNeedsReconciliation = false;
+                             card._rxCalculationConflict = true;
+                             card._rxCalculationErrors = {};
+                             showRxCalculationState(card, randomId);
+                         }
+                         return;
+                     }
                      if (startedDuringCalculation && card && card._rxNeedsReconciliation) {
                          card._rxNeedsReconciliation = false;
                          if (!card._rxCalculationPending && typeof updateQty === 'function') {
@@ -2846,7 +2869,7 @@ function requestRxCalculation(element, action, deferPrice) {
     if (!element) return false;
     const rand = element.id.split('_')[1];
     const card = document.getElementById('set_' + rand);
-    if (!card) return false;
+    if (!card || card._rxCalculationConflict) return false;
 
     const instructions = action === 'parseInstructions';
     const revision = document.getElementById('draftRevision_' + rand);
@@ -2891,10 +2914,8 @@ function requestRxCalculation(element, action, deferPrice) {
             card._rxCalculationPending = false;
             card._rxCalculationConflict = false;
             delete card._rxCalculationErrors[action];
-            if (!card._rxNeedsReconciliation) {
-                const acknowledgement = document.getElementById('calculationAck_' + rand);
-                if (acknowledgement) acknowledgement.value = sequence;
-            }
+            const acknowledgement = document.getElementById('calculationAck_' + rand);
+            if (acknowledgement) acknowledgement.value = sequence;
             card._rxPolicy = result.policyViolations;
             showRxCalculationState(card, rand);
             const field = name => document.getElementById(name + '_' + rand);
@@ -2927,6 +2948,9 @@ function requestRxCalculation(element, action, deferPrice) {
             if (!deferPrice && (instructions ? updateQuantity : element.value === submittedValue)) {
                 refreshDrugPrice(rand, result.priceQuantity);
             }
+            const pendingEdits = Object.values(card._rxPendingPropertyEdits || {});
+            card._rxPendingPropertyEdits = {};
+            pendingEdits.forEach(resume => resume());
         }
     });
     return true;

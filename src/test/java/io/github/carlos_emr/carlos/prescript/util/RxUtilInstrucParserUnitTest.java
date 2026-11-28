@@ -899,7 +899,9 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "Take 1 tab po tid | 21 | 7",
             "Take 0.5 tab po tid | 7.5 | 5",
             "Take 1 tab po tid | 0.5 | 0",
-            "Take 2 tabs po bid | 28 | 7"
+            "Take 2 tabs po bid | 28 | 7",
+            "Take 1/3 tab po od | 30 | 90",
+            "Take 2/3 tab po od | 30 | 45"
         })
         @DisplayName("should return the stated duration or derive it by dividing the quantity by the daily amount")
         void shouldFindDuration_fromStatedDurationOrQuantity(String instructions, String quantity, String duration) {
