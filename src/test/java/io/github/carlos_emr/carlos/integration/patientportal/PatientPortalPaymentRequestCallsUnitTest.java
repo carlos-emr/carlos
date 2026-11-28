@@ -180,6 +180,47 @@ class PatientPortalPaymentRequestCallsUnitTest {
     }
 
     @Test
+    void shouldAcceptOnlyMatchingReceipts_forTheSharedSettlementContract() throws Exception {
+        var mapper = new ObjectMapper();
+        var contract = mapper.readTree(getClass().getResource("/patientportal/payment-settlement-contract.json"));
+        var request = contract.get("request");
+        var receipt = contract.get("receipt");
+        String operation = request.get("operation_id").asText();
+        String reference = request.get("invoice_ref").asText();
+        int patient = receipt.get("demographic_no").intValue();
+        var job = PortalJobAssertionSigner.from(new PortalJobKey(PortalJob.PAYMENT_SETTLEMENT,
+                PortalSecret.of(PortalTestKeys.JOB_PRIVATE_KEY), "FAKE-settlement"));
+        Exchange exchange = new Exchange().reply(200, receipt.toString());
+        assertThat(service(exchange).reportPaidOperation(patient, operation, reference, null, job))
+                .isEqualTo(receipt.get("request_id").longValue());
+        var sent = exchange.sent.getFirst();
+        assertThat(sent.getMethod()).isEqualTo(contract.get("method").asText());
+        assertThat(sent.getRequestUri()).isEqualTo(contract.get("path").asText());
+        assertThat(mapper.readTree(body(sent))).isEqualTo(request);
+        assertThat(sent.containsHeader(PortalStaffAssertionSigner.HEADER)).isFalse();
+        String assertion = sent.getFirstHeader(PortalJobAssertionSigner.HEADER).getValue();
+        var claims = mapper.readTree(Base64.getUrlDecoder().decode(assertion.substring(0, assertion.indexOf('.'))));
+        assertThat(claims.get("job")).isEqualTo(contract.get("job"));
+        assertThat(claims.get("permission")).isEqualTo(contract.get("permission"));
+
+        for (String field : List.of("demographic_no", "request_id", "invoice_ref", "operation_id", "state")) {
+            var wrong = (com.fasterxml.jackson.databind.node.ObjectNode) receipt.deepCopy();
+            if (wrong.get(field).isNumber()) {
+                wrong.put(field, 999);
+            } else {
+                wrong.put(field, "other");
+            }
+            Exchange bad = new Exchange().reply(200, wrong.toString());
+            assertThatThrownBy(() -> service(bad).reportPaidOperation(patient, operation, reference, 1L, job))
+                    .isInstanceOf(PatientPortalException.class);
+        }
+        Exchange denied = new Exchange();
+        assertThatThrownBy(() -> service(denied).reportPaidOperation(patient, operation, reference, null, null))
+                .isInstanceOf(PortalRequestPreparationException.class);
+        assertThat(denied.sent).isEmpty();
+    }
+
+    @Test
     void shouldLookUpTheOriginalOperationWithoutCreatingANewRequest() throws Exception {
         Exchange exchange = new Exchange().reply(201, created(false));
         assertThat(service(exchange).lookupPaymentOperation(123, REQUEST, STAFF).id()).isEqualTo(7);
