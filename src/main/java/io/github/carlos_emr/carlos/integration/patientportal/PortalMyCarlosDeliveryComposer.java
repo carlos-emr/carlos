@@ -32,6 +32,10 @@ import org.bouncycastle.crypto.util.PrivateKeyFactory;
 final class PortalMyCarlosDeliveryComposer {
     private static final byte[] INFO = "carlos-emr/mycarlos-delivery/v1".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] MAGIC = "mycarlos-delivery/1".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] AID_MAGIC = "mycarlos-reading-aid/1".getBytes(StandardCharsets.US_ASCII);
+    /** The contract's limits for a reading aid: its JSON, and its sealed copy (answer: signed JSON). */
+    static final int MAX_AID_JSON_BYTES = 64 * 1024;
+    static final int MAX_AID_SEALED_BYTES = 1024 * 1024;
 
     private PortalMyCarlosDeliveryComposer() {}
 
@@ -122,7 +126,7 @@ final class PortalMyCarlosDeliveryComposer {
         }
         String ciphertextHash = PortalMyCarlosDeviceApprovalCrypto.sha256(sealed);
         byte[] outer = outer(deliveryId, recipientId, acceptedDevice.kid(), sealed.length,
-                ciphertextHash, createdAt, expiresAt);
+                ciphertextHash, createdAt, expiresAt, null);
         byte[] body = PortalMyCarlosDeviceApprovalCrypto.frame(outer, sealed);
         if (outer.length > PortalMyCarlosDeliveryCodec.MAX_OUTER_BYTES
                 || sealed.length > PortalMyCarlosDeliveryCodec.MAX_SEALED_BYTES
@@ -161,12 +165,76 @@ final class PortalMyCarlosDeliveryComposer {
         return values;
     }
 
+    /** {@code kind} is absent on an original and "reading-aid/1" on an aid (contract, "Reading aids"). */
     private static byte[] outer(String id, String recipient, String kid, long size, String hash,
-            long created, long expires) {
-        return PortalMyCarlosDeliveryCodec.canonical(Map.of("v", 1L,
+            long created, long expires, String kind) {
+        Map<String, Object> values = new LinkedHashMap<>(Map.of("v", 1L,
                 "suite", Map.of("kem_id", 32L, "kdf_id", 1L, "aead_id", 3L),
                 "delivery_id", id, "recipient_id", recipient, "device_key_id", kid,
                 "size", size, "ciphertext_sha256", hash, "created_at", created, "expires_at", expires));
+        if (kind != null) values.put("kind", kind);
+        return PortalMyCarlosDeliveryCodec.canonical(values);
+    }
+
+    /**
+     * Seals an already signed reading aid for the accepted device, as its own delivery. The caller
+     * built {@code readingAidJson} and the signed {@code compactManifest} (ReadingAidArtifact); this
+     * only checks that the two agree with this delivery's identity and the contract's limits, then
+     * seals {@code mycarlos-reading-aid/1 | manifest | json} exactly as an original is sealed. The
+     * copy's "original PDF" bytes are the aid JSON, so its document hash is the JSON hash, which is
+     * what the aid's receipt names.
+     */
+    static Copy composeAid(String deliveryId, String recipientId, DeviceKeys acceptedDevice,
+            byte[] readingAidJson, String compactManifest, long createdAt, long expiresAt, String signerKid) {
+        PortalMyCarlosDeliveryCodec.uuid(deliveryId, true);
+        PortalMyCarlosDeliveryCodec.recipient(recipientId);
+        PortalMyCarlosDeliveryCodec.lifetime(createdAt, expiresAt);
+        if (acceptedDevice == null || readingAidJson == null || readingAidJson.length == 0
+                || readingAidJson.length > MAX_AID_JSON_BYTES || compactManifest == null || signerKid == null) {
+            throw invalid();
+        }
+        byte[] json = readingAidJson.clone();
+        String jsonHash = PortalMyCarlosDeviceApprovalCrypto.sha256(json);
+        var claims = PortalMyCarlosDeviceApprovalCodec.envelope(compactManifest).payload().copy();
+        com.fasterxml.jackson.databind.JsonNode m = PortalMyCarlosDeliveryCodec.object(claims, 8192);
+        com.fasterxml.jackson.databind.JsonNode aid = m.get("reading_aid");
+        if (aid == null || m.get("pair") == null || PortalMyCarlosDeliveryCodec.epoch(m, "v") != 1
+                || !"mycarlos-reading-aid-manifest".equals(PortalMyCarlosDeliveryCodec.text(m, "typ"))
+                || !deliveryId.equals(PortalMyCarlosDeliveryCodec.text(m, "delivery_id"))
+                || !recipientId.equals(PortalMyCarlosDeliveryCodec.text(m, "recipient_id"))
+                || !acceptedDevice.kid().equals(PortalMyCarlosDeliveryCodec.text(m, "device_key_id"))
+                || !signerKid.equals(PortalMyCarlosDeliveryCodec.text(m, "kid"))
+                || !jsonHash.equals(PortalMyCarlosDeliveryCodec.text(aid, "sha256"))
+                || PortalMyCarlosDeliveryCodec.epoch(aid, "size") != json.length
+                || PortalMyCarlosDeliveryCodec.epoch(m, "created_at") != createdAt
+                || PortalMyCarlosDeliveryCodec.epoch(m, "expires_at") != expiresAt) throw invalid();
+        byte[] plaintext = PortalMyCarlosDeviceApprovalCrypto.frame(AID_MAGIC,
+                compactManifest.getBytes(StandardCharsets.US_ASCII), json);
+        byte[] sealed = seal(plaintext, acceptedDevice, aad(deliveryId, recipientId, acceptedDevice.kid()));
+        if (sealed.length > MAX_AID_SEALED_BYTES) throw invalid();
+        String ciphertextHash = PortalMyCarlosDeviceApprovalCrypto.sha256(sealed);
+        byte[] outer = outer(deliveryId, recipientId, acceptedDevice.kid(), sealed.length, ciphertextHash,
+                createdAt, expiresAt, PortalMyCarlosDeliverySnapshot.READING_AID_KIND);
+        byte[] body = PortalMyCarlosDeviceApprovalCrypto.frame(outer, sealed);
+        if (outer.length > PortalMyCarlosDeliveryCodec.MAX_OUTER_BYTES
+                || body.length > PortalMyCarlosDeliveryCodec.MAX_BODY_BYTES) throw invalid();
+        return new Copy(deliveryId, recipientId, acceptedDevice, signerKid, createdAt, expiresAt,
+                new Bytes(json), jsonHash, compactManifest, new Bytes(sealed), new Bytes(body),
+                ciphertextHash, PortalMyCarlosDeviceApprovalCrypto.sha256(body));
+    }
+
+    private static byte[] seal(byte[] plaintext, DeviceKeys device, byte[] aad) {
+        try {
+            HPKE hpke = hpke();
+            var context = hpke.setupBaseS(hpke.deserializePublicKey(device.x25519().copy()), INFO);
+            byte[] ciphertext = context.seal(aad, plaintext);
+            return ByteBuffer.allocate(32 + ciphertext.length)
+                    .put(context.getEncapsulation()).put(ciphertext).array();
+        } catch (Exception failure) {
+            throw invalid();
+        } finally {
+            Arrays.fill(plaintext, (byte) 0);
+        }
     }
 
     private static String signedManifest(byte[] payload, PatientPortalClinicKeysPublishRequest.Key identity, SignBytes signer) {
