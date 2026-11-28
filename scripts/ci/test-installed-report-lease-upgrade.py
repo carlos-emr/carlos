@@ -155,6 +155,27 @@ class TestReportLeaseUpgrade(unittest.TestCase):
     def test_alternate_webapp_defaults_require_manual_verification(self):
         self.assertIn("could not verify", self.warning_for(b"", alternate_webapp=True))
 
+    def test_replaced_tomcat_launch_scripts_require_manual_verification(self):
+        safe = b"db_remove_abandoned_timeout=360\n"
+        env_text = "CATALINA_HOME=/usr/share/tomcat11\n"
+        stock_bin = Path("/usr/share/tomcat11/bin")
+        self.assertEqual("", self.warning_for(safe, env_text=env_text))
+        with tempfile.TemporaryDirectory(dir=stock_bin) as directory:
+            for name in ("catalina.sh", "setclasspath.sh"):
+                with self.subTest(script=name):
+                    script = stock_bin / name
+                    backup = Path(directory) / name
+                    replacement = backup.with_suffix(".local")
+                    os.link(script, backup)
+                    replacement.write_bytes(backup.read_bytes() + b"\n# Locally replaced script.\n")
+                    replacement.chmod(stat.S_IMODE(backup.stat().st_mode))
+                    replacement.replace(script)
+                    try:
+                        self.assertIn("could not verify", self.warning_for(safe, env_text=env_text))
+                    finally:
+                        backup.replace(script)
+        self.assertEqual("", self.warning_for(safe, env_text=env_text))
+
     def test_reloads_changed_unit_before_checking_a_retained_lease(self):
         dropins = Path("/run/systemd/system/carlos-emr.service.d")
         created_directory = not dropins.exists()

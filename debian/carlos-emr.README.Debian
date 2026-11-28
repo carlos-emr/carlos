@@ -924,9 +924,10 @@ defaults, the file selected by -Dcarlos_override_properties in CARLOS_JAVA_OPTS
 (or the managed file above), and any service-user home carlos.properties override
 in application startup order. Configure reads literal settings from carlos-emr.env.
 Configure checks the effective systemd unit after the package reloads the manager.
-It uses the packaged classpath defaults when the Tomcat launcher and deployment
-descriptors match the package. Edited deployment descriptors, a parallel deployment,
-or service-only supplementary groups require manual verification. It also asks
+It uses the packaged classpath defaults when the Tomcat launch scripts match the
+installed tomcat11-common checksums and the deployment descriptors match the CARLOS
+package. A replaced launcher, edited descriptor, parallel deployment, or
+service-only supplementary group requires manual verification. It also asks
 for manual verification if the manager is offline, a drop-in or another environment
 file can supply startup options, or the service uses dynamic shell settings,
 relative configuration paths, Tomcat bin/setenv.sh, site agents, or @argument-files.
