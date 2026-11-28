@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.FavoriteConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.PrescriptionConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.MedicationDetails;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.FavoriteTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PrescriptionTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PrintPointTo1;
@@ -134,22 +135,51 @@ public class RxWebService extends AbstractServiceImpl {
     }
 
     private static boolean validateVersionPreference(String value) {
+        validateCurrentMessageMedicationDetails();
+        return validateBooleanPreference("includeRowVersion", value);
+    }
+
+    private boolean includeMedicationDetails() {
+        return validateCurrentMessageMedicationDetails();
+    }
+
+    private static boolean validateCurrentMessageMedicationDetails() {
+        var message = org.apache.cxf.phase.PhaseInterceptorChain.getCurrentMessage();
+        if (message == null) return false;
+        String value = new org.apache.cxf.jaxrs.impl.UriInfoImpl(message)
+                .getQueryParameters().getFirst("includeMedicationDetails");
+        return validateBooleanPreference("includeMedicationDetails", value);
+    }
+
+    private static boolean validateBooleanPreference(String parameter, String value) {
         if (value != null && !value.matches("(?i:true|false)")) {
-            throw new jakarta.ws.rs.BadRequestException("includeRowVersion must be true or false");
+            throw new jakarta.ws.rs.BadRequestException(parameter + " must be true or false");
         }
         return Boolean.parseBoolean(value);
+    }
+
+    private static MedicationDetails medicationDetails(Drug drug) {
+        return MedicationDetails.read(drug.getQuantity(), drug.getUnitName(), drug.getDosage(), drug.getMedicationComponents());
     }
 
     private DrugTo1 transferDrug(LoggedInInfo info, Drug drug) {
         DrugTo1 result = drugConverter.getAsTransferObject(info, drug);
         if (includeRowVersion()) result.setRowVersion(drug.getRowVersion());
+        if (includeMedicationDetails()) result.setMedicationDetails(medicationDetails(drug));
         return result;
     }
 
     private List<DrugTo1> transferDrugs(LoggedInInfo info, List<Drug> drugs) {
         List<DrugTo1> result = drugConverter.getAllAsTransferObjects(info, drugs);
-        if (includeRowVersion()) {
-            for (int index = 0; index < drugs.size(); index++) result.get(index).setRowVersion(drugs.get(index).getRowVersion());
+        boolean versions = includeRowVersion();
+        boolean details = includeMedicationDetails();
+        if (versions || details) {
+            for (int index = 0; index < drugs.size(); index++) {
+                Drug drug = drugs.get(index);
+                DrugTo1 transfer = result.get(index);
+                if (versions) transfer.setRowVersion(drug.getRowVersion());
+                if (details) transfer.setMedicationDetails(medicationDetails(drug));
+            }
         }
         return result;
     }
@@ -685,13 +715,23 @@ public class RxWebService extends AbstractServiceImpl {
         // No access control check required, we are not accessing a patient record.
         // TODO: Revise access control policies and re-evalute this to see if it requires access control check.
 
+        boolean includeDetails = includeMedicationDetails();
+
         LoggedInInfo info = getLoggedInInfo();
 
         FavoriteResponse resp = new FavoriteResponse();
 
         List<Favorite> favs = this.rxManager.getFavorites(info.getLoggedInProviderNo());
 
-        resp.setDrugs(this.favoriteConverter.getAllAsTransferObjects(info, favs));
+        var transfers = this.favoriteConverter.getAllAsTransferObjects(info, favs);
+        if (includeDetails) {
+            for (int index = 0; index < favs.size(); index++) {
+                Favorite favorite = favs.get(index);
+                transfers.get(index).setMedicationDetails(MedicationDetails.read(favorite.getQuantity(),
+                        favorite.getUnitName(), favorite.getDosage(), favorite.getMedicationComponents()));
+            }
+        }
+        resp.setDrugs(transfers);
 
         return resp;
 

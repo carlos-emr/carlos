@@ -204,6 +204,41 @@ class DrugConverterUnitTest {
             assertThat(d.isNoSubs()).isFalse();
             assertThat(d.getOutsideProviderName()).isEqualTo("foo");
         }
+
+        @Test
+        @DisplayName("should write opt-in medicationDetails without calling DrugRef catalogue")
+        void shouldWriteExactMedicationDetails_withoutCatalogueLookup() {
+            converter.setDrugLookUpManager(new DrugLookUpManager() {
+                @Override
+                public List<DrugSearchTo1> search(String name) {
+                    throw new AssertionError("Catalogue lookup must not run for opt-in medicationDetails writes");
+                }
+            });
+            DrugTo1 t = new DrugTo1();
+            t.setBrandName("aspirin");
+            t.setProviderNo("1");
+            t.setDemographicNo(1);
+            t.setTakeMin(1.0f);
+            t.setTakeMax(1.0f);
+            t.setRepeats(0);
+            t.setPrn(false);
+            t.setArchived(false);
+            t.setLongTerm(false);
+            t.setNoSubstitutions(false);
+            var details = new io.github.carlos_emr.carlos.webserv.rest.to.model.MedicationDetails();
+            details.setQuantityText("7.5");
+            details.setDispenseUnit("mL");
+            details.setDosageText("250 mg/5 mL");
+            t.setMedicationDetails(details);
+
+            Drug d = converter.getAsDomainObject(info, t);
+
+            assertThat(d.getQuantity()).isEqualTo("7.5");
+            assertThat(d.getUnitName()).isEqualTo("mL");
+            assertThat(d.getDosage()).isEqualTo("250 mg/5 mL");
+            assertThat(t.getStrength()).isNull();
+            assertThat(t.getStrengthUnit()).isNull();
+        }
     }
 
     @Nested
@@ -220,7 +255,7 @@ class DrugConverterUnitTest {
 
             Boolean result = converter.populateDrugStrength(d, t);
 
-            assertThat(d.getDosage()).isEqualTo("100.0 mg");
+            assertThat(d.getDosage()).isEqualTo("100 mg");
             assertThat(d.getUnit()).isEqualTo("mg");
             assertThat(result).isTrue();
         }
@@ -234,7 +269,7 @@ class DrugConverterUnitTest {
 
             Boolean result = converter.populateDrugStrength(d, t);
 
-            assertThat(d.getDosage()).isEqualTo("1.0 mg");
+            assertThat(d.getDosage()).isEqualTo("1 mg");
             assertThat(d.getUnit()).isEqualTo("mg");
             assertThat(result).isTrue();
         }
@@ -322,6 +357,28 @@ class DrugConverterUnitTest {
 
             assertThat(converter.populateTo1Strength(t, d)).isFalse();
         }
+
+        @Test
+        @DisplayName("should populate strength and unit from stored dosage without overwriting existing transfer fields")
+        void shouldPopulateStrengthFromDosage_whenTransferStrengthIsUnset() {
+            Drug d = new Drug();
+            d.setId(9);
+            d.setDemographicId(1);
+            d.setProviderNo("1");
+            d.setDosage("500 mg");
+
+            DrugTo1 transferred = converter.getAsTransferObject(info, d);
+            assertThat(transferred.getStrength()).isEqualTo(500.0f);
+            assertThat(transferred.getStrengthUnit()).isEqualTo("mg");
+
+            DrugTo1 presetStrength = new DrugTo1();
+            presetStrength.setStrength(250.0f);
+            assertThat(converter.populateStrengthFromDosage(d, presetStrength)).isFalse();
+
+            DrugTo1 presetUnit = new DrugTo1();
+            presetUnit.setStrengthUnit("mcg");
+            assertThat(converter.populateStrengthFromDosage(d, presetUnit)).isFalse();
+        }
     }
 
     /**
@@ -345,6 +402,11 @@ class DrugConverterUnitTest {
         @Override
         public boolean populateDrugStrength(Drug d, DrugTo1 t) {
             return super.populateDrugStrength(d, t);
+        }
+
+        @Override
+        public Boolean populateStrengthFromDosage(Drug d, DrugTo1 t) {
+            return super.populateStrengthFromDosage(d, t);
         }
 
         @Override

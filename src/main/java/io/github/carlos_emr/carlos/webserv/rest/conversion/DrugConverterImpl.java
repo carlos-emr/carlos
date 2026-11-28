@@ -37,6 +37,8 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationCompatibilityException;
 import io.github.carlos_emr.carlos.managers.DrugLookUp;
+import io.github.carlos_emr.carlos.prescript.util.DrugStrength;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.MedicationDetails;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugSearchTo1;
@@ -45,8 +47,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Converts between domain Drug object and transfer Drug objects.
@@ -94,7 +94,7 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
             }
             d.setAtc(t.getAtc());
             d.setRegionalIdentifier(t.getRegionalIdentifier());
-            d.setDosage(t.getStrength() + t.getStrengthUnit());
+            d.setDosage(new DrugStrength(t.getStrength(), t.getStrengthUnit()).dosageText());
             d.setTakeMax(t.getTakeMax());
             d.setTakeMin(t.getTakeMin());
             d.setRxDate(t.getRxDate());
@@ -126,7 +126,16 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
                 d.setQuantity(t.getQuantity().toString());
             }
 
-            populateDrugStrength(d, t);
+            var details = t.getMedicationDetails();
+            if (details != null) {
+                details.validateQuantity(t.getQuantity());
+                details.validateStrength(t.getStrength(), t.getStrengthUnit());
+                d.setUnit(t.getStrengthUnit());
+                d.setExactMedicationDetails(details.getQuantityText(), details.getDispenseUnit(),
+                        details.getDosageText(), details.encodeComponents());
+            } else {
+                populateDrugStrength(d, t);
+            }
 
         } catch (RuntimeException re) {
             logger.error("Runtime EX", re);
@@ -224,40 +233,28 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
         t.setExternalProvider(d.getOutsideProviderName());
         t.setAdditionalInstructions(d.getSpecialInstruction());
 
-        if (d.getQuantity() != null) {
-            t.setQuantity(Integer.parseInt(d.getQuantity()));
-        }
+        // A quantity the Integer field cannot carry ("2.5", of 2.5 mL) is left out: parsing it
+        // threw and failed the read of the patient's whole drug list (#6185). The instruction text
+        // still states it, and an update that states no quantity keeps the stored one
+        // (RxManagerImpl.updateDrug).
+        t.setQuantity(MedicationDetails.wholeQuantity(d.getQuantity()));
 
         this.populateStrengthFromDosage(d, t);
 
         return t;
     }
 
+    /** Reads the legacy API's single strength from the stored dosage. */
     protected Boolean populateStrengthFromDosage(Drug d, DrugTo1 t) {
         if (t.getStrength() != null || (t.getStrengthUnit() != null && !t.getStrengthUnit().isEmpty())) {
             return false;
         }
-        Boolean result = false;
-        String dosage = d.getDosage();
-        try {
-            if (!dosage.isEmpty()) {
-                Pattern pattern = Pattern.compile("(\\d+\\.?\\d+)\\s?([^0-9]+)\\s?");
-                Matcher matcher = pattern.matcher(dosage);
-                if (matcher.find()) { // getting first dosage component, to match populateTo1Strength behaviour
-                    String strength = matcher.group(1);
-                    String unit = matcher.group(2);
-                    if (!strength.isEmpty() && !unit.isEmpty()) {
-                        t.setStrength(Float.parseFloat(strength));
-                        t.setStrengthUnit(unit);
-                        result = true;
-                    }
-                }
-            }
-            return result;
-        } catch (Exception e) {
-            logger.error(e.getStackTrace());
-            return false;
+        DrugStrength strength = DrugStrength.fromDosage(d.getDosage());
+        t.setStrength(strength.amount());
+        if (strength.unit() != null) {
+            t.setStrengthUnit(strength.unit());
         }
+        return strength.amount() != null;
     }
 
     /**
@@ -318,30 +315,15 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
      * @return true if successful, false otherwise.
      */
     protected boolean populateDrugStrength(Drug d, DrugTo1 t) {
-
-        if (t.getStrengthUnit() != null && t.getStrength() != null) {
-
-            d.setDosage(t.getStrength() + " " + t.getStrengthUnit());
-            d.setUnit(t.getStrengthUnit());
-            return true;
-
-        } else {
-
-            // if there is no strength we have to look it up in drug ref
-            // we use the
-            if (this.populateTo1Strength(t, d)) {
-
-                d.setDosage(t.getStrength() + " " + t.getStrengthUnit());
-                d.setUnit(t.getStrengthUnit());
-                return true;
-
-            } else {
-
-                return false;
-
-            }
-
+        boolean hasStrength = t.getStrengthUnit() != null && t.getStrength() != null;
+        // A replacement with missing fields may be echoing an incomplete reading of the
+        // stored strength. Let the manager reconcile it with the row it is replacing.
+        if (!hasStrength && (d.getId() != null || !populateTo1Strength(t, d))) {
+            return false;
         }
+        d.setDosage(new DrugStrength(t.getStrength(), t.getStrengthUnit()).dosageText());
+        d.setUnit(t.getStrengthUnit());
+        return true;
     }
 
 }

@@ -356,6 +356,8 @@
         </title><!--I18n-->
 
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <script src="${pageContext.request.contextPath}/share/javascript/rx-input-validation.js"></script>
+        <fmt:message key="WriteScript.doseNotation" var="preventionDoseNotation"/>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
@@ -1066,8 +1068,9 @@
 
                             <div class="row g-2 align-items-center mb-1">
                                 <div class="col-sm-4"><label for="dose" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.dose"/></label></div>
-                                <div class="col-sm-8"><textarea class="form-control form-control-sm" name="dose" id="dose" rows="1">
-<carlos:encode value='<%= d1 %>'/></textarea></div>
+                                <div class="col-sm-8"><textarea class="form-control form-control-sm" name="dose" id="dose" rows="1"
+                                    oninput="RxInputValidation.showDoseNotation(this, 'preventionDoseNotation')">
+<carlos:encode value='<%= d1 %>'/></textarea><span id="preventionDoseNotation" role="status" data-message="${carlos:forHtmlAttribute(preventionDoseNotation)}"></span></div>
                             </div>
                             <div class="row g-2 align-items-center mb-1">
                                 <div class="col-sm-4"><label for="doseUnit" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.doseunit"/></label></div>
@@ -1221,9 +1224,9 @@
                                                                      value="<%=str((extraData.get("route")),"")%>"/></div>
                             </div>
                             <div class="row g-2 align-items-center mb-1">
-                                <div class="col-sm-4"><label for="dose" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.dose"/></label></div>
-                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="dose"
-                                                                   value="<%=str((extraData.get("dose")),"")%>"/></div>
+                                <div class="col-sm-4"><label for="h1n1Dose" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.dose"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="dose" id="h1n1Dose" oninput="RxInputValidation.showDoseNotation(this, 'preventionH1n1DoseNotation')"
+                                                                   value="<%=str((extraData.get("dose")),"")%>"/><span id="preventionH1n1DoseNotation" role="status" data-message="${carlos:forHtmlAttribute(preventionDoseNotation)}"></span></div>
                             </div>
                             <div class="row g-2 align-items-center mb-1">
                                 <div class="col-sm-4"><label for="dose1" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.dose1"/></label></div>

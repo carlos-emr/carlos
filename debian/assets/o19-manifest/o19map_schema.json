@@ -2,7 +2,7 @@
  "format": 3,
  "kind": "o19map-schema",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-8+99e99907",
+ "SCHEMA_MAP_VERSION": "o19map-8+5019cdc9",
  "O19_PROFILE": "on",
  "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
@@ -14495,7 +14495,11 @@
    "cds_currentness",
    "cds_dose_text",
    "cds_projection_incomplete",
-   "row_version"
+   "row_version",
+   "archived_before_lifecycle",
+   "archived_date_before_lifecycle",
+   "archived_reason_before_lifecycle",
+   "medication_components"
   ],
   "dsGuidelineProviderMap": [
    "mapid",
@@ -14658,7 +14662,8 @@
    "dosage",
    "custom_instructions",
    "unitName",
-   "dispenseInternal"
+   "dispenseInternal",
+   "medication_components"
   ],
   "favoritesprivilege": [
    "id",
@@ -15476,7 +15481,8 @@
    "familyDrFax",
    "note",
    "allergies",
-   "drugs"
+   "drugs",
+   "otc_reviewed"
   ],
   "formCESD": [
    "ID",
@@ -23426,12 +23432,7 @@
   ],
   "drugs": [
    "archived",
-   "custom_instructions",
-   "hide_cpp",
-   "prn",
-   "start_date_unknown",
-   "takemax",
-   "takemin"
+   "prn"
   ],
   "dsGuidelines": [
    "status"
@@ -23470,13 +23471,9 @@
   ],
   "favorites": [
    "GCN_SEQNO",
-   "custom_instructions",
    "dispenseInternal",
    "nosubs",
-   "prn",
-   "repeat",
-   "takemax",
-   "takemin"
+   "prn"
   ],
   "favoritesprivilege": [
    "opentopublic",
@@ -24776,7 +24773,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-8+721abab3",
+   "SCHEMA_MAP_VERSION": "o19map-8+090516b6",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
@@ -44515,7 +44512,11 @@
      "cds_currentness",
      "cds_dose_text",
      "cds_projection_incomplete",
-     "row_version"
+     "row_version",
+     "archived_before_lifecycle",
+     "archived_date_before_lifecycle",
+     "archived_reason_before_lifecycle",
+     "medication_components"
     ],
     "dsGuidelineProviderMap": [
      "mapid",
@@ -44678,7 +44679,8 @@
      "dosage",
      "custom_instructions",
      "unitName",
-     "dispenseInternal"
+     "dispenseInternal",
+     "medication_components"
     ],
     "favoritesprivilege": [
      "id",
@@ -49795,7 +49797,8 @@
      "familyDrFax",
      "note",
      "allergies",
-     "drugs"
+     "drugs",
+     "otc_reviewed"
     ],
     "formCESD": [
      "ID",
@@ -57652,12 +57655,7 @@
     ],
     "drugs": [
      "archived",
-     "custom_instructions",
-     "hide_cpp",
-     "prn",
-     "start_date_unknown",
-     "takemax",
-     "takemin"
+     "prn"
     ],
     "dsGuidelines": [
      "status"
@@ -57696,13 +57694,9 @@
     ],
     "favorites": [
      "GCN_SEQNO",
-     "custom_instructions",
      "dispenseInternal",
      "nosubs",
-     "prn",
-     "repeat",
-     "takemax",
-     "takemin"
+     "prn"
     ],
     "favoritesprivilege": [
      "opentopublic",

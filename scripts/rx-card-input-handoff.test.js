@@ -101,9 +101,11 @@ function cardFields() {
     ctx: '/carlos', Math, encodeURIComponent, jsMsg, RxInputValidation,
     alert: message => alerts.push(message),
     reportRefusedRequest: transport => refused.push(transport),
+    showRxCalculationState(card) { card.blocked = card._rxCalculationConflict; },
     document: { getElementById: id => elements[id] },
     CarlosAjax: { request(url, options) { requests.push({ url, options }); } },
   };
+  vm.runInNewContext(slice(searchDrug, 'function isStaleRxCalculationConflict(', 'function requestRxCalculation('), context);
   vm.runInNewContext(source, context);
   const element = (id, props) => (elements[id] = { id, className: '', attributes: {}, setAttribute(k, v) { this.attributes[k] = v; }, ...props });
   return { context, requests, alerts, refused, element };
@@ -247,7 +249,8 @@ test('the timeline form marks a submitted selection so an empty one is not a fir
 test('a refused inline field blocks Save until the server accepts its correction', () => {
   const s = cardFields();
   const el = s.element('minimum_5', { textContent: 'two', focus() { this.focused = true; } });
-  s.context.document.querySelector = () => el.attributes['aria-invalid'] === 'true' ? el : null;
+  s.context.document.querySelector = selector =>
+    selector.includes('aria-invalid') && el.attributes['aria-invalid'] === 'true' ? el : null;
   el.removeAttribute = name => { delete el.attributes[name]; };
   s.context.updateProperty(el.id);
   assert.equal(s.context.validateCardProperties(), false);
@@ -259,3 +262,130 @@ test('a refused inline field blocks Save until the server accepts its correction
   s.requests[0].options.onSuccess({status: 200});
   assert.equal(s.context.validateCardProperties(), true);
 });
+
+test('an accepted inline dose edit supersedes a pending quantity calculation', () => {
+  const s = cardFields();
+  const card = s.element('set_5', { _rxCalculationPending: true });
+  const qty = s.element('quantity_5', { value: '30' });
+  const max = s.element('maximum_5', { textContent: '2', removeAttribute() {} });
+  const recalculated = [];
+  s.context.updateQty = el => recalculated.push(el);
+  s.context.updateProperty(max.id);
+  assert.equal(card._rxPropertyVersions.maximum, 1);
+  assert.equal(card._rxNeedsReconciliation, true);
+  assert.equal(s.requests.length, 0, 'inline edits wait for the pending calculation');
+  card._rxCalculationPending = false;
+  card._rxPendingPropertyEdits[max.id]();
+  s.requests[0].options.onSuccess({ status: 200 });
+  assert.equal(card._rxNeedsReconciliation, false);
+  assert.deepEqual(recalculated, [qty]);
+});
+
+test('a repeat edit waits for its pending calculation without requesting dose reconciliation', () => {
+  const s = cardFields();
+  const card = s.element('set_5', { _rxCalculationPending: true });
+  const ack = s.element('calculationAck_5', { value: '1' });
+  const repeats = s.element('repeats_5', { value: '2', removeAttribute() {} });
+  s.context.updateProperty(repeats.id);
+  assert.equal(s.requests.length, 0);
+  assert.equal(Boolean(card._rxNeedsReconciliation), false);
+  card._rxCalculationPending = false;
+  ack.value = '2';
+  card._rxPendingPropertyEdits[repeats.id]();
+  assert.equal(new URLSearchParams(s.requests[0].options.parameters).get('calculationAck'), '2');
+  s.requests[0].options.onSuccess({ status: 200 });
+  assert.equal(ack.value, '2');
+  assert.equal(Boolean(card._rxNeedsReconciliation), false);
+});
+
+test('an inline dose edit still reconciles when the prior calculation finishes before updateProperty succeeds', () => {
+  const s = cardFields();
+  const card = s.element('set_5', { _rxCalculationPending: true, dataset: { calculationSequence: '1' } });
+  const ack = s.element('calculationAck_5', { value: '1' });
+  const qty = s.element('quantity_5', { value: '30' });
+  const max = s.element('maximum_5', { textContent: '2', removeAttribute() {} });
+  const recalculated = [];
+  s.context.updateQty = el => recalculated.push({ el, seq: card._rxSequence });
+  s.context.updateProperty(max.id);
+  // Prior calculation finishes before updateProperty completes
+  assert.equal(s.requests.length, 0);
+  card._rxCalculationPending = false;
+  ack.value = '3';
+  card._rxPendingPropertyEdits[max.id]();
+  assert.equal(new URLSearchParams(s.requests[0].options.parameters).get('calculationAck'), '3');
+  s.requests[0].options.onSuccess({ status: 200, responseJSON: { calculationSequence: 4 } });
+  assert.equal(card._rxNeedsReconciliation, false);
+  assert.equal(card._rxSequence, 4);
+  assert.equal(card.dataset.calculationSequence, '4');
+  assert.equal(ack.value, '3', 'acknowledgement waits for the reconciling updateQty response');
+  assert.deepEqual(recalculated, [{ el: qty, seq: 4 }]);
+});
+
+test('an idle inline clinical edit advances card._rxSequence and calculationAck from the server sequence', () => {
+  const s = cardFields();
+  const card = s.element('set_5', { _rxSequence: 2, _rxCalculationPending: false, dataset: { calculationSequence: '2' } });
+  const ack = s.element('calculationAck_5', { value: '2' });
+  const freq = s.element('frequency_5', { textContent: 'BID', removeAttribute() {} });
+  s.context.updateProperty(freq.id);
+  s.requests[0].options.onSuccess({ status: 200, responseText: '{"calculationSequence":3}' });
+  assert.equal(card._rxSequence, 3);
+  assert.equal(card.dataset.calculationSequence, '3');
+  assert.equal(ack.value, '3');
+});
+
+
+test('a stale inline edit sends its observed revision and acknowledgement and requires reopening', () => {
+  const s = cardFields();
+  const card = s.element('set_5', { _rxSequence: 7, _rxCalculationPending: false });
+  const ack = s.element('calculationAck_5', { value: '2' });
+  s.element('draftRevision_5', { value: 'window-b-draft' });
+  const route = s.element('route_5', { textContent: 'SL', removeAttribute() {} });
+  s.context.updateProperty(route.id);
+  const parameters = new URLSearchParams(s.requests[0].options.parameters);
+  assert.equal(parameters.get('draftRevision'), 'window-b-draft');
+  assert.equal(parameters.get('calculationAck'), '2', 'an unacknowledged local sequence is not observed server state');
+  s.requests[0].options.onFailure({status: 409, responseText: '{"error":"STALE_RX_STASH"}'});
+  assert.equal(card._rxCalculationConflict, true);
+  assert.equal(card.blocked, true);
+  assert.equal(ack.value, '2');
+  assert.equal(route.textContent, 'SL', 'the typed edit remains available');
+  s.context.updateProperty(route.id);
+  assert.equal(s.requests.length, 1, 'further edits cannot acknowledge a conflicted card');
+});
+
+test('a resumed inline dose validation refusal clears reconciliation without overwriting aria-invalid', () => {
+  const s = cardFields();
+  const card = s.element('set_5', { _rxCalculationPending: true, _rxCalculationErrors: {} });
+  const qty = s.element('quantity_5', { value: '30' });
+  const max = s.element('maximum_5', { textContent: '2', removeAttribute() {} });
+  const recalculated = [];
+  s.context.updateQty = el => recalculated.push(el);
+  s.context.updateProperty(max.id);
+  assert.equal(card._rxNeedsReconciliation, true);
+  card._rxCalculationPending = false;
+  const resume = card._rxPendingPropertyEdits[max.id];
+  card._rxPendingPropertyEdits = {};
+  resume();
+  s.requests[0].options.onFailure({ status: 400, responseJSON: { error: 'INVALID_RX_DOSE' } });
+  assert.equal(card._rxNeedsReconciliation, false);
+  assert.equal(max.attributes['aria-invalid'], 'true');
+  assert.deepEqual(recalculated, []);
+  assert.equal(qty.value, '30');
+});
+
+test('a failed inline dose submission marks _rxFailedPropertyEdits and aria-invalid until an accepted retry', () => {
+  const s = cardFields();
+  const card = s.element('set_5', { _rxCalculationPending: false, _rxCalculationErrors: {} });
+  const min = s.element('minimum_5', { textContent: '0.5', removeAttribute(name) { delete this.attributes[name]; } });
+  s.context.updateProperty(min.id);
+  s.requests[0].options.onFailure({ status: 500 });
+  assert.equal(min.attributes['aria-invalid'], 'true');
+  assert.equal(card._rxFailedPropertyEdits.minimum, true);
+
+  s.context.updateProperty(min.id);
+  s.requests[1].options.onSuccess({ status: 200 });
+  assert.equal(min.attributes['aria-invalid'], undefined);
+  assert.equal(Object.prototype.hasOwnProperty.call(card._rxFailedPropertyEdits, 'minimum'), false);
+});
+
+

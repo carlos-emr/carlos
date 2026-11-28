@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/FavoriteConverterImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 87.5,
+    "sourceBlob": "d4df1d7aec51e5b6e378a438029add7362fd30f9"
+  },
+  "evidenceSha256": "b74a619c63c42a44274d54929e3dc91d619892c43eb36ffab549e92e4897bc39"
+}

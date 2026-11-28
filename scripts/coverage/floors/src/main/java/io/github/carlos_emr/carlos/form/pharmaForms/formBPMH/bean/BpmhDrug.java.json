@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/bean/BpmhDrug.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "a7bc0d358b0bd870e956927a2ecea76be0be3f9d"
+  },
+  "evidenceSha256": "b74a619c63c42a44274d54929e3dc91d619892c43eb36ffab549e92e4897bc39"
+}

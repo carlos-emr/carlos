@@ -61,10 +61,10 @@ public class Favorite extends AbstractModel<Integer> {
     private String customName;
 
     @Column(name = "takemin")
-    private float takeMin;
+    private Float takeMin = 0f;
 
     @Column(name = "takemax")
-    private float takeMax;
+    private Float takeMax = 0f;
 
     @Column(name = "freqcode")
     private String frequencyCode;
@@ -77,7 +77,7 @@ public class Favorite extends AbstractModel<Integer> {
     private String quantity;
 
     @Column(name = "`repeat`")
-    private int repeat;
+    private Integer repeat = 0;
 
     private boolean nosubs;
 
@@ -105,8 +105,43 @@ public class Favorite extends AbstractModel<Integer> {
 
     private String dosage;
 
+    @Column(name = "medication_components")
+    private String medicationComponents;
+
+    @jakarta.persistence.Transient
+    private boolean exactMedicationDetails;
+
+    /**
+     * Returns the JSON-encoded medication component list stored for this favorite, if any.
+     *
+     * @return String JSON-encoded medication components, or {@code null} when not recorded
+     */
+    public String getMedicationComponents() { return medicationComponents; }
+
+    /**
+     * Sets the JSON-encoded medication component list for this favorite.
+     *
+     * @param medicationComponents String JSON-encoded medication components, or {@code null} when absent or cleared
+     */
+    public void setMedicationComponents(String medicationComponents) { this.medicationComponents = medicationComponents; }
+
+    /**
+     * Indicates whether this favorite was populated from an explicit opt-in {@code medicationDetails} payload.
+     *
+     * @return boolean {@code true} when {@code medicationComponents} reflects an explicit opt-in state (including cleared {@code null})
+     */
+    public boolean isExactMedicationDetails() { return exactMedicationDetails; }
+
+    /**
+     * Marks whether this favorite was populated from an explicit opt-in {@code medicationDetails} payload.
+     *
+     * @param exactMedicationDetails boolean {@code true} when {@code medicationComponents} should be matched strictly during deduplication
+     */
+    public void setExactMedicationDetails(boolean exactMedicationDetails) { this.exactMedicationDetails = exactMedicationDetails; }
+
+
     @Column(name = "custom_instructions")
-    private boolean customInstructions;
+    private Boolean customInstructions = false;
 
     private String unitName;
 
@@ -161,7 +196,7 @@ public class Favorite extends AbstractModel<Integer> {
     }
 
     public float getTakeMin() {
-        return takeMin;
+        return takeMin != null ? takeMin : 0f;
     }
 
     public void setTakeMin(float takeMin) {
@@ -169,7 +204,7 @@ public class Favorite extends AbstractModel<Integer> {
     }
 
     public float getTakeMax() {
-        return takeMax;
+        return takeMax != null ? takeMax : 0f;
     }
 
     public void setTakeMax(float takeMax) {
@@ -209,7 +244,7 @@ public class Favorite extends AbstractModel<Integer> {
     }
 
     public int getRepeat() {
-        return repeat;
+        return repeat != null ? repeat : 0;
     }
 
     public void setRepeat(int repeat) {
@@ -305,7 +340,7 @@ public class Favorite extends AbstractModel<Integer> {
     }
 
     public boolean isCustomInstructions() {
-        return customInstructions;
+        return Boolean.TRUE.equals(customInstructions);
     }
 
     public void setCustomInstructions(boolean customInstructions) {

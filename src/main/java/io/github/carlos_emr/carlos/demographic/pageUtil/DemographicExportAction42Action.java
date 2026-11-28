@@ -1870,39 +1870,11 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     mSummary = Util.addSummary(mSummary, "Form", drugForm);
                                 }
 
-                                //Process dosage export
-                                Float dosageValue = arr[p].getTakeMin();
-                                if (dosageValue == 0) { //takemin=0, try takemax
-                                    dosageValue = arr[p].getTakeMax();
+                                writeMedicationDose(medi, arr[p]);
+                                if (medi.isSetDosage()) {
+                                    mSummary = Util.addSummary(mSummary, "Dosage",
+                                            medi.getDosage() + " " + StringUtils.noNull(medi.getDosageUnitOfMeasure()));
                                 }
-                                String drugUnit = StringUtils.noNull(arr[p].getUnit());
-
-                                if (drugUnit.equalsIgnoreCase(getDosageUnit(arr[p].getDosage()))) {
-                                    //drug unit should not be same as dosage unit
-                                    //check drug form to see if it matches the following list
-
-                                    if (StringUtils.containsIgnoreCase(drugForm, "capsule")) drugUnit = "capsule";
-                                    else if (StringUtils.containsIgnoreCase(drugForm, "drop")) drugUnit = "drop";
-                                    else if (StringUtils.containsIgnoreCase(drugForm, "dosing")) drugUnit = "dosing";
-                                    else if (StringUtils.containsIgnoreCase(drugForm, "grobule")) drugUnit = "grobule";
-                                    else if (StringUtils.containsIgnoreCase(drugForm, "granule")) drugUnit = "granule";
-                                    else if (StringUtils.containsIgnoreCase(drugForm, "patch")) drugUnit = "patch";
-                                    else if (StringUtils.containsIgnoreCase(drugForm, "pellet")) drugUnit = "pellet";
-                                    else if (StringUtils.containsIgnoreCase(drugForm, "pill")) drugUnit = "pill";
-                                    else if (StringUtils.containsIgnoreCase(drugForm, "tablet")) drugUnit = "tablet";
-
-                                    if (drugUnit.equals(arr[p].getUnit())) {
-                                        //drugUnit not changed by the above
-                                        //export dosage as "take * dosageValue"
-                                        dosageValue *= getDosageValue(arr[p].getDosage());
-                                    }
-                                }
-
-                                //export dosage
-                                String dosageText = plainDosage(dosageValue);
-                                medi.setDosage(dosageText);
-                                if (StringUtils.filled(drugUnit)) medi.setDosageUnitOfMeasure(drugUnit);
-                                mSummary = Util.addSummary(mSummary, "Dosage", dosageText + " " + drugUnit);
 
                                 if (StringUtils.filled(arr[p].getSpecialInstruction()) && medi.getDrugDescription() != null) {
                                     String[] parts = arr[p].getSpecial().split("\n");
@@ -1914,6 +1886,17 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 if (StringUtils.filled(arr[p].getSpecialInstruction()) && medi.getDrugDescription() == null) {
                                     medi.setPrescriptionInstructions(arr[p].getSpecialInstruction());
                                     mSummary = Util.addSummary(mSummary, "Prescription Instructions", arr[p].getSpecialInstruction());
+                                }
+                                // A missing structured dose must still leave the receiver
+                                // with the recorded directions for this medication.
+                                if (!medi.isSetDosage() && StringUtils.filled(arr[p].getSpecial())) {
+                                    String recorded = arr[p].getSpecial();
+                                    if (!medi.isSetPrescriptionInstructions() && recorded.length() <= 32_768) {
+                                        medi.setPrescriptionInstructions(recorded);
+                                    } else if (!recorded.equals(medi.getPrescriptionInstructions())) {
+                                        addResidualInformation(medi.addNewResidualInfo(), "string",
+                                                "Recorded prescription directions", recorded);
+                                    }
                                 }
 
                                 if (StringUtils.filled(arr[p].getRoute())) {
@@ -4541,25 +4524,24 @@ public class DemographicExportAction42Action extends ActionSupport {
         return new BigDecimal(Float.toString(dose)).stripTrailingZeros().toPlainString();
     }
 
-    private Float getDosageValue(String dosage) {
-        String[] dosageBreak = getDosageMultiple1st(dosage).split(" ");
-
-        if (NumberUtils.isNumber(dosageBreak[0])) return Float.parseFloat(dosageBreak[0]);
-        else return 0f;
-    }
-
-    private String getDosageUnit(String dosage) {
-        String[] dosageBreak = getDosageMultiple1st(dosage).split(" ");
-
-        if (dosageBreak.length == 2) return dosageBreak[1].trim();
-        else return null;
-    }
-
-    private String getDosageMultiple1st(String dosage) {
-        if (StringUtils.empty(dosage)) return "";
-
-        String[] dosageMultiple = dosage.split("/");
-        return dosageMultiple[0].trim();
+    /** The CDS 4 medication writer uses only known dose information in standard fields. */
+    static void writeMedicationDose(MedicationsAndTreatments medication, RxPrescriptionData.Prescription prescription) {
+        String explicit = prescription.getCdsDoseText();
+        String unit = io.github.carlos_emr.carlos.prescript.util.RxUtil.recordedDoseUnit(
+                prescription.getUnit(), prescription.getDrugForm(), prescription.getDosage(), explicit);
+        if (StringUtils.filled(explicit)) {
+            medication.setDosage(explicit);
+        } else {
+            float min = prescription.getTakeMin();
+            float max = prescription.getTakeMax();
+            if (unit == null || !Float.isFinite(min) || !Float.isFinite(max)) return;
+            // Retain the legacy CDS 4 whole dose recorded in takemin when takemax
+            // holds the zero default and the unit is known.
+            if (max == 0 && min == Math.rint(min)) max = min;
+            if (min <= 0 || max < min) return;
+            medication.setDosage(min == max ? plainDosage(min) : plainDosage(min) + "-" + plainDosage(max));
+        }
+        if (unit != null) medication.setDosageUnitOfMeasure(unit);
     }
 
     private String getProviderName(String providerNo) {

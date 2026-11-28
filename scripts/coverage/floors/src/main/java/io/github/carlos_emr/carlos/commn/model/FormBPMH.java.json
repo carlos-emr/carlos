@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/model/FormBPMH.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "a85be85ca614256617ae17a5e46f50faa57eee34"
+  },
+  "evidenceSha256": "3acff2320708367d9d00001323f29412e92a7a058487c1f5f51de3a08a8bbbc4"
+}

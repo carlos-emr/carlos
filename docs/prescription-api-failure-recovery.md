@@ -1,5 +1,25 @@
 # REST prescription failure and recovery
 
+## Exact medication details
+
+Add `includeMedicationDetails=true` (case-insensitive `true` or `false`; any other
+non-null value returns HTTP `400` before writes) to medication and favourite reads
+(`/rx/drugs*`, `/rx/history`, `/rx/favorites`) or drug-returning writes
+(`/rx/new`, `/rx/update`, `/rx/drug/{drugId}`, `/rx/prescribe`) to receive
+`medicationDetails` in the endpoint's existing format. Drug lists return JSON.
+`/rx/history` and `/rx/favorites` also support XML. The record carries `quantityText`,
+`dispenseUnit`, `dosageText` and the ordered `components` with each component's
+name, strength text and unit. `componentDataComplete` describes the stored
+component list. Older records can carry exact dosage text and an incomplete
+component list. The read uses the medication record and works during a
+catalogue outage.
+
+For a write with `medicationDetails`, supply the full details object. A null
+member clears that exact value. A legacy integer quantity or strength echoed
+alongside exact values must agree with the legacy projection. A write that
+omits the object retains the legacy contract. Clients can keep using the
+existing fields. A fractional quantity has an empty legacy integer projection.
+
 `POST /rx/prescribe?demographicNo=...` retains its existing response shape. The prescription header, earlier medication replacements and source-medication archive changes now share the manager's transaction. Every input and stored source must belong to the prescription patient. A mixed-patient batch is refused before the header is created.
 
 A successful response includes the prescription and medication IDs after the manager transaction has committed. Existing validation refusals retain `success: false`. A null write result after writes have begun throws `PrescriptionWriteException` across the transaction proxy; only after rollback does the resource translate it to the legacy failed response. This is distinct from a normal return that could commit earlier writes.

@@ -52,4 +52,60 @@ class DemographicExportAction42ActionDosageFormatUnitTest {
     void shouldReturnZero_forNullDose() {
         assertThat(DemographicExportAction42Action.plainDosage(null)).isEqualTo("0");
     }
+
+    @Test
+    void shouldWriteDoseAndUnitsToTheLegacyCdsMedicationRecord() throws Exception {
+        var prescription = new io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription(0, "1", 7);
+        prescription.setUnit("tablet");
+        prescription.setDrugForm("Tablet");
+        prescription.setDosage("250 mg");
+        prescription.setTakeMin(.5f);
+        prescription.setTakeMax(.5f);
+        var record = io.github.carlos_emr.carlos.utility.LegacyXmlBeans.newInstance(
+                cds.MedicationsAndTreatmentsDocument.class, cds.MedicationsAndTreatmentsDocument.type);
+        DemographicExportAction42Action.writeMedicationDose(record.addNewMedicationsAndTreatments(), prescription);
+        var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        var xml = factory.newDocumentBuilder().parse(new org.xml.sax.InputSource(new java.io.StringReader(record.xmlText())));
+        assertThat(xml.getElementsByTagNameNS("*", "Dosage").item(0).getTextContent()).isEqualTo("0.5");
+        assertThat(xml.getElementsByTagNameNS("*", "DosageUnitOfMeasure").item(0).getTextContent()).isEqualTo("tablet");
+    }
+
+    @Test
+    void shouldRetainTheLegacyWholeDose_whenOneBoundIsDefaultedAndTheCountUnitIsRecorded() throws Exception {
+        var prescription = new io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription(0, "1", 7);
+        prescription.setUnit("tablet");
+        prescription.setDosage("250 mg");
+        prescription.setTakeMin(2);
+        var record = io.github.carlos_emr.carlos.utility.LegacyXmlBeans.newInstance(
+                cds.MedicationsAndTreatmentsDocument.class, cds.MedicationsAndTreatmentsDocument.type);
+        var medication = record.addNewMedicationsAndTreatments();
+        DemographicExportAction42Action.writeMedicationDose(medication, prescription);
+        assertThat(medication.getDosage()).isEqualTo("2");
+        assertThat(medication.getDosageUnitOfMeasure()).isEqualTo("tablet");
+    }
+
+    @Test
+    void shouldLeaveDoseUnavailable_whenTheOnlyBoundIsFractionalOrTheUnitCouldBeProductStrength() throws Exception {
+        var prescription = new io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription(0, "1", 7);
+        prescription.setUnit("tablet");
+        prescription.setDosage("250 mg");
+        prescription.setTakeMin(.5f);
+        var record = io.github.carlos_emr.carlos.utility.LegacyXmlBeans.newInstance(
+                cds.MedicationsAndTreatmentsDocument.class, cds.MedicationsAndTreatmentsDocument.type);
+        var medication = record.addNewMedicationsAndTreatments();
+        DemographicExportAction42Action.writeMedicationDose(medication, prescription);
+        assertThat(medication.isSetDosage()).isFalse();
+
+        prescription.setTakeMin(0);
+        prescription.setTakeMax(2);
+        DemographicExportAction42Action.writeMedicationDose(medication, prescription);
+        assertThat(medication.isSetDosage()).isFalse();
+
+        prescription.setUnit("mg");
+        prescription.setTakeMin(1);
+        DemographicExportAction42Action.writeMedicationDose(medication, prescription);
+        assertThat(medication.isSetDosage()).isFalse();
+        assertThat(medication.isSetDosageUnitOfMeasure()).isFalse();
+    }
 }

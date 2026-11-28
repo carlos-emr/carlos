@@ -30,6 +30,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -86,9 +87,16 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(loggedInInfo);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), anyInt())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_form"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_form"), eq("w"), isNull())).thenReturn(true);
         when(handler.getBpmhFormBean()).thenReturn(filled);
 
         action = new BpmhFormRetrieve2Action() {
+            @Override
+            <T> T inReviewTransaction(java.util.function.Supplier<T> work) {
+                return work.get();
+            }
+
             @Override
             BpmhForm2Handler newHandler(BpmhForm2Bean bean) {
                 handedToHandler = bean;
@@ -142,6 +150,8 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         when(handler.saveFormHistory()).thenReturn(42);
         BpmhForm2Bean posted = new BpmhForm2Bean();
         posted.setDemographicNo("1001");
+        posted.setReviewToken("reviewed");
+        filled.setReviewToken("reviewed");
         action.setForm(posted);
 
         String result = action.execute();
@@ -271,6 +281,8 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         BpmhForm2Bean posted = new BpmhForm2Bean();
         posted.setDemographicNo("1001");
         posted.setFormId("0");
+        posted.setReviewToken("reviewed");
+        filled.setReviewToken("reviewed");
         action.setForm(posted);
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
@@ -280,5 +292,173 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(handedToHandler).isNotNull();
         verify(handler).populateFormBean();
         verify(response, never()).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"save", "print"})
+    void shouldShowChartConflictBeforeSavingOrPrinting(String method) throws Exception {
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn(method);
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("0");
+        posted.setReviewToken("earlier-chart");
+        filled.setReviewToken("current-chart");
+        action.setForm(posted);
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(response).setStatus(409);
+        verify(request).setAttribute("bpmhReviewChanged", true);
+        verify(handler, never()).saveFormHistory();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"save", "print"})
+    void shouldRequireFormWritePrivilege_whenCreatingNewSnapshot(String method) {
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn(method);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_form", "w", null)).thenReturn(false);
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("0");
+        posted.setReviewToken("reviewed");
+        filled.setReviewToken("reviewed");
+        action.setForm(posted);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_form)");
+
+        verify(handler, never()).populateFormBean();
+        verify(handler, never()).saveFormHistory();
+    }
+
+    @Test
+    void shouldAllowSavedHistoryPrint_withoutFormWritePrivilege() throws Exception {
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn("print");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_form", "w", null)).thenReturn(false);
+        FormBPMH saved = new FormBPMH();
+        saved.setDemographicNo(1001);
+        when(handler.getFormHistory()).thenReturn(saved);
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("7");
+        action.setForm(posted);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(handler).setFormHistory(7);
+        verify(handler).populateFormBean();
+        verify(handler, never()).saveFormHistory();
+    }
+
+    @Test
+    void shouldRejectNegativeFormId_beforePreparingPrint() throws Exception {
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn("print");
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("-5");
+        action.setForm(posted);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(handedToHandler).isNull();
+        verify(handler, never()).populateFormBean();
+    }
+
+    @Test
+    void shouldRejectWhitespaceReportedMedication_andPreserveRowText() {
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn("save");
+        BpmhDrug reported = new BpmhDrug();
+        reported.setReportedMedication("   ");
+        reported.setPatientReportedUse("Takes at bedtime");
+        reported.setInstruction("Clarify product name");
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("0");
+        posted.setReviewToken("reviewed");
+        posted.setDrugs(new java.util.ArrayList<>(java.util.List.of(reported)));
+        filled.setReviewToken("reviewed");
+        filled.setDrugs(new java.util.ArrayList<>(java.util.List.of(reported)));
+        action.setForm(posted);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        verify(request).setAttribute("bpmhInvalidReportedMedication", true);
+        assertThat(handedToHandler.getDrugs()).hasSize(1);
+        assertThat(handedToHandler.getDrugs().get(0).getPatientReportedUse()).isEqualTo("Takes at bedtime");
+        assertThat(handedToHandler.getDrugs().get(0).getInstruction()).isEqualTo("Clarify product name");
+        verify(handler, never()).saveFormHistory();
+    }
+
+    @Test
+    void shouldSetNoStoreCacheHeadersAndDeleteTempPdf_whenPrintSucceeds(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) throws Exception {
+        java.nio.file.Path generatedPdf = tempDir.resolve("bpmh-test.pdf");
+        byte[] pdfBytes = "%PDF-1.4\n%%EOF\n".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+        java.nio.file.Files.write(generatedPdf, pdfBytes);
+
+        var servletContext = org.mockito.Mockito.mock(jakarta.servlet.ServletContext.class);
+        when(servletContext.getRealPath(any())).thenReturn(tempDir.resolve("template.pdf").toString());
+        servletActionContextMock.when(ServletActionContext::getServletContext).thenReturn(servletContext);
+
+        var written = new java.io.ByteArrayOutputStream();
+        when(response.getOutputStream()).thenReturn(new jakarta.servlet.ServletOutputStream() {
+            @Override public boolean isReady() { return true; }
+            @Override public void setWriteListener(jakarta.servlet.WriteListener writeListener) {}
+            @Override public void write(int b) { written.write(b); }
+        });
+
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn("print");
+        when(handler.saveFormHistory()).thenReturn(42);
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("0");
+        posted.setReviewToken("reviewed");
+        filled.setReviewToken("reviewed");
+        action.setForm(posted);
+
+        try (var controllers = org.mockito.Mockito.mockConstruction(
+                io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.pdf.PDFController.class,
+                (controller, ctx) -> {
+                    when(controller.getFileName()).thenReturn("bpmh-test.pdf");
+                    when(controller.getOutputPath()).thenReturn(generatedPdf.toString());
+                })) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(controllers.constructed()).hasSize(1);
+        }
+
+        verify(response).reset();
+        verify(response).setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        verify(response).setHeader("Pragma", "no-cache");
+        verify(response).setContentType("application/pdf");
+        verify(response).setContentLength(pdfBytes.length);
+        verify(handler).saveFormHistory();
+        assertThat(written.toByteArray()).isEqualTo(pdfBytes);
+        assertThat(java.nio.file.Files.exists(generatedPdf)).isFalse();
+    }
+
+    @Test
+    void shouldDenyAccess_whenFormReadPrivilegeMissingOnFetchOrSavedPrint() {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_form"), eq("r"), isNull())).thenReturn(false);
+        when(request.getParameter("demographic_no")).thenReturn("1001");
+        when(request.getParameter("formId")).thenReturn("0");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_form)");
+
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn("print");
+        BpmhForm2Bean savedHistory = new BpmhForm2Bean();
+        savedHistory.setDemographicNo("1001");
+        savedHistory.setFormId("9");
+        action.setForm(savedHistory);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_form)");
+        org.mockito.Mockito.verifyNoInteractions(handler);
     }
 }

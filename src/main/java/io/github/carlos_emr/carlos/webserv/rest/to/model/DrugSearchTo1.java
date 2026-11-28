@@ -59,6 +59,11 @@ public class DrugSearchTo1 implements Serializable {
     private String genericName;
 
     private List<DrugComponentTo1> components;
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private Boolean componentDataComplete;
+
+    public Boolean getComponentDataComplete() { return componentDataComplete; }
+    public void setComponentDataComplete(Boolean componentDataComplete) { this.componentDataComplete = componentDataComplete; }
 
     public DrugSearchTo1() {
 
@@ -149,7 +154,12 @@ public class DrugSearchTo1 implements Serializable {
 
         private String name;
         private Double strength;
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        private String rawStrength;
         private String unit;
+
+        public String getRawStrength() { return rawStrength; }
+        public void setRawStrength(String rawStrength) { this.rawStrength = rawStrength; }
 
         public String getName() {
             return name;

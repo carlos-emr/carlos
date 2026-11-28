@@ -1470,22 +1470,130 @@ function renderRxStage() {
              // request must not clear or set it over a newer edit, including one refused here.
              var version = (el.carlosPropertyVersion || 0) + 1;
              el.carlosPropertyVersion = version;
+             var card = document.getElementById('set_' + randomId);
+             if (card && card._rxCalculationConflict) return;
+             var affectsCalculation = /^(method|route|frequency|minimum|maximum|duration|durationUnit|prnVal)_/.test(elementId);
+             var startedDuringCalculation = Boolean(card && card._rxCalculationPending);
+             if (card) {
+                 card._rxPropertyVersions = card._rxPropertyVersions || {};
+                 var propName = elementId.split('_')[0];
+                 card._rxPropertyVersions[propName] = (card._rxPropertyVersions[propName] || 0) + 1;
+                 if (startedDuringCalculation && affectsCalculation) {
+                     card._rxNeedsReconciliation = true;
+                 }
+             }
+             var hasPendingCalculationEdit = function () {
+                 if (!card || !card._rxPendingPropertyEdits) return false;
+                 return Object.keys(card._rxPendingPropertyEdits).some(function (id) {
+                     return /^(method|route|frequency|minimum|maximum|duration|durationUnit|prnVal)_/.test(id);
+                 });
+             };
              // A Min/Max that is not a number is refused here, on the field, and the card keeps
              // its staged dose; the server refuses it too (400, never the old HTTP 500) (#5003).
              if (/^(minimum|maximum)_/.test(elementId) && !RxInputValidation.isDoseAmount(value)) {
+                 if (card && card._rxPendingPropertyEdits) delete card._rxPendingPropertyEdits[elementId];
+                 if (card) {
+                     card._rxFailedPropertyEdits = card._rxFailedPropertyEdits || {};
+                     card._rxFailedPropertyEdits[propName] = true;
+                 }
+                 if (card && card._rxNeedsReconciliation && !hasPendingCalculationEdit()) {
+                     card._rxNeedsReconciliation = false;
+                     if (typeof showRxCalculationState === 'function' && card._rxCalculationErrors) {
+                         showRxCalculationState(card, randomId);
+                     }
+                 }
                  reportInvalidProperty(el, RxInputValidation.format(jsMsg.doseInvalid, value));
                  return;
              }
-             data="elementId="+elementId+"&propertyValue="+encodeURIComponent(value);
+             if (startedDuringCalculation) {
+                 // Wait for this window's calculation acknowledgement before sending a
+                 // conditional edit; a synchronous XHR cannot run the pending callback.
+                 card._rxPendingPropertyEdits = card._rxPendingPropertyEdits || {};
+                 card._rxPendingPropertyEdits[elementId] = function () { updateProperty(elementId); };
+                 return;
+             }
+             var revision = document.getElementById('draftRevision_' + randomId);
+             var acknowledgement = document.getElementById('calculationAck_' + randomId);
+             data="elementId="+elementId+"&propertyValue="+encodeURIComponent(value)
+                 + "&draftRevision=" + encodeURIComponent(revision ? revision.value : '')
+                 + "&calculationAck=" + encodeURIComponent(acknowledgement ? acknowledgement.value : '');
              data = data + "&rand="+Math.floor(Math.random()*10001);
              // Finish the card update before a Save click can submit the previous staged dose.
              CarlosAjax.request(url, {method: 'post',parameters:data,synchronous:true,
-                 onSuccess: function () {
+                 onSuccess: function (transport) {
                      // A corrected value was accepted: the field is no longer invalid.
-                     if (el.carlosPropertyVersion === version) el.removeAttribute('aria-invalid');
+                     if (el.carlosPropertyVersion === version) {
+                         el.removeAttribute('aria-invalid');
+                         if (card && card._rxFailedPropertyEdits) delete card._rxFailedPropertyEdits[propName];
+                     }
+                     var serverSequence = null;
+                     if (transport && transport.responseJSON && Number.isInteger(transport.responseJSON.calculationSequence)) {
+                         serverSequence = transport.responseJSON.calculationSequence;
+                     } else if (transport && typeof transport.responseText === 'string' && transport.responseText.trim()) {
+                         try {
+                             var parsed = JSON.parse(transport.responseText);
+                             if (parsed && Number.isInteger(parsed.calculationSequence)) {
+                                 serverSequence = parsed.calculationSequence;
+                             }
+                         } catch (ignore) {}
+                     }
+                     if (serverSequence !== null) {
+                         if (card) {
+                             card._rxSequence = Math.max(card._rxSequence ?? Number(card.dataset?.calculationSequence || 0), serverSequence);
+                             if (card.dataset) card.dataset.calculationSequence = String(card._rxSequence);
+                         }
+                         if (!card || (!card._rxCalculationPending && !card._rxNeedsReconciliation)) {
+                             var acknowledgement = document.getElementById('calculationAck_' + randomId);
+                             if (acknowledgement) acknowledgement.value = String(serverSequence);
+                         }
+                     }
+                     // If an async calculation was already in flight, supersede it so its stale
+                     // response cannot overwrite this newer edit and dependent fields stay aligned.
+                     if (affectsCalculation && card && (card._rxCalculationPending || card._rxNeedsReconciliation)) {
+                         var qtyEl = document.getElementById('quantity_' + randomId);
+                         card._rxNeedsReconciliation = false;
+                         if (typeof updateQty === 'function' && qtyEl) {
+                             updateQty(qtyEl);
+                         } else if (typeof showRxCalculationState === 'function' && card._rxCalculationErrors) {
+                             showRxCalculationState(card, randomId);
+                         }
+                     }
                  },
                  onFailure: function (transport) {
+                     if (isStaleRxCalculationConflict(transport)) {
+                         if (card) {
+                             card._rxCalculation = null;
+                             card._rxCalculationPending = false;
+                             card._rxNeedsReconciliation = false;
+                             card._rxPendingPropertyEdits = {};
+                             card._rxFailedPropertyEdits = {};
+                             card._rxCalculationConflict = true;
+                             card._rxCalculationErrors = {};
+                             showRxCalculationState(card, randomId);
+                         }
+                         return;
+                     }
                      var error = transport && transport.responseJSON ? transport.responseJSON.error : null;
+                     if (el.carlosPropertyVersion === version) {
+                         if (card) {
+                             card._rxFailedPropertyEdits = card._rxFailedPropertyEdits || {};
+                             card._rxFailedPropertyEdits[propName] = true;
+                         }
+                         if (/^(minimum|maximum|repeats)_/.test(elementId)
+                                 && error !== 'INVALID_RX_DOSE' && error !== 'INVALID_RX_REPEATS') {
+                             el.setAttribute('aria-invalid', 'true');
+                         }
+                     }
+                     if (affectsCalculation && card && card._rxNeedsReconciliation && !hasPendingCalculationEdit()) {
+                         card._rxNeedsReconciliation = false;
+                         if (error !== 'INVALID_RX_DOSE' && error !== 'INVALID_RX_REPEATS'
+                                 && !card._rxCalculationPending && typeof updateQty === 'function') {
+                             var retryQtyEl = document.getElementById('quantity_' + randomId);
+                             if (retryQtyEl) updateQty(retryQtyEl);
+                         } else if (typeof showRxCalculationState === 'function' && card._rxCalculationErrors) {
+                             showRxCalculationState(card, randomId);
+                         }
+                     }
                      if (el.carlosPropertyVersion !== version && (error === 'INVALID_RX_DOSE' || error === 'INVALID_RX_REPEATS')) {
                          return;
                      }
@@ -1526,6 +1634,12 @@ function renderRxStage() {
 
     /** A refused inline edit must be corrected before saving the older staged value. */
     function validateCardProperties() {
+        var calculating = document.querySelector('#drugForm [data-calculation-blocked]');
+        if (calculating) {
+            var status = calculating.querySelector('[data-calculation-status]');
+            if (status && status.textContent) alert(status.textContent);
+            return false;
+        }
         var invalid = document.querySelector('#drugForm [aria-invalid="true"]');
         if (!invalid) return true;
         var value = /^repeats_/.test(invalid.id) ? invalid.value : invalid.textContent;
@@ -1973,6 +2087,13 @@ function openSavedPrescriptionPreview(transport) {
             if (!/^[0-9]+$/.test(key)) return;
             var field = document.getElementById('drugForm').elements.namedItem('draftRevision_' + key);
             if (field) field.value = saved.draftRevisions[key];
+            var acknowledgement = document.getElementById('calculationAck_' + key);
+            if (acknowledgement) acknowledgement.value = '0';
+            var card = document.getElementById('set_' + key);
+            if (card) {
+                card._rxSequence = 0;
+                if (card.dataset) card.dataset.calculationSequence = '0';
+            }
         });
     }
     popForm2(saved.scriptId, true);
@@ -2740,153 +2861,188 @@ function getReRxCheckboxByUiRefId(uiRefId) {
     return document.getElementById('reRxCheckBox_' + uiRefId);
 }
 
-function updateQty(element){
-        var elemId=element.id;
-        var ar=elemId.split("_");
-        var rand=ar[1];
-        var card = document.getElementById('set_' + rand);
-        if (!card) return false;
-        var calculation = {};
-        card._rxCalculation = calculation;
-        var submittedQuantity = element.value;
-        var data="parameterValue=updateDrug&randomId="+rand+"&action=updateQty&quantity="+encodeURIComponent(submittedQuantity);
-        var url= ctx + "/rx/WriteScript";
-
-        var rxMethod="rxMethod_"+rand;
-        var rxRoute="rxRoute_"+rand;
-        var rxFreq="rxFreq_"+rand;
-        var rxDrugForm="rxDrugForm_"+rand;
-        var rxDuration="rxDuration_"+rand;
-        var rxDurationUnit="rxDurationUnit_"+rand;
-        var rxAmt="rxAmount_"+rand;
-        var str;
-       // var rxString="rxString_"+rand;
-       var methodStr="method_"+rand;
-       var routeStr="route_"+rand;
-       var frequencyStr="frequency_"+rand;
-       var minimumStr="minimum_"+rand;
-       var maximumStr="maximum_"+rand;
-       var durationStr="duration_"+rand;
-       var durationUnitStr="durationUnit_"+rand;
-       var quantityStr="quantityStr_"+rand;
-       var unitNameStr="unitName_"+rand;
-       var prnStr="prn_"+rand;
-       var prnVal="prnVal_"+rand;
-        CarlosAjax.request(url, {method: 'POST',parameters:data,
-          requestHeaders: { 'Accept': 'application/json' },
-          onSuccess:function(transport){
-                // Staging starts an async quantity calculation. Its old answer must not erase
-                // directions parsed since then, or update a discarded/replaced card (#5183).
-                if (document.getElementById('set_' + rand) !== card || card._rxCalculation !== calculation) return;
-                var json = null;
-                try { json = JSON.parse(transport.responseText); } catch(e) { return; }
-                document.getElementById(methodStr).textContent=json.method;
-                document.getElementById(routeStr).textContent=json.route;
-                document.getElementById(frequencyStr).textContent=json.frequency;
-                document.getElementById(minimumStr).textContent=json.takeMin;
-                document.getElementById(maximumStr).textContent=json.takeMax;
-                document.getElementById(minimumStr).removeAttribute('aria-invalid');
-                document.getElementById(maximumStr).removeAttribute('aria-invalid');
-                if(json.duration==null || json.duration=="null"){
-                    document.getElementById(durationStr).textContent='';
-                }else{
-                    document.getElementById(durationStr).textContent=json.duration;
-                }
-                document.getElementById(durationUnitStr).textContent=json.durationUnit;
-                document.getElementById(quantityStr).textContent=json.calQuantity;
-                if(json.unitName!=null && json.unitName!="null" && json.unitName!="NULL" && json.unitName!="Null"){
-                    document.getElementById(unitNameStr).textContent=json.unitName;
-                }else{
-                    document.getElementById(unitNameStr).textContent='';
-                }
-                if(json.prn){
-                    document.getElementById(prnStr).textContent="prn";
-                    document.getElementById(prnVal).value=true;
-                } else{
-                    document.getElementById(prnStr).textContent="";document.getElementById(prnVal).value=false;
-                }
-                if (element.value === submittedQuantity) refreshDrugPrice(rand, json.priceQuantity);
-            }});
-        return true;
+function updateQty(element) {
+    return requestRxCalculation(element, 'updateQty', false);
 }
-    function parseIntr(element, deferPrice){
-        var elemId=element.id;
-        var ar=elemId.split("_");
-        var rand=ar[1];
-        var card = document.getElementById('set_' + rand);
-        if (!card) return false;
-        var calculation = {};
-        card._rxCalculation = calculation;
-        var instruction="parameterValue=updateDrug&instruction="+encodeURIComponent(element.value)+"&action=parseInstructions&randomId="+rand;
-        var url= ctx + "/rx/UpdateScript";
-        var quantity="quantity_"+rand;
-        var str;
-       var methodStr="method_"+rand;
-       var routeStr="route_"+rand;
-       var frequencyStr="frequency_"+rand;
-       var minimumStr="minimum_"+rand;
-       var maximumStr="maximum_"+rand;
-       var durationStr="duration_"+rand;
-       var durationUnitStr="durationUnit_"+rand;
-       var quantityStr="quantityStr_"+rand;
-       var unitNameStr="unitName_"+rand;
-       var prnStr="prn_"+rand;
-       var prnVal="prnVal_"+rand;
-        CarlosAjax.request(url, {method: 'POST',parameters:instruction,synchronous:true,
-          requestHeaders: { 'Accept': 'application/json' },
-          onSuccess:function(transport){
-                if (document.getElementById('set_' + rand) !== card || card._rxCalculation !== calculation) return;
-                var json = null;
-                try { json = JSON.parse(transport.responseText); } catch(e) { return; }
-                if(json.policyViolations != null && json.policyViolations.length>0) {
-                       for(var x=0;x<json.policyViolations.length;x++) {
-                               alert(json.policyViolations[x]);
-                       }
-                       document.getElementById("saveButton").disabled=true;
-                       document.getElementById("saveOnlyButton").disabled=true;
-                } else {
-                       document.getElementById("saveButton").disabled=false;
-                       document.getElementById("saveOnlyButton").disabled=false;
-                }
 
-                document.getElementById(methodStr).textContent=json.method;
-                document.getElementById(routeStr).textContent=json.route;
-                document.getElementById(frequencyStr).textContent=json.frequency;
-                document.getElementById(minimumStr).textContent=json.takeMin;
-                document.getElementById(maximumStr).textContent=json.takeMax;
-                document.getElementById(minimumStr).removeAttribute('aria-invalid');
-                document.getElementById(maximumStr).removeAttribute('aria-invalid');
-                if(json.duration==null || json.duration=="null"){
-                    document.getElementById(durationStr).textContent='';
-                }else{
-                    document.getElementById(durationStr).textContent=json.duration;
-                }
-                document.getElementById(durationUnitStr).textContent=json.durationUnit;
-                if(json.unitName!=null && json.unitName!="null" && json.unitName!="NULL" && json.unitName!="Null"){
-                    document.getElementById(unitNameStr).textContent=json.unitName;
-                }else{
-                    document.getElementById(unitNameStr).textContent='';
-                }
-                if (json.calQuantity != 0) {
-                    //this is oftentimes zero when re-prescribing a drug where the unitName != null.  
-                    //Until a more reliable calculated quantity is being returned, don't update if the calculated quantity is 0
-                    //silently changing to 0 can be problematic in situations where the quantity has already been set
-                    //to an appropriate value.                 
-                    document.getElementById(quantityStr).textContent=json.calQuantity; 
-                    if(document.getElementById(unitNameStr).textContent!='')
-                        document.getElementById(quantity).value=document.getElementById(quantityStr).textContent+" "+document.getElementById(unitNameStr).textContent;
-                    else
-                        document.getElementById(quantity).value=document.getElementById(quantityStr).textContent;
-                    if (!deferPrice) refreshDrugPrice(rand, json.priceQuantity);
-                }                
-                if(json.prn){
-                    document.getElementById(prnStr).textContent="prn";document.getElementById(prnVal).value=true;
-                } else{
-                    document.getElementById(prnStr).textContent="";document.getElementById(prnVal).value=false;
-                }
-            }});
-        return true;
+function parseIntr(element, deferPrice) {
+    return requestRxCalculation(element, 'parseInstructions', deferPrice);
+}
+
+function formatPlainDose(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return value == null ? '' : String(value);
+    const text = String(value);
+    const match = /^(-?)(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/.exec(text);
+    if (!match) return text;
+    const sign = match[1];
+    const digits = match[2] + (match[3] || '');
+    const pos = match[2].length + Number(match[4]);
+    if (pos <= 0) return sign + '0.' + '0'.repeat(-pos) + digits;
+    if (pos >= digits.length) return sign + digits + '0'.repeat(pos - digits.length);
+    return sign + digits.slice(0, pos) + '.' + digits.slice(pos);
+}
+
+function isStaleRxCalculationConflict(transport) {
+    if (!transport || Number(transport.status) !== 409) return false;
+    if (transport.responseJSON && transport.responseJSON.error === 'STALE_RX_STASH') return true;
+    try {
+        return JSON.parse(transport.responseText || '{}').error === 'STALE_RX_STASH';
+    } catch (error) {
+        return false;
     }
+}
+
+function requestRxCalculation(element, action, deferPrice) {
+    if (!element) return false;
+    const rand = element.id.split('_')[1];
+    const card = document.getElementById('set_' + rand);
+    if (!card || card._rxCalculationConflict) return false;
+
+    const instructions = action === 'parseInstructions';
+    const revision = document.getElementById('draftRevision_' + rand);
+    const sequence = (card._rxSequence ?? Number(card.dataset?.calculationSequence || 0)) + 1;
+    const submittedValue = element.value;
+    const calculation = {};
+    const propertyVersions = Object.assign({}, card._rxPropertyVersions);
+    card._rxSequence = sequence;
+    card._rxCalculation = calculation;
+    card._rxCalculationPending = true;
+    card._rxCalculationConflict = false;
+    card._rxCalculationErrors ??= {};
+    showRxCalculationState(card, rand);
+    const current = () => document.getElementById('set_' + rand) === card && card._rxCalculation === calculation;
+    const fail = transport => {
+        if (!current()) return;
+        card._rxCalculationPending = false;
+        if (isStaleRxCalculationConflict(transport)) {
+            card._rxCalculationConflict = true;
+            card._rxNeedsReconciliation = false;
+            card._rxPendingPropertyEdits = {};
+            card._rxFailedPropertyEdits = {};
+            delete card._rxCalculationErrors[action];
+        } else {
+            card._rxCalculationErrors[action] = element;
+        }
+        showRxCalculationState(card, rand);
+    };
+    const data = 'parameterValue=updateDrug&randomId=' + rand + '&action=' + action
+        + '&' + (instructions ? 'instruction' : 'quantity') + '=' + encodeURIComponent(submittedValue)
+        + '&draftRevision=' + encodeURIComponent(revision.value) + '&calculationSequence=' + sequence;
+
+    CarlosAjax.request(ctx + (instructions ? '/rx/UpdateScript' : '/rx/WriteScript'), {
+        method: 'POST', parameters: data, synchronous: instructions,
+        requestHeaders: {Accept: 'application/json'},
+        onFailure: fail,
+        onSuccess(transport) {
+            if (!current()) return;
+            let result;
+            try { result = JSON.parse(transport.responseText); } catch (error) { fail(); return; }
+            if (!validRxCalculation(result, sequence)) {
+                fail();
+                return;
+            }
+            card._rxCalculationPending = false;
+            card._rxCalculationConflict = false;
+            delete card._rxCalculationErrors[action];
+            const acknowledgement = document.getElementById('calculationAck_' + rand);
+            if (acknowledgement) acknowledgement.value = sequence;
+            card._rxPolicy = result.policyViolations;
+            showRxCalculationState(card, rand);
+            const field = name => document.getElementById(name + '_' + rand);
+            const hasPendingEdit = name => Boolean(card._rxPendingPropertyEdits
+                && (Object.prototype.hasOwnProperty.call(card._rxPendingPropertyEdits, name + '_' + rand)
+                    || Object.prototype.hasOwnProperty.call(card._rxPendingPropertyEdits, name)));
+            const hasFailedEdit = name => Boolean(!instructions && card._rxFailedPropertyEdits
+                && Object.prototype.hasOwnProperty.call(card._rxFailedPropertyEdits, name));
+            const isSuperseded = name => hasPendingEdit(name)
+                || hasFailedEdit(name)
+                || (card._rxPropertyVersions?.[name] || 0) !== (propertyVersions[name] || 0);
+            const updateQuantity = !instructions || !['', '0'].includes(result.calQuantity);
+            for (const [property, name] of Object.entries({
+                method: 'method', route: 'route', frequency: 'frequency', takeMin: 'minimum', takeMax: 'maximum',
+                duration: 'duration', durationUnit: 'durationUnit'
+            })) {
+                if (isSuperseded(name)) continue;
+                if (instructions && card._rxFailedPropertyEdits) delete card._rxFailedPropertyEdits[name];
+                const value = result[property];
+                const formatted = property === 'takeMin' || property === 'takeMax' ? formatPlainDose(value) : value;
+                field(name).textContent = formatted == null || String(formatted).toLowerCase() === 'null' ? '' : formatted;
+            }
+            if (updateQuantity) {
+                for (const [property, name] of Object.entries({calQuantity: 'quantityStr', unitName: 'unitName'})) {
+                    const value = result[property];
+                    field(name).textContent = value == null || String(value).toLowerCase() === 'null' ? '' : value;
+                }
+            }
+            if (!isSuperseded('minimum')) {
+                field('minimum').removeAttribute('aria-invalid');
+                if (typeof RxInputValidation !== 'undefined' && typeof RxInputValidation.showDoseNotation === 'function') {
+                    RxInputValidation.showDoseNotation(field('minimum'), 'rxDoseNotation_' + rand);
+                }
+            }
+            if (!isSuperseded('maximum')) {
+                field('maximum').removeAttribute('aria-invalid');
+                if (typeof RxInputValidation !== 'undefined' && typeof RxInputValidation.showDoseNotation === 'function') {
+                    RxInputValidation.showDoseNotation(field('maximum'), 'rxDoseNotation_' + rand);
+                }
+            }
+            if (!isSuperseded('prnVal')) {
+                if (instructions && card._rxFailedPropertyEdits) delete card._rxFailedPropertyEdits['prnVal'];
+                field('prn').textContent = result.prn ? 'prn' : '';
+                field('prnVal').value = result.prn;
+            }
+            if (instructions && updateQuantity) {
+                field('quantity').value = [result.calQuantity, field('unitName').textContent].filter(Boolean).join(' ');
+            }
+            if (!deferPrice && (instructions ? updateQuantity : element.value === submittedValue)) {
+                refreshDrugPrice(rand, result.priceQuantity);
+            }
+            const pendingEntries = Object.entries(card._rxPendingPropertyEdits || {});
+            for (const [pendingId, resume] of pendingEntries) {
+                if (!card._rxPendingPropertyEdits || card._rxPendingPropertyEdits[pendingId] !== resume) continue;
+                delete card._rxPendingPropertyEdits[pendingId];
+                resume();
+            }
+        }
+    });
+    return true;
+}
+
+function validRxCalculation(result, sequence) {
+    return result && result.calculationSequence === sequence
+        && Number.isFinite(result.takeMin) && Number.isFinite(result.takeMax)
+        && typeof result.prn === 'boolean' && typeof result.calQuantity === 'string'
+        && Array.isArray(result.policyViolations)
+        && result.policyViolations.every(message => typeof message === 'string')
+        && ['method', 'route', 'frequency', 'duration', 'durationUnit', 'unitName', 'priceQuantity']
+            .every(key => result[key] === null || typeof result[key] === 'string');
+}
+
+function showRxCalculationState(card, rand) {
+    const errors = Object.keys(card._rxCalculationErrors);
+    const conflict = Boolean(card._rxCalculationConflict);
+    const pending = Boolean(card._rxCalculationPending || card._rxNeedsReconciliation);
+    const blocked = pending || conflict || errors.length > 0 || card._rxPolicy?.length;
+    if (blocked) card.setAttribute('data-calculation-blocked', 'true');
+    else card.removeAttribute('data-calculation-blocked');
+    const status = document.getElementById('rxCalculationStatus_' + rand);
+    status.textContent = conflict ? (status.dataset.conflict || status.dataset.failure)
+        : (errors.length ? status.dataset.failure
+            : (pending ? status.dataset.pending : (card._rxPolicy || []).join(' ')));
+    document.getElementById('rxCalculationRetry_' + rand).hidden = conflict || !errors.length || Boolean(card._rxCalculationPending);
+    if (conflict || card._rxCalculationReopenShown) {
+        const reopen = document.getElementById('rxCalculationReopen_' + rand);
+        if (reopen) reopen.hidden = !conflict;
+        card._rxCalculationReopenShown = conflict;
+    }
+}
+
+function retryRxCalculation(button) {
+    const card = button.closest('fieldset');
+    const errors = card._rxCalculationErrors || {};
+    const action = errors.parseInstructions ? 'parseInstructions' : 'updateQty';
+    if (errors[action]) requestRxCalculation(errors[action], action, false);
+}
 
     function addLuCode(eleId,luCode){
         document.getElementById(eleId).value = document.getElementById(eleId).value +" LU Code: "+luCode;
@@ -3330,6 +3486,13 @@ function updateQty(element){
             keys.forEach(function (key) {
                 var field = form.elements.namedItem('draftRevision_' + key);
                 if (field) field.value = revisions[key];
+                var acknowledgement = document.getElementById('calculationAck_' + key);
+                if (acknowledgement) acknowledgement.value = '0';
+                var card = document.getElementById('set_' + key);
+                if (card) {
+                    card._rxSequence = 0;
+                    if (card.dataset) card.dataset.calculationSequence = '0';
+                }
             });
         } else {
             clearStashDisplay();

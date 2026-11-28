@@ -32,10 +32,14 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.Favorite;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.prescript.util.DrugStrength;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Data Access Object implementation for managing Favorite prescription entries.
@@ -134,9 +138,17 @@ public class FavoriteDaoImpl extends AbstractDaoImpl<Favorite> implements Favori
 
         return getSingleResultOrNull(query);
     }
+    private static final java.util.Map<String, Object> NULLABLE_DEFAULTS = java.util.Map.of(
+            "takeMin", 0f,
+            "takeMax", 0f,
+            "repeat", 0,
+            "customInstructions", Boolean.FALSE
+    );
+
     /**
      * Creation deduplication must include routing, dosing and dispensing metadata,
-     * not merely the visible favorite label/instructions. Null values match nulls;
+     * not merely the visible favorite label/instructions. Null values match nulls,
+     * and zero/false defaults on nullable legacy columns also match SQL NULL rows;
      * all values are bound parameters and property names are a closed list.
      */
     @Override
@@ -157,7 +169,6 @@ public class FavoriteDaoImpl extends AbstractDaoImpl<Favorite> implements Favori
         fields.put("nosubs", candidate.isNosubs());
         fields.put("prn", candidate.isPrn());
         fields.put("special", candidate.getSpecial());
-        fields.put("gn", candidate.getGn());
         fields.put("atc", candidate.getAtc());
         fields.put("regionalIdentifier", candidate.getRegionalIdentifier());
         fields.put("unit", candidate.getUnit());
@@ -166,16 +177,50 @@ public class FavoriteDaoImpl extends AbstractDaoImpl<Favorite> implements Favori
         fields.put("route", candidate.getRoute());
         fields.put("drugForm", candidate.getDrugForm());
         fields.put("customInstructions", candidate.isCustomInstructions());
-        fields.put("dosage", candidate.getDosage());
         fields.put("dispenseInternal", candidate.isDispenseInternal());
         StringBuilder hql = new StringBuilder("FROM Favorite f WHERE 1=1");
-        fields.forEach((field, value) -> hql.append(" AND f.").append(field)
-                .append(value == null ? " IS NULL" : " = :" + field));
-        Query query = entityManager.createQuery(hql.toString());
+        fields.forEach((field, value) -> {
+            if (value == null) {
+                hql.append(" AND f.").append(field).append(" IS NULL");
+            } else if (value.equals(NULLABLE_DEFAULTS.get(field))) {
+                hql.append(" AND (f.").append(field).append(" = :").append(field)
+                        .append(" OR f.").append(field).append(" IS NULL)");
+            } else {
+                hql.append(" AND f.").append(field).append(" = :").append(field);
+            }
+        });
+        hql.append(" ORDER BY f.id");
+        var query = entityManager.createQuery(hql.toString(), Favorite.class);
         fields.forEach((field, value) -> {
             if (value != null) query.setParameter(field, value);
         });
-        return getSingleResultOrNull(query);
+        for (Favorite existing : query.getResultList()) {
+            boolean sameDosage = candidate.isExactMedicationDetails()
+                    ? Objects.equals(existing.getDosage(), candidate.getDosage())
+                    : DrugStrength.sameIdentityText(existing.getDosage(), candidate.getDosage());
+            if (Objects.equals(existing.getSpecial(), candidate.getSpecial())
+                    && DrugStrength.sameIdentityText(existing.getGn(), candidate.getGn())
+                    && sameDosage
+                    && ((!candidate.isExactMedicationDetails() && candidate.getMedicationComponents() == null)
+                        || Objects.equals(existing.getMedicationComponents(), candidate.getMedicationComponents()))) {
+                return existing;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public Favorite createOrFind(Favorite candidate) {
+        // Serialize both the legacy and REST creation paths for the same provider.
+        if (candidate.getProviderNo() == null
+                || entityManager.find(Provider.class, candidate.getProviderNo(), LockModeType.PESSIMISTIC_WRITE) == null) {
+            throw new IllegalArgumentException("Favorite provider is unavailable");
+        }
+        Favorite existing = findDuplicate(candidate);
+        if (existing != null) return existing;
+        persist(candidate);
+        return candidate;
     }
 
 }

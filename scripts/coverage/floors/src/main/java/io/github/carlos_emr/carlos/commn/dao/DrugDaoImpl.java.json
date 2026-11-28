@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/DrugDaoImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "89f24c7d69a421d290851a3ccbd5ad5df3528e03"
+  },
+  "evidenceSha256": "3acff2320708367d9d00001323f29412e92a7a058487c1f5f51de3a08a8bbbc4"
+}

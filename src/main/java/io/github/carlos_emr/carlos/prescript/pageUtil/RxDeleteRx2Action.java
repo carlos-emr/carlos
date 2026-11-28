@@ -217,9 +217,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * @param drug Drug the drug entity to mark as deleted
      */
     private void setDrugDelete(Drug drug) {
-        drug.setArchived(true);
-        drug.setArchivedDate(new Date());
-        drug.setArchivedReason(Drug.DELETED);
+        drug.archive(Drug.DELETED, new Date());
     }
 
     /**

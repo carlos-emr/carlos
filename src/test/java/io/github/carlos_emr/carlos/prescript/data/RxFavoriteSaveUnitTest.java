@@ -23,8 +23,8 @@ class RxFavoriteSaveUnitTest extends CarlosUnitTestBase {
         doAnswer(invocation -> {
             Favorite saved = invocation.getArgument(0);
             saved.setId(42);
-            return null;
-        }).when(dao).persist(any(Favorite.class));
+            return saved;
+        }).when(dao).createOrFind(any(Favorite.class));
         var prescription = new RxPrescriptionData().newPrescription("999998", 1);
         prescription.setCustomName("Synthetic custom drug");
         prescription.setSpecial(instructions);
@@ -32,8 +32,7 @@ class RxFavoriteSaveUnitTest extends CarlosUnitTestBase {
         assertThat(prescription.AddToFavorites("999998", "Synthetic favorite")).isTrue();
 
         String expected = instructions == null ? "" : instructions;
-        verify(dao).findDuplicate(argThat(favorite -> expected.equals(favorite.getSpecial())));
-        verify(dao).persist(argThat((Favorite favorite) -> expected.equals(favorite.getSpecial())
+        verify(dao).createOrFind(argThat((Favorite favorite) -> expected.equals(favorite.getSpecial())
                 && "Synthetic custom drug".equals(favorite.getCustomName())));
     }
 
@@ -95,5 +94,54 @@ class RxFavoriteSaveUnitTest extends CarlosUnitTestBase {
                 .hasMessage("Prescription favorite is unavailable");
         verify(dao).find(42);
         verifyNoMoreInteractions(dao);
+    }
+
+    @Test
+    void shouldPreserveNullCustomInstructions_whenEditingExistingFavoriteUnchanged() throws Exception {
+        FavoriteDao dao = mock(FavoriteDao.class);
+        registerMock(FavoriteDao.class, dao);
+        Favorite stored = new Favorite();
+        stored.setId(42);
+        stored.setName("Original");
+        stored.setSpecial("Synthetic instructions");
+        var field = Favorite.class.getDeclaredField("customInstructions");
+        field.setAccessible(true);
+        field.set(stored, null);
+        when(dao.find(42)).thenReturn(stored);
+
+        var favorite = new RxPrescriptionData().getFavorite(42);
+        favorite.setFavoriteName("Renamed");
+        assertThat(favorite.Save()).isTrue();
+        assertThat(field.get(stored)).isNull();
+
+        favorite.setCustomInstr(true);
+        assertThat(favorite.Save()).isTrue();
+        assertThat(field.get(stored)).isEqualTo(Boolean.TRUE);
+    }
+
+    @Test
+    void shouldCopyMedicationComponents_whenAddingDrugViaStaticAddToFavorites() {
+        FavoriteDao dao = mock(FavoriteDao.class);
+        registerMock(FavoriteDao.class, dao);
+        doAnswer(invocation -> {
+            Favorite saved = invocation.getArgument(0);
+            saved.setId(99);
+            return saved;
+        }).when(dao).createOrFind(any(Favorite.class));
+
+        String components = "[{\"name\":\"Amoxicillin\",\"strength\":\"500\",\"unit\":\"mg\"}]";
+        var drug = new io.github.carlos_emr.carlos.commn.model.Drug();
+        drug.setBrandName("SyntheticCombo");
+        drug.setGenericName("Amoxicillin 500mg");
+        drug.setSpecial("Take 1 tab BID");
+        drug.setMedicationComponents(components);
+
+        assertThat(RxPrescriptionData.addToFavorites("999998", "Combo fav", drug)).isTrue();
+        verify(dao).createOrFind(argThat((Favorite favorite) -> components.equals(favorite.getMedicationComponents())));
+
+        clearInvocations(dao);
+        drug.setMedicationComponents(null);
+        assertThat(RxPrescriptionData.addToFavorites("999998", "Legacy fav", drug)).isTrue();
+        verify(dao).createOrFind(argThat((Favorite favorite) -> favorite.getMedicationComponents() == null));
     }
 }

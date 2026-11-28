@@ -64,3 +64,34 @@ test('messages quote the prescriber input, every placeholder', () => {
   assert.equal(v.format('The date "{0}" ({0}) is wrong', ' 2026-02-31 '), 'The date "2026-02-31" (2026-02-31) is wrong');
   assert.equal(v.format('No input "{0}"', null), 'No input ""');
 });
+
+test('showDoseNotation retains advisory until every field sharing the status span is unambiguous', () => {
+  assert.equal(v.usesAmbiguousDoseNotation('Take .5 tab daily'), true);
+  assert.equal(v.usesAmbiguousDoseNotation('Take 1.0 tab daily'), true);
+  assert.equal(v.usesAmbiguousDoseNotation('Take 0.5 tab daily'), false);
+  assert.equal(v.usesAmbiguousDoseNotation('Take 1.5 tab daily'), false);
+
+  const status = { textContent: '', dataset: { message: 'Check dose notation' } };
+  const previousDocument = global.document;
+  global.document = { getElementById: id => (id === 'rxDoseNotation_1' ? status : null) };
+  try {
+    const instructions = { id: 'instructions_1', value: 'Take .5 tab po bid' };
+    const maximum = { id: 'maximum_1', value: '1.0' };
+
+    v.showDoseNotation(instructions, 'rxDoseNotation_1');
+    assert.equal(status.textContent, 'Check dose notation');
+
+    v.showDoseNotation(maximum, 'rxDoseNotation_1');
+    assert.equal(status.textContent, 'Check dose notation');
+
+    maximum.value = '1';
+    v.showDoseNotation(maximum, 'rxDoseNotation_1');
+    assert.equal(status.textContent, 'Check dose notation', 'instructions_1 still uses .5');
+
+    instructions.value = 'Take 0.5 tab po bid';
+    v.showDoseNotation(instructions, 'rxDoseNotation_1');
+    assert.equal(status.textContent, '');
+  } finally {
+    global.document = previousDocument;
+  }
+});

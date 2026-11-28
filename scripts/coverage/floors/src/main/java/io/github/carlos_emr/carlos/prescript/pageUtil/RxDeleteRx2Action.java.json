@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxDeleteRx2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "511770a0698a2648d65ba08bdb69fe6c896e16ee"
+  },
+  "evidenceSha256": "3acff2320708367d9d00001323f29412e92a7a058487c1f5f51de3a08a8bbbc4"
+}

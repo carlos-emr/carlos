@@ -59,17 +59,32 @@ test('legacy editor and stash forms are balanced siblings with distinct action/p
 
 for (const action of ['update', 'updateAddAnother', 'updateAndPrint']) {
   test(`legacy ${action} sets its own action control before native form submission`, () => {
-    const actionField = {value: ''};
-    let submitted;
-    const frm = {
-      action: '/carlos/rx/writeScript', // Built-in form.action is not the action control.
-      elements: {action: actionField}, quantity: {value: '30'}, repeat: {value: ''},
-      submit() { submitted = {action: actionField.value, repeat: this.repeat.value}; },
-    };
-    const context = {frm, oscarLog() {}};
-    vm.runInNewContext(functionSource('submitForm', 'function changeDuration('), context);
-    context.submitForm(action);
-    assert.deepEqual(submitted, {action, repeat: 0});
+    for (const qty of ['30', '7.50', '0.5', '.5']) {
+      const actionField = {value: ''};
+      let submitted;
+      const frm = {
+        action: '/carlos/rx/writeScript', // Built-in form.action is not the action control.
+        elements: {action: actionField}, quantity: {value: qty}, repeat: {value: ''},
+        submit() { submitted = {action: actionField.value, repeat: this.repeat.value}; },
+      };
+      const context = {frm, oscarLog() {}};
+      vm.runInNewContext(functionSource('submitForm', 'function changeDuration('), context);
+      context.submitForm(action);
+      assert.deepEqual(submitted, {action, repeat: 0}, `expected quantity ${qty} to submit`);
+    }
+    for (const invalidQty of ['', '   ', 'abc', '.', '1.2.3', '-5']) {
+      const actionField = {value: ''};
+      let submitted = false;
+      const frm = {
+        action: '/carlos/rx/writeScript',
+        elements: {action: actionField}, quantity: {value: invalidQty}, repeat: {value: '0'},
+        submit() { submitted = true; },
+      };
+      const context = {frm, oscarLog() {}};
+      vm.runInNewContext(functionSource('submitForm', 'function changeDuration('), context);
+      context.submitForm(action);
+      assert.equal(submitted, false, `expected invalid quantity ${JSON.stringify(invalidQty)} to be refused`);
+    }
   });
 }
 
@@ -185,6 +200,7 @@ test('initial suggestions are calculated without changing stored quantities or i
   let labels = 0;
   const context = {frm, freqMin: [1], freqMax: [2], calculateDuration: () => 14,
     setQuantity() { labels += 1; }};
+  vm.runInNewContext(functionSource('ceilDispenseQuantity', 'function calcQuantity('), context);
   vm.runInNewContext(functionSource('refreshSuggestedQuantity', 'function pageLoad('), context);
   context.refreshSuggestedQuantity();
   assert.equal(frm.sugQtyMin.value, 14);
@@ -196,4 +212,88 @@ test('initial suggestions are calculated without changing stored quantities or i
   context.refreshSuggestedQuantity();
   assert.equal(labels, 1, 'unknown historical frequency must not calculate a dose');
   assert.equal(frm.quantity.value, '018');
+});
+
+test('legacy dispense calculation rounds an exact decimal course once', () => {
+  const context = {};
+  vm.runInNewContext(functionSource('ceilDispenseQuantity', 'function calcQuantity('), context);
+  assert.equal(context.ceilDispenseQuantity('0.2', 3, 10, 'TID'), 6);
+  assert.equal(context.ceilDispenseQuantity('0.20000000001', 3, 10, 'TID'), 7);
+  assert.equal(context.ceilDispenseQuantity('.5', 1 / 7, 28, 'Q1Week'), 2);
+  assert.equal(context.ceilDispenseQuantity('10', 1, '0.1', 'OD', 'W'), 7);
+  assert.equal(context.ceilDispenseQuantity('10', 1, '0.1', 'OD', 'M'), 30);
+  assert.equal(context.ceilDispenseQuantity('1/2', 3, 10, 'TID'), undefined);
+});
+
+test('legacy redraw keeps the package description and reads repeats from its own line or single-line trailer', () => {
+  const frm = {quantity: {value: '1'}, unitName: {value: 'bottle (120 mL)'}, txtRepeat: {value: '2'},
+    dataset: {qtyLabel: 'Qté/Mitte', repeatsLabel: 'Répétitions'}};
+  const context = {frm, getNoSubs: () => ''};
+  vm.runInNewContext(functionSource('findInlineRepeatClause', 'function removePRNifNeeded('), context);
+  const multiLine = ' Days\nQté/Mitte:1 bottle (120 mL)\nRépétitions:0\nSupplementary text';
+  assert.equal(context.replaceQuantityAndRepeats(multiLine),
+    ' Days\nQté/Mitte:1 bottle (120 mL)\nRépétitions:2\nSupplementary text');
+
+  frm.quantity.value = '2';
+  frm.txtRepeat.value = '3';
+  const singleLine = ' Days\nQty:1 bottle (120 mL) Repeats:0';
+  assert.equal(context.replaceQuantityAndRepeats(singleLine),
+    ' Days\nQty:2 bottle (120 mL) Repeats:3');
+
+  const localizedSingleLine = ' Days\nQté/Mitte:1 bottle (120 mL) Répétitions:0\nSupplementary text';
+  assert.equal(context.replaceQuantityAndRepeats(localizedSingleLine),
+    ' Days\nQté/Mitte:2 bottle (120 mL) Répétitions:3\nSupplementary text');
+
+  frm.quantity.value = '14';
+  frm.unitName = {value: 'tabs', defaultValue: 'tabs'};
+  frm.txtRepeat.value = '2';
+  assert.equal(context.replaceQuantityAndRepeats(' Days\nQty:7 tabs; dispense weekly\nRepeats:0'),
+    ' Days\nQty:14 tabs; dispense weekly\nRepeats:2');
+  assert.equal(context.replaceQuantityAndRepeats(' Days\nQty:7 tabs; dispense weekly Repeats:0'),
+    ' Days\nQty:14 tabs; dispense weekly Repeats:2');
+  assert.equal(context.replaceQuantityAndRepeats(' Days\nQty:7 tabs dispense weekly\nRepeats:0'), null);
+});
+
+test('legacy redraw preserves unrecognized dispensing prose with an empty or changed unit', () => {
+  const frm = {quantity: {value: '14'}, unitName: {value: '', defaultValue: ''}, txtRepeat: {value: '0'}};
+  const context = {frm, getNoSubs: () => ''};
+  vm.runInNewContext(functionSource('findInlineRepeatClause', 'function removePRNifNeeded('), context);
+  for (const text of ['dispense weekly', 'hold', 'then stop', 'tabs daily']) {
+    for (const separator of ['\n', ' ']) {
+      assert.equal(context.replaceQuantityAndRepeats(` Days\nQty:7 ${text}${separator}Repeats:0`), null);
+    }
+  }
+  frm.unitName = {value: 'capsules', defaultValue: 'tabs'};
+  assert.equal(context.replaceQuantityAndRepeats(' Days\nQty:7 tabs daily\nRepeats:0'), null);
+});
+
+test('submitForm preserves unchanged stored non-decimal quantities and alerts on invalid edits', () => {
+  const actionField = {value: ''};
+  let submitted = null;
+  const alerts = [];
+  const frm = {
+    action: '/carlos/rx/writeScript',
+    elements: {action: actionField},
+    quantity: {value: '1/2 bottle', defaultValue: '1/2 bottle'},
+    repeat: {value: '1'},
+    submit() { submitted = actionField.value; },
+  };
+  const context = {frm, oscarLog() {}, alert(msg) { alerts.push(msg); }};
+  vm.runInNewContext(functionSource('submitForm', 'function changeDuration('), context);
+
+  context.submitForm('update');
+  assert.equal(submitted, 'update');
+  assert.deepEqual(alerts, []);
+
+  submitted = null;
+  frm.quantity.value = 'invalid edit';
+  context.submitForm('update');
+  assert.equal(submitted, null);
+  assert.equal(alerts.length, 1);
+
+  submitted = null;
+  frm.quantity = {value: '   ', defaultValue: '   '};
+  context.submitForm('update');
+  assert.equal(submitted, null);
+  assert.equal(alerts.length, 2);
 });

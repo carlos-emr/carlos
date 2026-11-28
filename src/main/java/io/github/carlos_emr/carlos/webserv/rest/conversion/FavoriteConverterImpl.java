@@ -36,6 +36,8 @@ import io.github.carlos_emr.carlos.commn.model.Favorite;
 import io.github.carlos_emr.carlos.managers.DrugLookUp;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.FavoriteTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.MedicationDetails;
+import io.github.carlos_emr.carlos.prescript.util.DrugStrength;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -71,28 +73,26 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
 
         try {
 
-            if (f.getProviderNo() != null) {
-                f.setProviderNo(t.getProviderNo().toString());
-            } else {
-                f.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-            }
+            f.setProviderNo(loggedInInfo.getLoggedInProviderNo());
 
-            f.setName(t.getFavoriteName());
+            f.setName(java.util.Objects.toString(t.getFavoriteName(), ""));
             f.setBn(t.getBrandName());
+            f.setGcnSeqno("0");
             f.setGn(t.getGenericName());
             f.setRegionalIdentifier(t.getRegionalIdentifier());
             f.setAtc(t.getAtc());
             f.setDrugForm(t.getForm());
 
-            f.setSpecial(t.getInstructions());
+            f.setSpecial(java.util.Objects.toString(t.getInstructions(), ""));
             f.setMethod(t.getMethod());
             f.setTakeMax(t.getTakeMax());
             f.setTakeMin(t.getTakeMin());
             f.setRoute(t.getRoute());
             f.setFrequencyCode(t.getFrequency());
-            f.setPrn(t.getPrn());
+            f.setPrn(Boolean.TRUE.equals(t.getPrn()));
+            f.setNosubs(Boolean.TRUE.equals(t.getNoSubstitutions()));
 
-            f.setDuration(t.getDuration().toString());
+            f.setDuration(java.util.Objects.toString(t.getDuration(), null));
             f.setDurationUnit(t.getDurationUnit());
 
             if (t.getRepeats() != null) {
@@ -100,8 +100,18 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
             }
 
 
-            if (t.getQuantity() != null) {
-                f.setQuantity(t.getQuantity().toString());
+            if (t.getQuantity() != null) f.setQuantity(t.getQuantity().toString());
+            var details = t.getMedicationDetails();
+            if (details != null) {
+                details.validateQuantity(t.getQuantity());
+                details.validateStrength(t.getStrength(), t.getStrengthUnit());
+                f.setQuantity(details.getQuantityText());
+                f.setUnitName(details.getDispenseUnit());
+                f.setDosage(details.getDosageText());
+                f.setMedicationComponents(details.encodeComponents());
+                f.setExactMedicationDetails(true);
+            } else if (t.getStrength() != null || t.getStrengthUnit() != null) {
+                f.setDosage(new DrugStrength(t.getStrength(), t.getStrengthUnit()).dosageText());
             }
 
         } catch (RuntimeException re) {
@@ -149,17 +159,21 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
         t.setRoute(f.getRoute());
         t.setFrequency(f.getFrequencyCode());
         t.setPrn(f.isPrn());
+        t.setNoSubstitutions(f.isNosubs());
 
         // prescription fields
-        t.setDuration(Integer.parseInt(f.getDuration()));
+        String duration = f.getDuration();
+        t.setDuration(MedicationDetails.wholeQuantity(duration));
         t.setDurationUnit(f.getDurationUnit());
         t.setRepeats(f.getRepeat());
 
-        if (f.getQuantity() != null) t.setQuantity(Integer.parseInt(f.getQuantity()));
+        t.setQuantity(MedicationDetails.wholeQuantity(f.getQuantity()));
+        DrugStrength strength = DrugStrength.fromDosage(f.getDosage());
+        t.setStrength(strength.amount());
+        t.setStrengthUnit(strength.unit());
 
         return t;
 
     }
 
 }
- 

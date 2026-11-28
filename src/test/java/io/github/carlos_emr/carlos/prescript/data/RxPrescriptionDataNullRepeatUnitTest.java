@@ -138,6 +138,7 @@ class RxPrescriptionDataNullRepeatUnitTest extends CarlosUnitTestBase {
         drug.setRepeat(repeats);
         drug.setDispenseInternal(true);
         drug.setSpecial("Synthetic drug: one tablet daily");
+        drug.setMedicationComponents("[{\"name\":\"Amoxicillin\",\"strength\":\"500\",\"unit\":\"mg\"}]");
         FavoriteDao dao = mock(FavoriteDao.class);
         registerMock(FavoriteDao.class, dao);
         doAnswer(invocation -> {
@@ -145,12 +146,43 @@ class RxPrescriptionDataNullRepeatUnitTest extends CarlosUnitTestBase {
             assertThat(saved.getRepeat()).isEqualTo(expected);
             assertThat(saved.isDispenseInternal()).isTrue();
             assertThat(saved.getSpecial()).isEqualTo(drug.getSpecial());
+            assertThat(saved.getMedicationComponents()).isEqualTo(drug.getMedicationComponents());
             saved.setId(42);
-            return null;
-        }).when(dao).persist(any(Favorite.class));
+            return saved;
+        }).when(dao).createOrFind(any(Favorite.class));
 
         assertThat(RxPrescriptionData.addToFavorites("999998", "Synthetic favorite", drug)).isTrue();
-        verify(dao).persist(any(Favorite.class));
+        verify(dao).createOrFind(any(Favorite.class));
         assertThat(drug.getRepeat()).isEqualTo(repeats);
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should archive once on Delete and preserve current calculation sequence on 3-arg restoreSavedIdentity")
+    void shouldArchiveOnDeleteAndPreserveSequence_whenRestoringThreeArgSavedIdentity() {
+        Drug active = new Drug();
+        active.setId(55);
+        active.setArchived(false);
+        DrugDao dao = mock(DrugDao.class);
+        when(dao.find(55)).thenReturn(active);
+        registerMock(DrugDao.class, dao);
+
+        var prescription = new RxPrescriptionData().newPrescription("999998", 1001);
+        var copy = prescription.copyForCalculation();
+        prescription.applyCalculation(copy, 7);
+        prescription.restoreSavedIdentity(55, "900", "rev-original");
+        assertThat(prescription.getDrugId()).isEqualTo(55);
+        assertThat(prescription.getScript_no()).isEqualTo("900");
+        assertThat(prescription.getDraftRevision()).isEqualTo("rev-original");
+        assertThat(prescription.getCalculationSequence()).isEqualTo(7);
+
+        prescription.Delete();
+        assertThat(active.isArchived()).isTrue();
+        assertThat(org.springframework.test.util.ReflectionTestUtils.getField(
+                active, "archivedBeforeLifecycle")).isEqualTo(false);
+        verify(dao).merge(active);
+
+        active.archive();
+        assertThat(org.springframework.test.util.ReflectionTestUtils.getField(
+                active, "archivedBeforeLifecycle")).isEqualTo(false);
     }
 }

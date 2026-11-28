@@ -183,7 +183,12 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     void shouldPreserveTheFirstDiscontinuation_whenAStaleRequestRetries() {
-        Drug drug = createAndPersist(DEMO_NO, "Synthetic medication", "J01CA04", false);
+        Drug drug = createDrug(DEMO_NO, "Synthetic medication", "J01CA04", false);
+        Date sourceDate = new Date(today.getTime() - 86_400_000L);
+        drug.setArchivedDate(sourceDate);
+        drug.setArchivedReason("source history");
+        entityManager.persist(drug);
+        entityManager.flush();
         int id = drug.getId();
         entityManager.clear();
         assertThat(drugDao.archiveIfActive(id, DEMO_NO, "doseChange", today)).isEqualTo(1);
@@ -194,6 +199,36 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         assertThat(stored.getArchivedReason()).isEqualTo("doseChange");
         assertThat(stored.getArchivedDate().getTime()).isEqualTo(today.getTime());
         assertThat(stored.getLastUpdateDate().getTime()).isEqualTo(today.getTime());
+        Object[] history = archiveHistory(id);
+        assertThat(history[0]).isEqualTo(false);
+        assertThat(((Date) history[1]).getTime()).isEqualTo(sourceDate.getTime());
+        assertThat(history[2]).isEqualTo("source history");
+    }
+
+    @Test
+    void shouldPreserveSourceArchiveValues_whenAManagedDrugIsReplacedAndArchivedAgain() {
+        Drug drug = createAndPersist(DEMO_NO, "Synthetic medication", "J01CA04", false);
+        int id = drug.getId();
+        drug.setSpecial("Unrelated update");
+        entityManager.flush();
+        assertThat(archiveHistory(id)).containsExactly(null, null, null);
+
+        drug.archive(Drug.REPRESCRIBED, today);
+        entityManager.flush();
+        entityManager.clear();
+        Drug stored = drugDao.find(id);
+        stored.archive(Drug.DELETED, tomorrow);
+        entityManager.flush();
+
+        assertThat(archiveHistory(id)).containsExactly(false, null, null);
+        assertThat(stored.getArchivedReason()).isEqualTo(Drug.DELETED);
+        assertThat(stored.getSpecial()).isEqualTo("Unrelated update");
+    }
+
+    private Object[] archiveHistory(int id) {
+        return entityManager.createQuery("select d.archivedBeforeLifecycle, d.archivedDateBeforeLifecycle,"
+                        + " d.archivedReasonBeforeLifecycle from Drug d where d.id = :id", Object[].class)
+                .setParameter("id", id).getSingleResult();
     }
 
     @Test

@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "15014d74c0176b87735358fd5aa6077810ae32d1d07df5adb263a9ae79cb5851",
+ "migration_sha256": "c7bbc7320d22250e2bfde58deb1d0b4dee6b99cef7338b9146394e0aa6cfeee0",
  "province": "bc",
  "schema": {
   "checks": [
@@ -23798,6 +23798,18 @@
    ],
    [
     "drugs",
+    "archived_before_lifecycle",
+    "tinyint(1)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    66
+   ],
+   [
+    "drugs",
     "archived_date",
     "datetime",
     "YES",
@@ -23810,6 +23822,18 @@
    ],
    [
     "drugs",
+    "archived_date_before_lifecycle",
+    "datetime",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    67
+   ],
+   [
+    "drugs",
     "archived_reason",
     "varchar(100)",
     "YES",
@@ -23819,6 +23843,18 @@
     "utf8mb4_general_ci",
     null,
     44
+   ],
+   [
+    "drugs",
+    "archived_reason_before_lifecycle",
+    "varchar(100)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    68
    ],
    [
     "drugs",
@@ -24119,6 +24155,18 @@
     null,
     null,
     37
+   ],
+   [
+    "drugs",
+    "medication_components",
+    "mediumtext",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    69
    ],
    [
     "drugs",
@@ -26543,6 +26591,18 @@
     "utf8mb4_general_ci",
     null,
     9
+   ],
+   [
+    "favorites",
+    "medication_components",
+    "mediumtext",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    28
    ],
    [
     "favorites",
@@ -87831,7 +87891,7 @@
    [
     "formBPMH",
     "drugs",
-    "blob",
+    "mediumblob",
     "YES",
     "NULL",
     "",
@@ -87923,6 +87983,18 @@
     "utf8mb4_general_ci",
     null,
     9
+   ],
+   [
+    "formBPMH",
+    "otc_reviewed",
+    "tinyint(1)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    12
    ],
    [
     "formBPMH",

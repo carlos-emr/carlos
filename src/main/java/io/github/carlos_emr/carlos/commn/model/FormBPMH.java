@@ -69,6 +69,16 @@ public class FormBPMH extends AbstractModel<Integer> {
     private String allergies;
     @Column(name = "drugs")
     private String drugs;
+    @Column(name = "otc_reviewed")
+    private Boolean otcReviewed;
+
+    public Boolean getOtcReviewed() {
+        return otcReviewed;
+    }
+
+    public void setOtcReviewed(Boolean otcReviewed) {
+        this.otcReviewed = otcReviewed;
+    }
     @Column(name = "familyDrName")
     private String familyDrName;
     @Column(name = "familyDrPhone")

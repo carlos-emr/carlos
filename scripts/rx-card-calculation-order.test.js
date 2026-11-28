@@ -23,6 +23,9 @@ function fixture() {
         removeAttribute(name) { attributes.delete(name); },
       });
     }
+    elements.set('draftRevision_' + card, { value: 'current-draft' });
+    elements.set('rxCalculationStatus_' + card, { dataset: { failure: 'Retry calculation', pending: 'Calculating' } });
+    elements.set('rxCalculationRetry_' + card, { hidden: true });
   }
   const requests = [];
   const quotes = [];
@@ -34,8 +37,10 @@ function fixture() {
   };
   vm.runInNewContext(source, context);
   const reply = (request, values) => request.options.onSuccess({ responseText: JSON.stringify({
+    calculationSequence: Number(new URLSearchParams(request.options.parameters).get('calculationSequence')),
     method: 'tab', route: 'PO', takeMin: 1, takeMax: 1, frequency: 'BID', duration: '14',
-    durationUnit: 'D', calQuantity: '28', priceQuantity: '28', unitName: null, prn: false, ...values,
+    durationUnit: 'D', calQuantity: '28', priceQuantity: '28', unitName: null, prn: false,
+    policyViolations: [], ...values,
   }) });
   return { context, elements, requests, quotes, reply, field: (prefix, card = '11') => elements.get(`${prefix}_${card}`) };
 }
@@ -92,3 +97,213 @@ test('a response for a discarded card cannot change a replacement with the same 
   assert.equal(f.field('frequency').textContent, '');
   assert.equal(f.field('minimum').attributes.get('aria-invalid'), 'true');
 });
+
+test('HTTP and malformed success failures block only the affected card until retry', () => {
+  const f = fixture();
+  f.field('instructions').value = 'Keep this text on failure';
+  f.context.parseIntr(f.field('instructions'));
+  f.requests[0].options.onSuccess({responseText: '{}'});
+  assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+  assert.match(f.elements.get('rxCalculationStatus_11').textContent, /Retry/);
+  assert.equal(f.field('instructions').value, 'Keep this text on failure');
+  f.context.updateQty(f.field('quantity', '22'));
+  f.reply(f.requests[1]);
+  assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+  assert.equal(f.field('set', '22').attributes.has('data-calculation-blocked'), false);
+  f.context.parseIntr(f.field('instructions'));
+  f.requests[2].options.onFailure({status: 500});
+  assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+  f.context.parseIntr(f.field('instructions'));
+  f.reply(f.requests[3]);
+  assert.equal(f.field('set').attributes.has('data-calculation-blocked'), false);
+});
+
+test('a parseIntr reply with calQuantity 0 keeps the displayed quantity and unit unchanged', () => {
+  const f = fixture();
+  f.field('quantity').value = '200';
+  f.field('quantityStr').textContent = '200';
+  f.field('unitName').textContent = 'mL';
+  f.field('instructions').value = '20mg/ml';
+  f.context.parseIntr(f.field('instructions'));
+  f.reply(f.requests[0], { calQuantity: '0', priceQuantity: null, unitName: null });
+  assert.equal(f.field('quantity').value, '200');
+  assert.equal(f.field('quantityStr').textContent, '200');
+  assert.equal(f.field('unitName').textContent, 'mL');
+  assert.deepEqual(f.quotes, []);
+});
+
+test('calculated small takeMin/takeMax values format as plain decimals accepted by isDoseAmount', () => {
+  const f = fixture();
+  const RxInputValidation = require('../src/main/webapp/share/javascript/rx-input-validation.js');
+  f.context.updateQty(f.field('quantity'));
+  f.reply(f.requests[0], { takeMin: 0.0000001, takeMax: 0.00000025 });
+  assert.equal(f.field('minimum').textContent, '0.0000001');
+  assert.equal(f.field('maximum').textContent, '0.00000025');
+  assert.equal(RxInputValidation.isDoseAmount(f.field('minimum').textContent), true);
+  assert.equal(RxInputValidation.isDoseAmount(f.field('maximum').textContent), true);
+});
+
+test('a returning calculation does not overwrite an inline dose edited after the request started', () => {
+  const f = fixture();
+  f.context.updateQty(f.field('quantity'));
+  f.field('maximum').textContent = '2';
+  f.field('set')._rxPropertyVersions = { maximum: 1 };
+  f.field('maximum').setAttribute('aria-invalid', 'true');
+  f.reply(f.requests[0], { takeMax: 1, duration: '30' });
+  assert.equal(f.field('maximum').textContent, '2');
+  assert.equal(f.field('maximum').attributes.get('aria-invalid'), 'true');
+});
+
+test('a 409 STALE_RX_STASH calculation conflict offers Reopen instead of Retry', () => {
+  const f = fixture();
+  f.elements.get('rxCalculationStatus_11').dataset.conflict = 'Draft changed in another window';
+  f.elements.set('rxCalculationReopen_11', { hidden: true });
+  f.context.updateQty(f.field('quantity'));
+  f.requests[0].options.onFailure({ status: 409, responseText: JSON.stringify({ error: 'STALE_RX_STASH' }) });
+  assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+  assert.equal(f.elements.get('rxCalculationStatus_11').textContent, 'Draft changed in another window');
+  assert.equal(f.elements.get('rxCalculationRetry_11').hidden, true);
+  assert.equal(f.elements.get('rxCalculationReopen_11').hidden, false);
+});
+
+test('a returning calculation acknowledges its version but keeps Save blocked during inline reconciliation', () => {
+  const f = fixture();
+  f.elements.set('calculationAck_11', { value: '0' });
+  f.context.updateQty(f.field('quantity'));
+  f.field('set')._rxNeedsReconciliation = true;
+  f.field('set')._rxPropertyVersions = { maximum: 1 };
+  f.field('maximum').textContent = '2';
+  f.reply(f.requests[0], { takeMax: 1, duration: '30' });
+  assert.equal(f.field('maximum').textContent, '2');
+  assert.equal(f.elements.get('calculationAck_11').value, 1);
+  assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+});
+
+
+test('editing a conflicted quantity cannot silently bypass the reopen requirement', () => {
+  const f = fixture();
+  f.context.updateQty(f.field('quantity'));
+  f.requests[0].options.onFailure({status: 409, responseJSON: {error: 'STALE_RX_STASH'}});
+  f.field('quantity').value = '31';
+  assert.equal(f.context.updateQty(f.field('quantity')), false);
+  assert.equal(f.requests.length, 1);
+  assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+});
+
+test('pending inline edits resume only after calculation fields and acknowledgement are applied', () => {
+  const f = fixture();
+  const ack = {value: '0'};
+  f.elements.set('calculationAck_11', ack);
+  f.context.updateQty(f.field('quantity'));
+  const resumed = [];
+  f.field('set')._rxNeedsReconciliation = true;
+  f.field('set')._rxPendingPropertyEdits = {route: () => resumed.push([ack.value, f.field('duration').textContent])};
+  f.reply(f.requests[0], {duration: '90'});
+  assert.deepEqual(resumed, [[1, '90']]);
+});
+
+test('overlapping calculations preserve queued inline edits instead of overwriting them before resume', () => {
+  const f = fixture();
+  const ack = {value: '0'};
+  f.elements.set('calculationAck_11', ack);
+  f.context.updateQty(f.field('quantity'));
+  f.field('maximum').textContent = '2';
+  f.field('set')._rxPropertyVersions = {maximum: 1};
+  f.field('set')._rxNeedsReconciliation = true;
+  const postedValues = [];
+  f.field('set')._rxPendingPropertyEdits = {maximum_11: () => postedValues.push(f.field('maximum').textContent)};
+  // Second calculation starts while the inline edit is still queued and unsent.
+  f.context.updateQty(f.field('quantity'));
+  f.reply(f.requests[1], {takeMax: 1, duration: '30'});
+  assert.equal(f.field('maximum').textContent, '2');
+  assert.deepEqual(postedValues, ['2']);
+});
+
+test('a calculation failure with a queued inline edit keeps Retry visible so reconciliation can recover', () => {
+  const f = fixture();
+  f.context.updateQty(f.field('quantity'));
+  f.field('maximum').textContent = '2';
+  f.field('set')._rxPropertyVersions = {maximum: 1};
+  f.field('set')._rxNeedsReconciliation = true;
+  const resumed = [];
+  f.field('set')._rxPendingPropertyEdits = {maximum_11: () => resumed.push(f.field('maximum').textContent)};
+  f.requests[0].options.onFailure({status: 500});
+  assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+  assert.equal(f.elements.get('rxCalculationRetry_11').hidden, false);
+  f.context.retryRxCalculation({closest: () => f.field('set')});
+  assert.equal(f.elements.get('rxCalculationRetry_11').hidden, true);
+  f.reply(f.requests[1], {takeMax: 1});
+  assert.equal(f.field('maximum').textContent, '2');
+  assert.deepEqual(resumed, ['2']);
+});
+
+test('server recalculation refreshes the ISMP dose-notation advisory when minimum and maximum change', () => {
+  const f = fixture();
+  const RxInputValidation = require('../src/main/webapp/share/javascript/rx-input-validation.js');
+  const status = {id: 'rxDoseNotation_11', textContent: '', dataset: {message: 'Use leading zero'}};
+  f.elements.set('rxDoseNotation_11', status);
+  // Real minimum_<rand> and maximum_<rand> fields are <a> elements without a .value property.
+  delete f.field('minimum').value;
+  delete f.field('maximum').value;
+  const fullContext = {
+    ...f.context,
+    RxInputValidation,
+    document: {getElementById: id => f.elements.get(id)},
+  };
+  vm.runInNewContext(source, fullContext);
+  f.field('minimum').textContent = '.5';
+  global.document = {getElementById: id => f.elements.get(id)};
+  try {
+    RxInputValidation.showDoseNotation(f.field('minimum'), 'rxDoseNotation_11');
+    assert.equal(status.textContent, 'Use leading zero');
+    fullContext.updateQty(f.field('quantity'));
+    f.reply(f.requests[0], {takeMin: 1, takeMax: 1});
+    assert.equal(f.field('minimum').textContent, '1');
+    assert.equal(status.textContent, '');
+  } finally {
+    delete global.document;
+  }
+});
+
+test('draining queued edits entry by entry preserves remaining edits if an earlier edit fails', () => {
+  const f = fixture();
+  const ack = {value: '0'};
+  f.elements.set('calculationAck_11', ack);
+  f.context.updateQty(f.field('quantity'));
+  const observed = [];
+  f.field('set')._rxNeedsReconciliation = true;
+  f.field('set')._rxPendingPropertyEdits = {
+    minimum_11: () => observed.push(['min', Object.keys(f.field('set')._rxPendingPropertyEdits)]),
+    maximum_11: () => observed.push(['max', Object.keys(f.field('set')._rxPendingPropertyEdits)]),
+  };
+  f.reply(f.requests[0], {takeMin: 1, takeMax: 1});
+  assert.deepEqual(observed, [
+    ['min', ['maximum_11']],
+    ['max', []],
+  ]);
+});
+
+test('failed queued inline edits stay protected with aria-invalid through updateQty reconciliation', () => {
+  const f = fixture();
+  const ack = {value: '0'};
+  f.elements.set('calculationAck_11', ack);
+  // Start initial calculation, mark minimum as failed (simulating HTTP 500 during drain) and let maximum trigger updateQty.
+  f.context.updateQty(f.field('quantity'));
+  f.field('minimum').textContent = '0.5';
+  f.field('minimum').attributes.set('aria-invalid', 'true');
+  f.field('set')._rxFailedPropertyEdits = {minimum: true};
+  f.reply(f.requests[0], {takeMin: 1, takeMax: 2});
+  assert.equal(f.field('minimum').textContent, '0.5');
+  assert.equal(f.field('minimum').attributes.get('aria-invalid'), 'true');
+  assert.equal(f.field('maximum').textContent, '2');
+
+  // Re-authoring instructions (parseIntr) explicitly discards the stale failed inline dose.
+  f.context.parseIntr(f.field('instructions'));
+  f.reply(f.requests[1], {takeMin: 1, takeMax: 1});
+  assert.equal(f.field('minimum').textContent, '1');
+  assert.equal(f.field('minimum').attributes.has('aria-invalid'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(f.field('set')._rxFailedPropertyEdits, 'minimum'), false);
+});
+
+
+

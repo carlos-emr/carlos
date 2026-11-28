@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportPatientTableReadSupport.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 98.67172675521822,
+    "instructions": 98.78132904115888,
+    "branches": 83.13458262350937,
+    "sourceBlob": "6db01fe3640b11e3e46259db0210172c885c2c26"
+  },
+  "evidenceSha256": "3acff2320708367d9d00001323f29412e92a7a058487c1f5f51de3a08a8bbbc4"
+}

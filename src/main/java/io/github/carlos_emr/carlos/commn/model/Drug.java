@@ -37,9 +37,6 @@ import java.util.GregorianCalendar;
 import java.util.Locale;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
-import io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter;
-import io.github.carlos_emr.carlos.commn.model.converter.LegacyZeroFloatConverter;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -93,11 +90,9 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 	private String gcnSeqNo = "0";
     private String customName = null;
     @Column(name = "takemin")
-    @Convert(converter = LegacyZeroFloatConverter.class)
-    private float takeMin = 0;
+    private Float takeMin = 0f;
     @Column(name = "takemax")
-    @Convert(converter = LegacyZeroFloatConverter.class)
-    private float takeMax = 0;
+    private Float takeMax = 0f;
     @Column(name = "freqcode")
     private String freqCode = null;
     private String duration = null;
@@ -120,6 +115,13 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "archived_date")
     @Temporal(TemporalType.TIMESTAMP)
     private Date archivedDate;
+    @Column(name = "archived_before_lifecycle")
+    private Boolean archivedBeforeLifecycle;
+    @Column(name = "archived_date_before_lifecycle")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date archivedDateBeforeLifecycle;
+    @Column(name = "archived_reason_before_lifecycle")
+    private String archivedReasonBeforeLifecycle;
     @Column(name = "GN")
     private String genericName = null;
     @Column(name = "ATC")
@@ -137,9 +139,143 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Temporal(TemporalType.TIMESTAMP)
     private Date createDate = new Date();
     private String dosage = null;
+
+    @Column(name = "medication_components")
+    private String medicationComponents;
+
+    /**
+     * Returns the JSON-encoded medication component list stored for this prescription, if any.
+     *
+     * @return String JSON-encoded medication components, or {@code null} when not recorded
+     */
+    public String getMedicationComponents() { return medicationComponents; }
+
+    /**
+     * Sets the JSON-encoded medication component list for this prescription.
+     *
+     * @param medicationComponents String JSON-encoded medication components, or {@code null} when absent or cleared
+     */
+    public void setMedicationComponents(String medicationComponents) { this.medicationComponents = medicationComponents; }
+
+    @Transient
+    private boolean exactMedicationDetails;
+
+    /**
+     * Applies exact opt-in REST medication fields verbatim, preserving significant spaces and explicit {@code null} values,
+     * and marks this instance so subsequent unchanged-value preservation does not overwrite them with legacy projections.
+     *
+     * @param quantity String exact dispense quantity text, or {@code null}
+     * @param dispenseUnit String exact dispense unit text, or {@code null}
+     * @param dosage String exact dosage or strength text, or {@code null}
+     * @param components String JSON-encoded medication components, or {@code null}
+     */
+    public void setExactMedicationDetails(String quantity, String dispenseUnit, String dosage, String components) {
+        this.quantity = quantity;
+        this.unitName = dispenseUnit;
+        this.dosage = dosage;
+        this.medicationComponents = components;
+        exactMedicationDetails = true;
+    }
+
+    /**
+     * Preserves exact stored clinical fields and SQL {@code NULL} markers from {@code original} when a legacy REST client
+     * submits an update for the same product.
+     *
+     * <p>When the product identity fields ({@code regionalIdentifier}, {@code brandName}, {@code genericName},
+     * {@code customName}, {@code drugForm}) all match after trimming, exact stored spellings, component data, and
+     * nullable flags/dose bounds are carried forward whenever the incoming update left them unchanged or only echoed
+     * a lossy legacy projection. If any product identity field changed, this method returns immediately without modifying
+     * this instance, and {@code original} is never mutated.</p>
+     *
+     * @param original Drug the existing persisted medication row being updated
+     */
+    public void preserveUnchangedMedicationValues(Drug original) {
+        if (!java.util.Objects.equals(regionalIdentifier, StringUtils.trimToNull(original.regionalIdentifier))
+                || !java.util.Objects.equals(brandName, StringUtils.trimToNull(original.brandName))
+                || !java.util.Objects.equals(genericName, StringUtils.trimToNull(original.genericName))
+                || !java.util.Objects.equals(customName, StringUtils.trimToNull(original.customName))
+                || !java.util.Objects.equals(drugForm, StringUtils.trimToNull(original.drugForm))) {
+            return;
+        }
+
+        regionalIdentifier = original.regionalIdentifier;
+        brandName = original.brandName;
+        genericName = original.genericName;
+        customName = original.customName;
+        drugForm = original.drugForm;
+        if (java.util.Objects.equals(special, StringUtils.trimToNull(original.special))) special = original.special;
+        if (java.util.Objects.equals(special_instruction, StringUtils.trimToNull(original.special_instruction))) {
+            special_instruction = original.special_instruction;
+        }
+        if (java.util.Objects.equals(route, StringUtils.trimToNull(original.route))) route = original.route;
+        if (java.util.Objects.equals(method, StringUtils.trimToNull(original.method))) method = original.method;
+        if (java.util.Objects.equals(freqCode, StringUtils.trimToNull(original.freqCode))) freqCode = original.freqCode;
+        if (exactMedicationDetails) {
+            if (java.util.Objects.equals(dosage, original.dosage)) {
+                unit = original.unit;
+            } else if (unit == null) {
+                unit = io.github.carlos_emr.carlos.prescript.util.RxUtil.recordedDoseUnit(
+                        original.unit, original.drugForm, original.dosage, original.cdsDoseText) != null
+                        ? original.unit
+                        : io.github.carlos_emr.carlos.prescript.util.DrugStrength.fromDosage(dosage).unit();
+            }
+        } else {
+            Integer projected = io.github.carlos_emr.carlos.webserv.rest.to.model.MedicationDetails.wholeQuantity(original.quantity);
+            if (quantity == null || quantity.equals(java.util.Objects.toString(projected, null))) {
+                quantity = original.quantity;
+            }
+            if (unitName == null) unitName = original.unitName;
+            String projectedDosage = io.github.carlos_emr.carlos.prescript.util.DrugStrength.fromDosage(original.dosage).dosageText();
+            if (dosage == null || dosage.equals(projectedDosage)) {
+                dosage = original.dosage;
+                unit = original.unit;
+                medicationComponents = original.medicationComponents;
+            }
+        }
+        restoreNullDefaultColumns(original.nullDefaultColumnsMask());
+    }
+
+    /**
+     * Captures which nullable default-valued columns on this {@code Drug} currently hold SQL {@code NULL},
+     * so replacement rows created through legacy prescription loaders retain those {@code NULL} markers
+     * when their effective values remain at their Java defaults.
+     *
+     * @return int bitmask of default-valued nullable columns that are {@code null} on this row
+     */
+    public int nullDefaultColumnsMask() {
+        int mask = 0;
+        if (takeMin == null) mask |= 1;
+        if (takeMax == null) mask |= 2;
+        if (repeat == null) mask |= 4;
+        if (customInstructions == null) mask |= 8;
+        if (shortTerm == null) mask |= 16;
+        if (customNote == null) mask |= 32;
+        if (hideFromCpp == null) mask |= 64;
+        if (startDateUnknown == null) mask |= 128;
+        if (dispenseInternal == null) mask |= 256;
+        return mask;
+    }
+
+    /**
+     * Restores SQL {@code NULL} on any column flagged in {@code nullMask} whose current value on this
+     * {@code Drug} is still its Java default ({@code 0}, {@code 0f}, or {@code false}).
+     *
+     * @param nullMask int bitmask returned by {@link #nullDefaultColumnsMask()}
+     */
+    public void restoreNullDefaultColumns(int nullMask) {
+        if ((nullMask & 1) != 0 && getTakeMin() == 0f) takeMin = null;
+        if ((nullMask & 2) != 0 && getTakeMax() == 0f) takeMax = null;
+        if ((nullMask & 4) != 0 && Integer.valueOf(0).equals(repeat)) repeat = null;
+        if ((nullMask & 8) != 0 && !isCustomInstructions()) customInstructions = null;
+        if ((nullMask & 16) != 0 && !getShortTerm()) shortTerm = null;
+        if ((nullMask & 32) != 0 && !isCustomNote()) customNote = null;
+        if ((nullMask & 64) != 0 && !getHideFromCpp()) hideFromCpp = null;
+        if ((nullMask & 128) != 0 && !getStartDateUnknown()) startDateUnknown = null;
+        if ((nullMask & 256) != 0 && !Boolean.TRUE.equals(dispenseInternal)) dispenseInternal = null;
+    }
+
     @Column(name = "custom_instructions")
-    @Convert(converter = LegacyFalseFlagConverter.class)
-    private boolean customInstructions;
+    private Boolean customInstructions = false;
     private String unitName = null;
     @Column(name = "long_term")
     private Boolean longTerm = null;
@@ -178,9 +314,8 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "cds_projection_incomplete")
     private Boolean cdsProjectionIncomplete;
     @Column(name = "hide_cpp")
-    @Convert(converter = LegacyFalseFlagConverter.class)
     @org.hibernate.annotations.OptimisticLock(excluded = true)
-    private boolean hideFromCpp;
+    private Boolean hideFromCpp = false;
     @Column(name = "refill_duration")
     private Integer refillDuration;
     @Column(name = "refill_quantity")
@@ -191,8 +326,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @org.hibernate.annotations.OptimisticLock(excluded = true)
     private Integer position;
     @Column(name = "start_date_unknown")
-    @Convert(converter = LegacyFalseFlagConverter.class)
-    private boolean startDateUnknown;
+    private Boolean startDateUnknown = false;
     private String comment;
 
     @Temporal(TemporalType.TIMESTAMP)
@@ -247,6 +381,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.duration = drug.getDuration();
         this.durUnit = drug.getDurationUnit();
         this.quantity = drug.getQuantity();
+        this.medicationComponents = drug.getMedicationComponents();
         this.repeat = drug.getRepeat();
         this.lastRefillDate = drug.getLastRefillDate();
         this.noSubs = drug.getCdsCurrentness() == null
@@ -327,8 +462,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public Boolean isHideFromDrugProfile() {
-        if (hideFromDrugProfile == null) hideFromDrugProfile = false;
-        return hideFromDrugProfile;
+        return Boolean.TRUE.equals(hideFromDrugProfile);
     }
 
     public void setHideFromDrugProfile(Boolean c) {
@@ -479,7 +613,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean getHideFromCpp() {
-        return hideFromCpp;
+        return Boolean.TRUE.equals(hideFromCpp);
     }
 
     public void setHideFromCpp(boolean hideFromCpp) {
@@ -528,7 +662,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public float getTakeMin() {
-        return takeMin;
+        return takeMin != null ? takeMin : 0f;
     }
 
     public void setTakeMin(float takeMin) {
@@ -536,7 +670,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public float getTakeMax() {
-        return takeMax;
+        return takeMax != null ? takeMax : 0f;
     }
 
     public void setTakeMax(float takeMax) {
@@ -636,6 +770,48 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.archived = archived;
     }
 
+    /**
+     * Archives this medication with the given reason and date, capturing the pre-lifecycle archive state once
+     * before the first observed lifecycle change.
+     *
+     * <p>Blank reasons are normalized to {@code null}. The {@code archivedBeforeLifecycle},
+     * {@code archivedDateBeforeLifecycle}, and {@code archivedReasonBeforeLifecycle} snapshot fields are written
+     * only if no prior lifecycle snapshot has been recorded and the call actually changes the archive status,
+     * reason, or date.</p>
+     *
+     * @param reason String archival reason text (blank values are normalized to {@code null})
+     * @param date Date archival timestamp, or {@code null}
+     */
+    public void archive(String reason, Date date) {
+        String normalizedReason = StringUtils.trimToNull(reason);
+        if (!archived || !java.util.Objects.equals(archivedReason, normalizedReason)
+                || !java.util.Objects.equals(archivedDate, date)) {
+            rememberArchiveState();
+        }
+        archived = true;
+        archivedReason = normalizedReason;
+        archivedDate = date;
+    }
+
+    /**
+     * Marks this medication as archived without modifying any recorded archive date or reason, capturing
+     * the pre-lifecycle archive state if this is the first observed transition from active to archived.
+     */
+    public void archive() {
+        if (!archived) {
+            rememberArchiveState();
+            archived = true;
+        }
+    }
+
+    private void rememberArchiveState() {
+        if (archivedBeforeLifecycle == null) {
+            archivedBeforeLifecycle = archived;
+            archivedDateBeforeLifecycle = archivedDate == null ? null : new Date(archivedDate.getTime());
+            archivedReasonBeforeLifecycle = archivedReason;
+        }
+    }
+
     public String getGenericName() {
         return genericName;
     }
@@ -717,7 +893,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean isCustomInstructions() {
-        return customInstructions;
+        return Boolean.TRUE.equals(customInstructions);
     }
 
     public void setCustomInstructions(boolean customInstructions) {
@@ -750,8 +926,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public Boolean getShortTerm() {
-        if (shortTerm == null) shortTerm = false;
-        return shortTerm;
+        return Boolean.TRUE.equals(shortTerm);
     }
 
     public void setShortTerm(Boolean shortTerm) {
@@ -759,8 +934,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public Boolean isCustomNote() {
-        if (customNote == null) customNote = false;
-        return customNote;
+        return Boolean.TRUE.equals(customNote);
     }
 
     public void setCustomNote(Boolean c) {
@@ -953,7 +1127,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean getStartDateUnknown() {
-        return startDateUnknown;
+        return Boolean.TRUE.equals(startDateUnknown);
     }
 
     public void setStartDateUnknown(boolean startDateUnknown) {

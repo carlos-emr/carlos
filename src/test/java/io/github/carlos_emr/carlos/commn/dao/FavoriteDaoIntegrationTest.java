@@ -22,8 +22,10 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.test.builders.ProviderTestBuilder;
 import io.github.carlos_emr.carlos.commn.model.Favorite;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -50,6 +52,12 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private FavoriteDao dao;
+
+    @BeforeEach
+    void persistFavoriteOwner() {
+        hibernateTemplate.save(ProviderTestBuilder.aProvider().withProviderNo("FAVFIX").build());
+        hibernateTemplate.flush();
+    }
 
     /**
      * Helper to create a Favorite with specific provider number and name.
@@ -151,6 +159,50 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @Tag("create")
+    @DisplayName("should create distinct favorite when opt-in medicationDetails explicitly clears components")
+    void shouldNotMatchFavoriteWithComponents_whenOptInDetailsExplicitlyClearsComponents() {
+        Favorite withComponents = new Favorite();
+        withComponents.setProviderNo("FAVFIX");
+        withComponents.setName("Combo");
+        withComponents.setBn("ComboBrand");
+        withComponents.setGn("ComboGeneric 500mg/125mg");
+        withComponents.setDosage("500mg/125mg");
+        withComponents.setSpecial("Take 1 tab BID");
+        withComponents.setMedicationComponents("[{\"name\":\"Amoxicillin\",\"strength\":\"500\",\"unit\":\"mg\"}]");
+        withComponents.setExactMedicationDetails(true);
+        Favorite persisted = dao.createOrFind(withComponents);
+
+        // Omitted medicationDetails (legacy client) still matches the existing favorite.
+        Favorite legacyCandidate = new Favorite();
+        legacyCandidate.setProviderNo("FAVFIX");
+        legacyCandidate.setName("Combo");
+        legacyCandidate.setBn("ComboBrand");
+        legacyCandidate.setGn("ComboGeneric 500mg/125mg");
+        legacyCandidate.setDosage("500mg/125mg");
+        legacyCandidate.setSpecial("Take 1 tab BID");
+        legacyCandidate.setMedicationComponents(null);
+        legacyCandidate.setExactMedicationDetails(false);
+        assertThat(dao.createOrFind(legacyCandidate).getId()).isEqualTo(persisted.getId());
+
+        // Explicit opt-in medicationDetails with cleared null components creates a distinct row.
+        Favorite clearedCandidate = new Favorite();
+        clearedCandidate.setProviderNo("FAVFIX");
+        clearedCandidate.setName("Combo");
+        clearedCandidate.setBn("ComboBrand");
+        clearedCandidate.setGn("ComboGeneric 500mg/125mg");
+        clearedCandidate.setDosage("500mg/125mg");
+        clearedCandidate.setSpecial("Take 1 tab BID");
+        clearedCandidate.setMedicationComponents(null);
+        clearedCandidate.setExactMedicationDetails(true);
+        Favorite cleared = dao.createOrFind(clearedCandidate);
+
+        assertThat(cleared.getId()).isNotEqualTo(persisted.getId());
+        assertThat(cleared.getMedicationComponents()).isNull();
+        assertThat(dao.findByProviderNo("FAVFIX")).hasSize(2);
+    }
+
+    @Test
     void shouldReuseFavorite_whenOptionalClinicalMetadataIsNull() {
         var original = favoriteForSave("Legacy null metadata");
         original.setRegionalIdentifier(null);
@@ -163,6 +215,76 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
 
         assertThat(repeated.getFavoriteId()).isEqualTo(original.getFavoriteId());
         assertThat(dao.findByProviderNo("FAVFIX")).hasSize(1);
+    }
+
+    @Test
+    void reusesEquivalentStrengthSpellingAndKeepsRecordedComponents() {
+        var original = favoriteForSave("Combination");
+        original.setGN("Synthetic 250.0mg");
+        original.setDosage("250.0mg");
+        assertThat(original.Save()).isTrue();
+
+        var equivalent = favoriteForSave("Combination");
+        equivalent.setGN("Synthetic 250mg");
+        equivalent.setDosage("250mg");
+        assertThat(equivalent.Save()).isTrue();
+        assertThat(equivalent.getFavoriteId()).isEqualTo(original.getFavoriteId());
+
+        String components = "[{\"name\":\"Synthetic\",\"strength\":\"250\",\"unit\":\"mg\"}]";
+        var documented = favoriteForSave("Combination");
+        documented.setGN("Synthetic 250mg");
+        documented.setDosage("250mg");
+        documented.setMedicationComponents(components);
+        assertThat(documented.Save()).isTrue();
+        assertThat(documented.getFavoriteId()).isNotEqualTo(original.getFavoriteId());
+        assertThat(dao.find(documented.getFavoriteId()).getMedicationComponents()).isEqualTo(components);
+        assertThat(dao.find(original.getFavoriteId()).getMedicationComponents()).isNull();
+        assertThat(dao.find(original.getFavoriteId()).getDosage()).isEqualTo("250.0mg");
+
+        var repeated = favoriteForSave("Combination");
+        repeated.setGN("Synthetic 250mg");
+        repeated.setDosage("250mg");
+        repeated.setMedicationComponents(components);
+        assertThat(repeated.Save()).isTrue();
+        assertThat(repeated.getFavoriteId()).isEqualTo(documented.getFavoriteId());
+        assertThat(dao.findByProviderNo("FAVFIX")).hasSize(2);
+
+        Favorite legacyNulls = new Favorite();
+        legacyNulls.setProviderNo("FAVFIX");
+        legacyNulls.setName("LegacyNullBounds");
+        legacyNulls.setBn("Synthetic brand");
+        legacyNulls.setGcnSeqno("0");
+        legacyNulls.setCustomName("Synthetic drug");
+        org.springframework.test.util.ReflectionTestUtils.setField(legacyNulls, "takeMin", null);
+        org.springframework.test.util.ReflectionTestUtils.setField(legacyNulls, "takeMax", null);
+        legacyNulls.setFrequencyCode("OD");
+        legacyNulls.setDuration("7");
+        legacyNulls.setDurationUnit("D");
+        legacyNulls.setQuantity("7");
+        org.springframework.test.util.ReflectionTestUtils.setField(legacyNulls, "repeat", null);
+        legacyNulls.setNosubs(false);
+        legacyNulls.setPrn(false);
+        legacyNulls.setSpecial("Legacy PRN text");
+        legacyNulls.setGn("Synthetic generic");
+        legacyNulls.setAtc("ORIGINAL");
+        legacyNulls.setRegionalIdentifier("");
+        legacyNulls.setUnit("");
+        legacyNulls.setUnitName("tablet");
+        legacyNulls.setMethod("");
+        legacyNulls.setRoute("");
+        legacyNulls.setDrugForm("");
+        org.springframework.test.util.ReflectionTestUtils.setField(legacyNulls, "customInstructions", null);
+        legacyNulls.setDosage("");
+        dao.persist(legacyNulls);
+        hibernateTemplate.flush();
+        hibernateTemplate.clear();
+
+        var resavedLegacy = new io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Favorite(
+                0, "FAVFIX", "LegacyNullBounds", "Synthetic brand", "0", "Synthetic drug", 0, 0, "OD", "7", "D",
+                "7", 0, false, false, "Legacy PRN text", "Synthetic generic", "ORIGINAL",
+                "", "", "tablet", "", "", "", false, "");
+        assertThat(resavedLegacy.Save()).isTrue();
+        assertThat(resavedLegacy.getFavoriteId()).isEqualTo(legacyNulls.getId());
     }
 
     private void setClinicalField(io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Favorite favorite, String field) {
@@ -275,6 +397,43 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
                     false, false, "NONE", "NONE", "NONE", false);
 
             assertThat(found).isNull();
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should compare dosage verbatim for exact candidates while normalizing legacy candidates in createOrFind")
+        void shouldCompareDosageVerbatim_whenCandidateUsesExactMedicationDetails() {
+            Favorite base = new Favorite();
+            base.setProviderNo("FAVFIX");
+            base.setName("BaseFav");
+            base.setBn("Amoxil");
+            base.setGn("Amoxicillin");
+            base.setSpecial("Take 1 cap TID");
+            base.setDosage("250mg");
+            Favorite createdBase = dao.createOrFind(base);
+            hibernateTemplate.flush();
+
+            Favorite legacyEquivalent = new Favorite();
+            legacyEquivalent.setProviderNo("FAVFIX");
+            legacyEquivalent.setName("BaseFav");
+            legacyEquivalent.setBn("Amoxil");
+            legacyEquivalent.setGn("Amoxicillin");
+            legacyEquivalent.setSpecial("Take 1 cap TID");
+            legacyEquivalent.setDosage("250.0mg");
+            assertThat(dao.createOrFind(legacyEquivalent).getId()).isEqualTo(createdBase.getId());
+
+            Favorite exactSpaced = new Favorite();
+            exactSpaced.setProviderNo("FAVFIX");
+            exactSpaced.setName("BaseFav");
+            exactSpaced.setBn("Amoxil");
+            exactSpaced.setGn("Amoxicillin");
+            exactSpaced.setSpecial("Take 1 cap TID");
+            exactSpaced.setDosage(" 250mg ");
+            exactSpaced.setExactMedicationDetails(true);
+            Favorite createdExact = dao.createOrFind(exactSpaced);
+            hibernateTemplate.flush();
+            assertThat(createdExact.getId()).isNotEqualTo(createdBase.getId());
+            assertThat(createdExact.getDosage()).isEqualTo(" 250mg ");
         }
     }
 }

@@ -53,6 +53,8 @@ import java.util.List;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class BpmhForm2Bean implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     // Formatting machinery is not form data; binding it produced invalid <2DigitYearStart> XML.
     @jakarta.xml.bind.annotation.XmlTransient
     private final SimpleDateFormat formatter = new SimpleDateFormat("MM-dd-yyyy");
@@ -77,6 +79,26 @@ public class BpmhForm2Bean implements Serializable {
     // lazy collections
     private List<Allergy> allergies;
     private List<BpmhDrug> drugs;
+    @jakarta.xml.bind.annotation.XmlTransient
+    private String reviewToken;
+    @jakarta.xml.bind.annotation.XmlTransient
+    private List<BpmhDrug> removedReviewRows = List.of();
+
+    public String getReviewToken() {
+        return reviewToken;
+    }
+
+    public void setReviewToken(String reviewToken) {
+        this.reviewToken = reviewToken;
+    }
+
+    public List<BpmhDrug> getRemovedReviewRows() {
+        return removedReviewRows;
+    }
+
+    public void setRemovedReviewRows(List<BpmhDrug> removedReviewRows) {
+        this.removedReviewRows = List.copyOf(removedReviewRows);
+    }
 
     public String getFormDateFormatted() {
         String date = "";

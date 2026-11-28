@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4c4bc3b8ef9fda2f9c9f53d4920da18e2afeaaaa",
+  "comparisonSha256": "4bf3975a884c8ac91cfd2980149abd65d9b8da293ccf97e5a60bceff6e024f61",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugStrength.java": {
+      "lines": 97.03703703703704,
+      "instructions": 95.82806573957016,
+      "branches": 78.0,
+      "sourceBlob": "6a6e3285f636711cbea802cbf584289f5cd16386"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2Action.java": {
+      "lines": 69.25064599483204,
+      "instructions": 69.6640826873385,
+      "branches": 55.24475524475525,
+      "sourceBlob": "d9d1f15460517195913e49f52744bf973cf5a1b2"
+    }
+  },
+  "baselineCommit": "a4bd184ea5af2cecb32abe3170f9bb592fa65477",
+  "baselineSourceTree": "4c4bc3b8ef9fda2f9c9f53d4920da18e2afeaaaa",
+  "baselineReportSha256": "1f882cf2994779f3cfd5fb1c668aaae724f27b10272319e88d9b780e97161233",
+  "baselineLane": "Java 25 PR #6424 review fixes: 13 selected JUnit classes, 1065 passing test cases. Measured focused-suite results; higher existing floors remain enforced.",
+  "baselineTestCounts": {
+    "tests": 1065,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "7e3abd5a1a0b738aeefd9177e793fe8144db1b23b354358397f9b3d4c402f25a",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxAuditRowContentUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxPatientWriteAuthorizationUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxStashWriteIsolationUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionCardCorrectionUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionCreateNewRxUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionCustomNoteTextUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionListPreviousInstructionsUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionWriteIsolationUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScriptFormLogPrivacyUnitTest",
+    "io.github.carlos_emr.carlos.prescript.util.DrugStrengthUnitTest",
+    "io.github.carlos_emr.carlos.prescript.util.RxUtilInstrucParserUnitTest",
+    "io.github.carlos_emr.carlos.webserv.conversion.DrugConverterUnitTest",
+    "io.github.carlos_emr.carlos.webserv.conversion.MedicationDetailsUnitTest"
+  ]
+}

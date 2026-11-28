@@ -174,6 +174,8 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         RxSessionBeanResolver.register(request.getSession(), bean);
 
         action = new RxWriteScript2Action(mockSignatureStampService);
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationAck", "0");
     }
 
     @AfterEach
@@ -203,6 +205,23 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(500);
         assertThat(card.getSpecial()).isEqualTo("1 tab PO OD");
         assertThat(card.getSpecial()).doesNotContain("Qty:", "Repeats:");
+    }
+
+    @Test
+    void shouldReturnZeroCalQuantityAndPreserveStagedQuantity_whenInstructionHasOnlyConcentration() throws Exception {
+        card.setQuantity("200");
+        card.setUnitName("mL");
+        request.setParameter("action", "parseInstructions");
+        request.setParameter("randomId", "1");
+        request.setParameter("instruction", "20mg/ml");
+
+        action.updateDrug();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        var json = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.path("calQuantity").asText()).isEqualTo("0");
+        assertThat(card.getQuantity()).isEqualTo("200");
+        assertThat(card.getUnitName()).isEqualTo("mL");
     }
 
     @Nested
@@ -314,8 +333,8 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
     @CsvSource({
         "'30 tabs', 30, 30",
         "'30 days', 30,",
-        "'12.5 tabs', 12,",
-        "'30 30 tabs', 30,",
+        "'12.5 tabs', 12.5, 12.5",
+        "'30 30 tabs', '30 30 tabs',",
         "12.5, 12.5, 12.5",
         "0, 0,"
     })
@@ -333,6 +352,390 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         assertThat(json.path("calQuantity").asText()).isEqualTo(acknowledged);
         assertThat(json.get("priceQuantity").asText(null)).isEqualTo(priceQuantity);
         verifyNoInteractions(mockRxManager, mockDrugDao, mockPartialDateDao, mockSignatureStampService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"updateQty", "parseInstructions"})
+    void shouldKeepStagedCard_whenCalculationFailsAfterChangingItsCopy(String operation) throws Exception {
+        request.setParameter("action", operation);
+        request.setParameter("randomId", "1");
+        request.setParameter("instruction", "new directions");
+        request.setParameter("quantity", "7.5");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationSequence", "2");
+        RxWriteScript2Action failing = org.mockito.Mockito.spy(action);
+        var calculation = org.mockito.Mockito.doAnswer(input -> {
+            var copy = input.getArgument(0, RxPrescriptionData.Prescription.class);
+            copy.setQuantity("7.5");
+            copy.setSpecial("new directions");
+            throw new IllegalStateException("fixture failure");
+        }).when(failing);
+        if ("updateQty".equals(operation)) {
+            calculation.calculateStagedQuantity(any(), any());
+        } else {
+            calculation.calculateStagedInstructions(any(), any());
+        }
+
+        assertThat(failing.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(card.getQuantity()).isEqualTo("30");
+        assertThat(card.getSpecial()).isEqualTo("1 tab PO OD");
+        assertThat(card.getCalculationSequence()).isZero();
+
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        RxWriteScript2Action retryAction = new RxWriteScript2Action(mockSignatureStampService);
+        assertThat(retryAction.updateDrug()).isNull();
+        assertThat(response.getStatus()).isEqualTo(200);
+        var retryJson = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(retryJson.path("calculationSequence").asInt()).isEqualTo(2);
+        assertThat(card.getCalculationSequence()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldClearMedicationComponents_whenConvertingCatalogueDrugToCustom() throws Exception {
+        card.setMedicationComponents("[{\"name\":\"Amoxicillin\",\"strength\":\"500\",\"unit\":\"mg\"}]");
+        request.setParameter("randomId", "1");
+        request.setParameter("customDrugName", "Compounded suspension");
+
+        String result = action.normalDrugSetCustom();
+
+        assertThat(result).isEqualTo("newRx");
+        assertThat(card.getCustomName()).isEqualTo("Compounded suspension");
+        assertThat(card.getMedicationComponents()).isNull();
+    }
+
+    @Test
+    void shouldReturnStaleStashErrorBody_whenCalculationDraftRevisionOrSequenceIsStale() throws Exception {
+        request.setParameter("action", "updateQty");
+        request.setParameter("randomId", "1");
+        request.setParameter("quantity", "30");
+        request.setParameter("draftRevision", "stale-revision");
+        request.setParameter("calculationSequence", "1");
+
+        assertThat(action.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        var json = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.path("error").asText()).isEqualTo("STALE_RX_STASH");
+
+        // Window 1 applies quantity 60 at sequence 1 on the current revision.
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("quantity", "60");
+        request.setParameter("calculationSequence", "1");
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isNull();
+        assertThat(card.getQuantity()).isEqualTo("60");
+        assertThat(card.getCalculationSequence()).isEqualTo(1);
+
+        // Window 2 sends quantity 30 at sequence 1 -> must receive structured STALE_RX_STASH so Reopen is offered instead of Retry.
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setParameter("quantity", "30");
+        request.setParameter("calculationSequence", "1");
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        var conflictJson = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(conflictJson.path("error").asText()).isEqualTo("STALE_RX_STASH");
+        assertThat(card.getQuantity()).isEqualTo("60");
+
+        // 0.1 dose once daily with quantity 9 must derive 90 days (not 89 from float-to-double widening).
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        card.setTakeMin(0.1f);
+        card.setTakeMax(0.1f);
+        card.setFrequencyCode("OD");
+        card.setDurationUnit("D");
+        card.setDurationSpecifiedByUser(false);
+        request.setParameter("quantity", "9");
+        request.setParameter("calculationSequence", "2");
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isNull();
+        var boundaryJson = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(boundaryJson.path("duration").asText()).isEqualTo("90");
+    }
+
+    @Test
+    void shouldRefuseInlineEdit_whenAnotherWindowHasAdvancedTheCard() throws Exception {
+        var newer = card.copyForCalculation();
+        newer.setQuantity("60");
+        card.applyCalculation(newer, 1);
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationAck", "0");
+        request.setParameter("elementId", "route_1");
+        request.setParameter("propertyValue", "SL");
+        String originalRoute = card.getRoute();
+
+        assertThat(action.updateProperty()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("STALE_RX_STASH");
+        assertThat(card.getQuantity()).isEqualTo("60");
+        assertThat(card.getRoute()).isEqualTo(originalRoute);
+        assertThat(card.getCalculationSequence()).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"missing-revision", "wrong-revision", "missing-ack", "invalid-ack", "ahead-ack", "pending-save"})
+    void shouldKeepInlineDraft_whenItsObservedStateCannotBeVerified(String condition) throws Exception {
+        request.setParameter("elementId", "route_1");
+        request.setParameter("propertyValue", "SL");
+        switch (condition) {
+            case "missing-revision" -> request.removeParameter("draftRevision");
+            case "wrong-revision" -> request.setParameter("draftRevision", "other-draft");
+            case "missing-ack" -> request.removeParameter("calculationAck");
+            case "invalid-ack" -> request.setParameter("calculationAck", "2147483648");
+            case "ahead-ack" -> request.setParameter("calculationAck", "1");
+            case "pending-save" -> card.setPendingSubmission("saved-request");
+            default -> throw new AssertionError(condition);
+        }
+        String route = card.getRoute();
+        assertThat(action.updateProperty()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("STALE_RX_STASH");
+        assertThat(card.getRoute()).isEqualTo(route);
+        assertThat(card.getCalculationSequence()).isZero();
+    }
+
+    @Test
+    void shouldKeepInlineDraft_whenAcknowledgementCannotBeWritten() throws Exception {
+        request.setParameter("elementId", "maximum_1");
+        request.setParameter("propertyValue", "2");
+        var failingResponse = spy(response);
+        doThrow(new java.io.IOException("Synthetic response failure")).when(failingResponse).getOutputStream();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(failingResponse);
+        var failingAction = new RxWriteScript2Action(mockSignatureStampService);
+        assertThatThrownBy(failingAction::updateProperty).isInstanceOf(java.io.IOException.class);
+        assertThat(card.getTakeMax()).isEqualTo(1f);
+        assertThat(card.getCalculationSequence()).isZero();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1/3,90", "2/3,45", "5/6,36"})
+    void shouldKeepExactFraction_whenInstructionsAndQuantityAreCalculated(String dose, String days) throws Exception {
+        request.setParameter("action", "parseInstructions");
+        request.setParameter("randomId", "1");
+        request.setParameter("instruction", dose + " tab PO OD");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationSequence", "1");
+        assertThat(action.updateDrug()).isNull();
+        assertThat(new ObjectMapper().readTree(response.getContentAsString()).path("duration").asText()).isEqualTo(days);
+        assertThat(card.getDuration()).isEqualTo(days);
+
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setParameter("action", "updateQty");
+        request.setParameter("quantity", "30");
+        request.setParameter("calculationSequence", "2");
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isNull();
+        assertThat(new ObjectMapper().readTree(response.getContentAsString()).path("duration").asText()).isEqualTo(days);
+        assertThat(card.getDuration()).isEqualTo(days);
+
+        card.setTakeMax(0.5f);
+        action.calculateStagedQuantity(card, "30");
+        assertThat(card.getDuration()).isEqualTo("60");
+    }
+
+    @Test
+    void shouldPreserveExactFraction_whenUnchangedMaxIsBlurredAndReplaceWhenChanged() throws Exception {
+        var session = request.getSession();
+        request.setParameter("action", "parseInstructions");
+        request.setParameter("randomId", "1");
+        request.setParameter("instruction", "1/3 tab PO OD");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationSequence", "1");
+        assertThat(action.updateDrug()).isNull();
+        assertThat(card.getDuration()).isEqualTo("90");
+
+        // Blurring maximum_ with the unchanged displayed float preserves the exact 1/3 fraction.
+        request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setSession(session);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("elementId", "maximum_1");
+        request.setParameter("propertyValue", "0.33333334");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationAck", String.valueOf(card.getCalculationSequence()));
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateProperty()).isNull();
+        assertThat(card.getTakeMaxNumerator()).isNotNull();
+
+        request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setSession(session);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("action", "updateQty");
+        request.setParameter("randomId", "1");
+        request.setParameter("quantity", "30");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationSequence", String.valueOf(card.getCalculationSequence() + 1));
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isNull();
+        assertThat(card.getDuration()).isEqualTo("90");
+
+        // Changing maximum_ to 0.5 replaces the stored fraction and updates duration to 60 days.
+        request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setSession(session);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("elementId", "maximum_1");
+        request.setParameter("propertyValue", "0.5");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationAck", String.valueOf(card.getCalculationSequence()));
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateProperty()).isNull();
+        assertThat(card.getTakeMaxNumerator()).isNull();
+
+        request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setSession(session);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("action", "updateQty");
+        request.setParameter("randomId", "1");
+        request.setParameter("quantity", "30");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationSequence", String.valueOf(card.getCalculationSequence() + 1));
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isNull();
+        assertThat(card.getDuration()).isEqualTo("60");
+    }
+
+    @Test
+    void shouldMarkDurationSpecifiedByUser_whenDurationUpdatedInline() throws Exception {
+        card.setDurationSpecifiedByUser(false);
+        card.setDuration("30");
+        card.setDurationUnit("D");
+        card.setTakeMax(1f);
+        card.setFrequencyCode("OD");
+        request.setParameter("elementId", "duration_1");
+        request.setParameter("propertyValue", "14");
+
+        assertThat(action.updateProperty()).isNull();
+        assertThat(card.getDuration()).isEqualTo("14");
+        assertThat(card.isDurationSpecifiedByUser()).isTrue();
+
+        action.calculateStagedQuantity(card, "30");
+        assertThat(card.getDuration()).isEqualTo("14");
+    }
+
+    @Test
+    void shouldClearMitteDurationOverride_whenCountReplacesMitteAndIgnoreDecimalDays() {
+        card.setDurationSpecifiedByUser(false);
+        card.setTakeMax(1f);
+        card.setFrequencyCode("OD");
+
+        action.calculateStagedQuantity(card, "7 days");
+        assertThat(card.getDuration()).isEqualTo("7");
+        assertThat(card.getDurationUnit()).isEqualTo("D");
+        assertThat(card.isDurationSpecifiedByUser()).isTrue();
+
+        action.calculateStagedQuantity(card, "30");
+        assertThat(card.getDuration()).isEqualTo("30");
+        assertThat(card.getDurationUnit()).isEqualTo("D");
+        assertThat(card.isDurationSpecifiedByUser()).isFalse();
+
+        action.calculateStagedQuantity(card, "1.5 days");
+        assertThat(card.getDuration()).isNull();
+        assertThat(card.getDurationUnit()).isNull();
+    }
+
+    @Test
+    void shouldInvalidateOlderWindowSaveAcknowledgement_whenAnotherWindowUpdatesDurationInline() throws Exception {
+        var calculated = card.copyForCalculation();
+        calculated.setDuration("7");
+        calculated.setDurationUnit("D");
+        card.applyCalculation(calculated, 1);
+        request.setParameter("calculationAck", "1");
+
+        request.setParameter("elementId", "duration_1");
+        request.setParameter("propertyValue", "14");
+        assertThat(action.updateProperty()).isNull();
+        var inlineJson = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(inlineJson.path("calculationSequence").asInt()).isEqualTo(2);
+        assertThat(card.getCalculationSequence()).isEqualTo(2);
+
+        // Window A posts its stale calculationAck=1 and must be refused with 409 STALE_RX_STASH.
+        request = new MockHttpServletRequest("POST", "/rx/WriteScript");
+        response = new MockHttpServletResponse();
+        RxSessionBeanResolver.register(request.getSession(), bean);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("draftRevision_1", card.getDraftRevision());
+        request.setParameter("calculationAck_1", "1");
+        request.setParameter("drugName_1", card.getBrandName());
+        request.setParameter("instructions_1", "1 tab PO OD");
+
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("STALE_RX_STASH");
+
+        // Window B posts the updated calculationAck=2 returned by updateProperty and passes stash validation.
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setParameter("calculationAck_1", "2");
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).validateRenderedStash(bean)).isTrue();
+    }
+
+    @Test
+    void shouldRestoreCalculationSequence_whenSavedIdentityIsRestoredAfterRollback() {
+        String originalRevision = card.getDraftRevision();
+        var calculated = card.copyForCalculation();
+        card.applyCalculation(calculated, 4);
+        assertThat(card.getCalculationSequence()).isEqualTo(4);
+
+        card.advanceDraftRevision();
+        assertThat(card.getCalculationSequence()).isZero();
+
+        card.restoreSavedIdentity(0, null, originalRevision, 4);
+        assertThat(card.getDraftRevision()).isEqualTo(originalRevision);
+        assertThat(card.getCalculationSequence()).isEqualTo(4);
+    }
+
+    @Test
+    void shouldDeriveDurationFromRetainedQuantity_whenInstructionsOmitDuration() throws Exception {
+        card.setQuantity("7.5");
+        card.setUnitName(null);
+        request.setParameter("action", "parseInstructions");
+        request.setParameter("randomId", "1");
+        request.setParameter("instruction", "Take 0.5 tab po tid");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationSequence", "1");
+
+        assertThat(action.updateDrug()).isNull();
+        assertThat(response.getStatus()).isEqualTo(200);
+        var json = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.path("calQuantity").asText()).isEqualTo("0");
+        assertThat(json.path("duration").asText()).isEqualTo("5");
+        assertThat(json.path("durationUnit").asText()).isEqualTo("D");
+        assertThat(card.getQuantity()).isEqualTo("7.5");
+        assertThat(card.getDuration()).isEqualTo("5");
+
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        card.setQuantity("7.5");
+        card.setUnitName("mL");
+        request.setParameter("calculationSequence", "2");
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isNull();
+        var unitJson = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(unitJson.path("duration").isNull()).isTrue();
+        assertThat(card.getDuration()).isNull();
+
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        card.setQuantity("2");
+        card.setUnitName("weeks");
+        request.setParameter("calculationSequence", "3");
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isNull();
+        var mitteJson = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(mitteJson.path("duration").asText()).isEqualTo("2");
+        assertThat(mitteJson.path("durationUnit").asText()).isEqualTo("W");
     }
 
     @Nested
@@ -369,6 +772,51 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(card.getTakeMax()).isEqualTo(1.5f);
+        }
+
+        @Test
+        @DisplayName("should advance calculationSequence for each inline clinical field but not repeats")
+        void shouldAdvanceCalculationSequence_whenServerOwnedInlineFieldsAreUpdated() throws Exception {
+            int expectedSequence = 0;
+            for (String[] edit : new String[][] {
+                {"method_1", "Take"},
+                {"route_1", "PO"},
+                {"frequency_1", "BID"},
+                {"minimum_1", "0.5"},
+                {"durationUnit_1", "W"},
+                {"prnVal_1", "true"}
+            }) {
+                response = new MockHttpServletResponse();
+                servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+                action = new RxWriteScript2Action(mockSignatureStampService);
+                request.setParameter("elementId", edit[0]);
+                request.setParameter("propertyValue", edit[1]);
+                request.setParameter("calculationAck", String.valueOf(card.getCalculationSequence()));
+
+                assertThat(action.updateProperty()).as(edit[0]).isNull();
+                expectedSequence++;
+                assertThat(card.getCalculationSequence()).as(edit[0]).isEqualTo(expectedSequence);
+                var json = new ObjectMapper().readTree(response.getContentAsString());
+                assertThat(json.path("calculationSequence").asInt()).as(edit[0]).isEqualTo(expectedSequence);
+            }
+            assertThat(card.getMethod()).isEqualTo("Take");
+            assertThat(card.getRoute()).isEqualTo("PO");
+            assertThat(card.getFrequencyCode()).isEqualTo("BID");
+            assertThat(card.getTakeMin()).isEqualTo(0.5f);
+            assertThat(card.getDurationUnit()).isEqualTo("W");
+            assertThat(card.getPrn()).isTrue();
+
+            // Repeats is posted as a form input on Save, so inline repeat edits do not advance calculationSequence.
+            response = new MockHttpServletResponse();
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+            action = new RxWriteScript2Action(mockSignatureStampService);
+            request.setParameter("elementId", "repeats_1");
+            request.setParameter("propertyValue", "3");
+            request.setParameter("calculationAck", String.valueOf(card.getCalculationSequence()));
+            assertThat(action.updateProperty()).isNull();
+            assertThat(card.getRepeat()).isEqualTo(3);
+            assertThat(card.getCalculationSequence()).isEqualTo(expectedSequence);
+            assertThat(response.getContentAsString()).isEmpty();
         }
 
         @Test

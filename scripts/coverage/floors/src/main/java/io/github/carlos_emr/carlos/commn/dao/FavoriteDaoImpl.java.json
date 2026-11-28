@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/FavoriteDaoImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 96.875,
+    "instructions": 96.875,
+    "branches": 84.61538461538461,
+    "sourceBlob": "3f5615e858d6732b2a66289f18adf3a2d917db14"
+  },
+  "evidenceSha256": "3962531a28c69114e5a3102b066c2f9fff931f1dbe2cde28dafa1dc92a610b37"
+}

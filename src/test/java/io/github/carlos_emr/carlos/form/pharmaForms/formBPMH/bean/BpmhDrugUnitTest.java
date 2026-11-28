@@ -146,13 +146,15 @@ class BpmhDrugUnitTest {
             drug.setSpecial("Take 1 tablet by mouth twice daily\nwith food");
 
             String how = drug.getHow();
-            assertThat(how).isNotEmpty();
+            assertThat(how).isEqualTo("Take 1 tablet by mouth twice daily\nwith food");
         }
 
         @Test
         @DisplayName("should compose instruction from method, take, and frequency")
         void shouldComposeInstruction_fromMethodTakeFreq() {
             drug.setMethod("Take");
+            drug.setCustomName("Synthetic");
+            drug.setUnit("mL");
             drug.setTakeMin("1");
             drug.setTakeMax("2");
             drug.setFreqCode("BID");
@@ -161,8 +163,226 @@ class BpmhDrugUnitTest {
             drug.setDurUnit("D");
 
             String how = drug.getHow();
-            assertThat(how).isNotEmpty();
+            assertThat(how).isEqualTo("Take 1 to 2 mL BID PO");
         }
+    }
+
+    @Test
+    void shouldRequireARecordedUnit_whenOnlyAProductStrengthIsAvailable() {
+        drug.setCustomName("Recorded product");
+        drug.setDosage("10 mg");
+        drug.setTakeMin("1");
+        drug.setUnit("mg");
+        drug.setDrugForm("tablet");
+        assertThat(drug.getHow()).isEmpty();
+
+        drug.setHow(null);
+        drug.setUnit("tablet");
+        drug.setTakeMax("0");
+        assertThat(drug.getHow()).isEqualTo("1 tablet");
+    }
+
+    @Test
+    void shouldKeepAuthoredDirections_whenTextResemblesAPrescriptionEnvelope() {
+        drug.setGenericName("Synthetic");
+        drug.setSpecial("Synthetic substitute on Monday\nQty: verify with patient");
+        assertThat(drug.getHow()).isEqualTo("Synthetic substitute on Monday\nQty: verify with patient");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty: confirm remaining tablets before resuming Repeats: reassess at next visit");
+        assertThat(drug.getHow()).isEqualTo("Qty: confirm remaining tablets before resuming Repeats: reassess at next visit");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 tablets then taper to 15 Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 tablets then taper to 15 Repeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 Repeats:2.5");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 Repeats:2.5");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 Repeats:");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 Repeats:");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 Repeats:1a");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 Repeats:1a");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30mg Repeats:1");
+        assertThat(drug.getHow()).isEqualTo("Qty:30mg Repeats:1");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 (120 mL) Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 (120 mL) Repeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 mL) Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 mL) Repeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 bottle (120 mL Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 bottle (120 mL Repeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 mL, call clinic Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 mL, call clinic Repeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:abc Repeats:1");
+        assertThat(drug.getHow()).isEqualTo("Qty:abc Repeats:1");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 tablets (then stop) Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 tablets (then stop) Repeats:0");
+    }
+
+    @Test
+    void shouldAppendPrnToStructuredFallbackDirections_withoutChangingAuthoredDirectionsOrScheduledDoses() {
+        drug.setMethod("Take");
+        drug.setTakeMin("1");
+        drug.setTakeMax("1");
+        drug.setFreqCode("BID");
+        drug.setRoute("PO");
+
+        drug.usePrescriptionDirections(null, null, "TAB", true);
+        assertThat(drug.getHow()).isEqualTo("Take 1 TAB BID PO PRN");
+
+        drug.usePrescriptionDirections(null, null, "TAB", false);
+        assertThat(drug.getHow()).isEqualTo("Take 1 TAB BID PO");
+
+        drug.setFreqCode("");
+        drug.usePrescriptionDirections(null, null, "TAB", true);
+        assertThat(drug.getHow()).isEqualTo("Take 1 TAB PO PRN");
+
+        drug.setFreqCode("PRN");
+        drug.usePrescriptionDirections(null, null, "TAB", true);
+        assertThat(drug.getHow()).isEqualTo("Take 1 TAB PRN PO");
+
+        drug.setFreqCode("Q4H, PRN!");
+        drug.usePrescriptionDirections(null, null, "TAB", true);
+        assertThat(drug.getHow()).isEqualTo("Take 1 TAB Q4H, PRN! PO");
+
+        drug.setFreqCode("BID!");
+        drug.usePrescriptionDirections(null, null, "TAB", true);
+        assertThat(drug.getHow()).isEqualTo("Take 1 TAB BID! PO PRN");
+
+        drug.setSpecial("Take 1 tablet for breakthrough pain");
+        drug.usePrescriptionDirections(null, null, "TAB", true);
+        assertThat(drug.getHow()).isEqualTo("Take 1 tablet for breakthrough pain");
+    }
+
+    @Test
+    void shouldPreserveDispensingDirections_whenTrailerContainsUnrecognizedWords() {
+        for (String text : java.util.List.of("dispense weekly", "hold", "then stop", "tablets daily", "tablets (1 daily)")) {
+            String directions = "Take one tablet daily\nQty:7 " + text + " Repeats:0";
+            drug.setHow(null);
+            drug.setSpecial(directions);
+            assertThat(drug.getHow()).isEqualTo(directions);
+        }
+    }
+
+    @Test
+    void shouldLeaveDirectionsMissing_whenOnlyDispensingInstructionsWereRecorded() {
+        drug.setSpecial("Qty:30 Repeats:1");
+        assertThat(drug.getHow()).isEmpty();
+
+        drug.setHow(null);
+        drug.setSpecial("Qty:1 pre-filled/mL (120 mL) Repeats:0");
+        drug.usePrescriptionDirections(null, null, null, false, "pre-filled/mL (120 mL)");
+        assertThat(drug.getHow()).isEmpty();
+
+        drug.setGenericName("Synthetic");
+        drug.setDosage("10 units");
+        drug.setSpecial("Synthetic 10 units\nSupply blister pack");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null);
+        assertThat(drug.getHow()).isEmpty();
+        assertThat(drug.toString()).isEqualTo("BpmhDrug[protected]");
+    }
+
+    @Test
+    void shouldStripMitteAndTwoLineWriteScriptDispensingTrailers_whileKeepingUnrecognizedProse() {
+        drug.setGenericName("Synthetic");
+        drug.setSpecial("Synthetic\nTake 1 tab OD\nMitte:30 tabs Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Take 1 tab OD");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nTake 1 tab OD\nQty/Mitte:30 Tabs\nRepeats:0");
+        assertThat(drug.getHow()).isEqualTo("Take 1 tab OD");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nTake 1 tab OD\nQt\u00e9/Mitte:1 bottle (120 mL)\nR\u00e9p\u00e9titions:2 No Subs");
+        assertThat(drug.getHow()).isEqualTo("Take 1 tab OD");
+
+        drug.setHow(null);
+        drug.setSpecial("Qty/Mitte:30 Tabs\nRepeats:1 No Subs");
+        assertThat(drug.getHow()).isEmpty();
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nSupply blister pack\nMitte:30 tabs Repeats:0");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null);
+        assertThat(drug.getHow()).isEmpty();
+
+        // Two-line trailer with unrecognized prose or missing Qty line stays intact.
+        drug.setHow(null);
+        drug.setSpecial("Take 1 tab daily\nQty/Mitte:7 dispense weekly\nRepeats:0");
+        assertThat(drug.getHow()).isEqualTo("Take 1 tab daily\nQty/Mitte:7 dispense weekly\nRepeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Take 1 tab daily\nRepeats:0");
+        assertThat(drug.getHow()).isEqualTo("Take 1 tab daily\nRepeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Take 1 tab daily\nQty/Mitte:30 Tabs\nRepeats:reassess");
+        assertThat(drug.getHow()).isEqualTo("Take 1 tab daily\nQty/Mitte:30 Tabs\nRepeats:reassess");
+
+        // Single-line trailing No Subs with valid integer repeat count is stripped; missing integer is not.
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nTake 1 tab OD\nQty:30 tabs Repeats:1 No Subs");
+        assertThat(drug.getHow()).isEqualTo("Take 1 tab OD");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 tabs Repeats: No Subs");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 tabs Repeats: No Subs");
+
+        // Edge cases for decimal, package qualifier, and mismatched recorded dispense unit.
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:1. Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:1. Repeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:1.x Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:1.x Repeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:1.25 tabs Repeats:0");
+        drug.usePrescriptionDirections(null, null, null, false, "vials");
+        assertThat(drug.getHow()).isEmpty();
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:2 boxes (10) Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:2 boxes (10) Repeats:0");
+
+        // Structured fallback edge cases: takeMax blank/zero, percent recorded dose, and PRN text flag.
+        BpmhDrug edge = new BpmhDrug();
+        edge.setMethod("Take");
+        edge.setTakeMin("1");
+        edge.setTakeMax("");
+        edge.setFreqCode("OD");
+        edge.usePrescriptionDirections(null, null, "TAB", false);
+        assertThat(edge.getHow()).isEqualTo("Take 1 TAB OD");
+
+        edge.setTakeMax("0");
+        edge.usePrescriptionDirections(null, null, "TAB", false);
+        assertThat(edge.getHow()).isEqualTo("Take 1 TAB OD");
+
+        edge.setPrn("PRN");
+        edge.useRecordedDoseText("1%", "g");
+        assertThat(edge.getHow()).isEqualTo("Take 1% OD PRN");
+
+        edge.setPrn("false");
+        edge.useRecordedDoseText("2", "");
+        assertThat(edge.getHow()).isEqualTo("Take 2 OD");
     }
 
     @Nested
@@ -207,6 +427,64 @@ class BpmhDrugUnitTest {
             assertThat(drug.getQuantity()).isEqualTo("28");
             assertThat(drug.getRepeat()).isEqualTo("3");
             assertThat(drug.getAtc()).isEqualTo("J01CA04");
+        }
+
+        @Test
+        @DisplayName("should prefer reportedMedication in getWhat and avoid duplicating symbolic percent unit in useRecordedDoseText")
+        void shouldPreferReportedMedication_whenComposingWhatAndRecordedDose() {
+            drug.setReportedMedication("OTC Ibuprofen 200 mg");
+            drug.setMethod("Take");
+            drug.setFreqCode("TID");
+            drug.setRoute("PO");
+            drug.setPrn("true");
+            drug.useRecordedDoseText("1-2", "tabs");
+
+            assertThat(drug.getWhat()).isEqualTo("OTC Ibuprofen 200 mg");
+            assertThat(drug.getHow()).isEqualTo("Take 1-2 tabs TID PO PRN");
+
+            drug.setMethod("Apply");
+            drug.setFreqCode("BID");
+            drug.setRoute("TOP");
+            drug.useRecordedDoseText("5%", "%", false);
+            assertThat(drug.getHow()).isEqualTo("Apply 5% BID TOP");
+
+            drug.useRecordedDoseText("5", "%", false);
+            assertThat(drug.getHow()).isEqualTo("Apply 5 % BID TOP");
+        }
+
+        @Test
+        @DisplayName("should preserve review state when BpmhForm2Bean is serialized")
+        void shouldPreserveReviewState_whenFormBeanIsSerialized() throws Exception {
+            drug.setReportedMedication("OTC Ibuprofen 200 mg");
+            drug.setPatientReportedUse("Takes 1 tablet at night");
+            drug.setReviewedVersion("ver-42");
+            drug.setReviewChanged(true);
+
+            BpmhForm2Bean bean = new BpmhForm2Bean();
+            bean.setFormId("0");
+            bean.setDemographicNo("1001");
+            bean.setReviewToken("tok-1");
+            bean.setDrugs(java.util.List.of(drug));
+            bean.setRemovedReviewRows(java.util.List.of(drug));
+
+            var bytes = new java.io.ByteArrayOutputStream();
+            try (var out = new java.io.ObjectOutputStream(bytes)) {
+                out.writeObject(bean);
+            }
+            BpmhForm2Bean roundTripped;
+            try (var in = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+                roundTripped = (BpmhForm2Bean) in.readObject();
+            }
+
+            assertThat(roundTripped.getReviewToken()).isEqualTo("tok-1");
+            assertThat(roundTripped.getDrugs()).hasSize(1);
+            BpmhDrug restored = roundTripped.getDrugs().get(0);
+            assertThat(restored.getReportedMedication()).isEqualTo("OTC Ibuprofen 200 mg");
+            assertThat(restored.getWhat()).isEqualTo("OTC Ibuprofen 200 mg");
+            assertThat(restored.getPatientReportedUse()).isEqualTo("Takes 1 tablet at night");
+            assertThat(restored.getReviewedVersion()).isEqualTo("ver-42");
+            assertThat(restored.isReviewChanged()).isTrue();
+            assertThat(roundTripped.getRemovedReviewRows()).hasSize(1);
         }
     }
 }

@@ -897,7 +897,11 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         @CsvSource(delimiter = '|', value = {
             "Take 1 tab po tid x 7 days | 21 | 7",
             "Take 1 tab po tid | 21 | 7",
-            "Take 2 tabs po bid | 28 | 7"
+            "Take 0.5 tab po tid | 7.5 | 5",
+            "Take 1 tab po tid | 0.5 | 0",
+            "Take 2 tabs po bid | 28 | 7",
+            "Take 1/3 tab po od | 30 | 90",
+            "Take 2/3 tab po od | 30 | 45"
         })
         @DisplayName("should return the stated duration or derive it by dividing the quantity by the daily amount")
         void shouldFindDuration_fromStatedDurationOrQuantity(String instructions, String quantity, String duration) {
@@ -916,6 +920,23 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
 
             assertThat(RxUtil.findDuration(rx)).isEqualTo("7");
             assertThat(rx.getQuantity()).isEqualTo("30");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"1,000 mL", "1/2 bottle", "2–4 bottles", "1 bottle (120 mL)", "2.5 mL"})
+        void shouldKeepUnavailableDurationAndOriginalQuantity(String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 0.5 tab po tid");
+            rx.setQuantity(quantity);
+            assertThat(RxUtil.findDuration(rx)).isNull();
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
+        @Test
+        void shouldSplitACompleteDecimalAndKeepThePackagingDetail() {
+            assertThat(RxUtil.getQuantityFromQuantityText("2.5 mL")).isEqualTo("2.5");
+            assertThat(RxUtil.getUnitNameFromQuantityText("2.5 mL")).isEqualTo("mL");
+            assertThat(RxUtil.getQuantityFromQuantityText("1 bottle (120 mL)")).isEqualTo("1");
+            assertThat(RxUtil.getUnitNameFromQuantityText("1 bottle (120 mL)")).isEqualTo("bottle (120 mL)");
         }
 
         /** Periodic frequencies divide by their exact interval, so three doses every three months last nine months. */
@@ -1331,6 +1352,119 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
 
             assertThat(rx.getPrn()).isTrue();
             assertThat(rx.getQuantity()).isEqualTo("26");
+        }
+
+        @Test
+        @DisplayName("should treat legacy null unitName as absent in findDuration while excluding real units")
+        void shouldTreatLegacyNullUnitAsAbsent_whenFindingDuration() {
+            RxPrescriptionData.Prescription withNullUnit = prescriptionWithSpecial("Take 1 tab BID");
+            withNullUnit.setQuantity("30");
+            withNullUnit.setUnitName("null");
+
+            assertThat(RxUtil.findDuration(withNullUnit)).isEqualTo("15");
+
+            RxPrescriptionData.Prescription withRealUnit = prescriptionWithSpecial("Take 1 tab BID");
+            withRealUnit.setQuantity("30");
+            withRealUnit.setUnitName("mL");
+
+            assertThat(RxUtil.findDuration(withRealUnit)).isNull();
+
+            assertThat(RxUtil.wholeDurationUnits("9", 0.1f, "OD", "D")).isEqualTo("90");
+            RxPrescriptionData.Prescription pointOneDaily = prescriptionWithSpecial("Take 0.1 mL PO OD");
+            pointOneDaily.setQuantity("9");
+            assertThat(RxUtil.findDuration(pointOneDaily)).isEqualTo("90");
+        }
+    }
+
+    @Nested
+    @DisplayName("discontinued medication matching (#6403)")
+    class DiscontinuedMedicationMatching {
+
+        @Test
+        @DisplayName("should match discontinued custom drugs when staged dosage and form are blank strings")
+        void shouldMatchDiscontinuedCustomDrug_whenStagedDosageAndFormAreBlank() {
+            io.github.carlos_emr.carlos.commn.dao.DrugDao dao =
+                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class);
+            io.github.carlos_emr.carlos.commn.model.Drug discontinued = new io.github.carlos_emr.carlos.commn.model.Drug();
+            discontinued.setId(41);
+            discontinued.setCustomName("Magic Mouthwash");
+            discontinued.setArchived(true);
+            discontinued.setArchivedReason("allergy");
+            discontinued.setArchivedDate(RxUtil.StringToDate("2026-03-10", "yyyy-MM-dd"));
+            org.mockito.Mockito.when(dao.findByDemographicId(1001)).thenReturn(java.util.List.of(discontinued));
+            registerMock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class, dao);
+
+            RxPrescriptionData.Prescription customRx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+            customRx.setCustomName("Magic Mouthwash");
+            customRx.setDosage("");
+            customRx.setDrugForm("");
+            customRx.setGCN_SEQNO("0");
+
+            assertThat(RxUtil.checkDiscontinuedBefore(customRx)).isTrue();
+            assertThat(customRx.getLastArchReason()).isEqualTo("allergy");
+            assertThat(customRx.getLastArchDate()).isNotBlank();
+        }
+
+        @Test
+        @DisplayName("should match legacy DIN-less discontinued drug by strength and form while distinguishing different strengths")
+        void shouldMatchLegacyDinlessDiscontinuedDrug_byStrengthAndFormOnlyWhenIdentical() {
+            io.github.carlos_emr.carlos.commn.model.Drug legacySameStrength = new io.github.carlos_emr.carlos.commn.model.Drug();
+            legacySameStrength.setRegionalIdentifier("null");
+            legacySameStrength.setGenericName("AMOXICILLIN 500 MG");
+            legacySameStrength.setBrandName("AMOXIL");
+            legacySameStrength.setDosage("500.0 mg");
+            legacySameStrength.setDrugForm("Capsule");
+
+            RxPrescriptionData.Prescription staged = new RxPrescriptionData.Prescription(0, "999998", 1001);
+            staged.setRegionalIdentifier("02242964");
+            staged.setGenericName("Amoxicillin 500 mg");
+            staged.setBrandName("Amoxil");
+            staged.setDosage("500 mg");
+            staged.setDrugForm("Capsule");
+
+            assertThat(RxUtil.sameMedicationProduct(staged, legacySameStrength)).isTrue();
+
+            io.github.carlos_emr.carlos.commn.model.Drug differentStrength = new io.github.carlos_emr.carlos.commn.model.Drug();
+            differentStrength.setGenericName("AMOXICILLIN 250 MG");
+            differentStrength.setBrandName("AMOXIL");
+            differentStrength.setDosage("250 mg");
+            differentStrength.setDrugForm("Capsule");
+            assertThat(RxUtil.sameMedicationProduct(staged, differentStrength)).isFalse();
+
+            io.github.carlos_emr.carlos.commn.model.Drug differentDin = new io.github.carlos_emr.carlos.commn.model.Drug();
+            differentDin.setRegionalIdentifier("99999999");
+            differentDin.setGenericName("AMOXICILLIN 500 MG");
+            differentDin.setBrandName("AMOXIL");
+            differentDin.setDosage("500 mg");
+            differentDin.setDrugForm("Capsule");
+            assertThat(RxUtil.sameMedicationProduct(staged, differentDin)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should suppress discontinued warning when a newer active prescription exists for the same DIN")
+        void shouldSuppressDiscontinuedWarning_whenNewerActiveOrderExists() {
+            io.github.carlos_emr.carlos.commn.dao.DrugDao dao =
+                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class);
+            io.github.carlos_emr.carlos.commn.model.Drug oldDiscontinued = new io.github.carlos_emr.carlos.commn.model.Drug();
+            oldDiscontinued.setId(10);
+            oldDiscontinued.setRegionalIdentifier("02242964");
+            oldDiscontinued.setArchived(true);
+            oldDiscontinued.setArchivedReason("ineffective");
+
+            io.github.carlos_emr.carlos.commn.model.Drug newerActive = new io.github.carlos_emr.carlos.commn.model.Drug();
+            newerActive.setId(25);
+            newerActive.setRegionalIdentifier("02242964");
+            newerActive.setArchived(false);
+
+            org.mockito.Mockito.when(dao.findByDemographicId(1001)).thenReturn(java.util.List.of(oldDiscontinued, newerActive));
+            registerMock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class, dao);
+
+            RxPrescriptionData.Prescription staged = new RxPrescriptionData.Prescription(0, "999998", 1001);
+            staged.setRegionalIdentifier("02242964");
+
+            assertThat(RxUtil.checkDiscontinuedBefore(staged)).isFalse();
+            assertThat(staged.getLastArchReason()).isNull();
+            assertThat(staged.getLastArchDate()).isNull();
         }
     }
 }

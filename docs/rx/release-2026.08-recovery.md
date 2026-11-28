@@ -1,8 +1,10 @@
 # RX recovery and compatibility in release/2026.08
 
-The integrated change targets `release/2026.08`, including release head `1335e1b28ab` and published beta7 (`d40d2939afd`). Published migrations remain byte-for-byte unchanged: beta7 owns common `1.0.59.33`; the unpublished BC history migration is `.34`. The RX forward migrations are `.35` (provider-owned favourite groups and transactional engine qualification), `.36` (durable submission evidence) and `.37` (original versions).
+The integrated change targets `release/2026.08`, including release head `1335e1b28ab` and published beta7 (`d40d2939afd`). Published migrations remain byte-for-byte unchanged: beta7 owns common `1.0.59.33`; the unpublished BC history migration is `.34`. Earlier RX forward migrations include `.35` (provider-owned favourite groups and transactional engine qualification), `.36` (durable submission evidence) and `.37` (original versions). Medication preservation and rollback lifecycle migrations add `.51` (`drugs.archived_before_lifecycle`, `drugs.archived_date_before_lifecycle`, and `drugs.archived_reason_before_lifecycle` for first-observed archive snapshots), `.52` (widening `formBPMH.drugs` to `MEDIUMBLOB`), and `.53` (`drugs.medication_components` and `favorites.medication_components` for ordered multi-ingredient strengths, plus `formBPMH.otc_reviewed`).
 
-Before upgrading, finish and finalize any checkpointed CDS import. Adding `drugs.row_version` changes the physical target schema fingerprint and older import receipts require reconciliation if resumed across this upgrade. Do not discard the import ledger or reinterpret a changed fingerprint as proof of a failed import.
+Before upgrading, finish and finalize any checkpointed CDS import. Adding `drugs.row_version` and the `.51`–`.53` `drugs` columns changes the physical target schema fingerprint, and older import receipts require reconciliation if resumed across this upgrade. Do not discard the import ledger or reinterpret a changed fingerprint as proof of a failed import.
+
+Staged prescription calculations (`updateDrug`) validate `draftRevision` and monotonically increasing `calculationSequence`, returning `409` with JSON `{"error":"STALE_RX_STASH"}` when a staged card's revision has moved on, and save endpoints enforce `calculationAck` so unconfirmed asynchronous calculations cannot be committed silently. BPMH retrieval and history PDF streaming require both `_demographic` read and `_form` read privileges (`_form` write on save or new-form print), returning `409` when reviewed chart medications changed, `400` when an added patient-reported row omits its medication name, and `500` on unexpected persistence or PDF generation failures.
 
 Migration `.35` converts adopted non-InnoDB `drugs`, `prescription`, `log` and `favorites` tables to InnoDB before creating the favourite membership foreign keys. Existing InnoDB tables are left alone. Schedule maintenance time and disk capacity for these table rebuilds on adopted databases; rollback/retry guarantees require these transactional engines. The adoption regression starts with MyISAM tables, verifies retained rows and the foreign keys, and proves that a later clinical rollback leaves the original rows intact.
 
@@ -92,6 +94,21 @@ Static searches of the release and inspected develop snapshots found no active a
 The existing requested-patient gate tests cover the retained patient-scoped wrappers. Qualification must additionally exercise their effective Struts entry points and normal prescribing/allergy/favourite navigation, with two patient tabs and denied access.
 
 ## Validation surfaces
+
+The published `2026.08.0-beta8` medication and favourite REST readers throw
+when they encounter a stored fractional dispense amount. Its whole-number
+controls pass. Qualify a rollback package on an isolated clinic using a
+fractional order, a renewed or discontinued imported order, and a chart
+change made after the upgrade. Compare the patient profile and both REST
+lists with the database after each package transition. Preserve the live
+database through the rehearsal so the later clinical write stays available.
+
+When CARLOS archives a medication, the same transaction records the previous
+values in the medication's `archived_before_lifecycle`,
+`archived_date_before_lifecycle` and `archived_reason_before_lifecycle`
+columns. Those fields record the first transition observed after the
+migration. The operational archive fields still control whether the
+prescription is actionable.
 
 Meaningful regressions cover physical MariaDB COMMIT-then-throw recovery; strict audit rollback/retry; REST late-write rollback; concurrent detached entity edits; original form/note conflicts; provider isolation and atomic favourite copying. Both Ontario and BC physical schema contracts are generated from fresh complete Flyway installations. OSCAR19 target metadata is regenerated from pinned source `a7900d569d3faf741993e5e1da8c14021bbefede`.
 

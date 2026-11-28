@@ -450,7 +450,7 @@ def _charset_repair_on(client: Client, db: str, charset: str) -> List[str]:
     # a latin1 staging column
     checks = o19etl.overlength_precheck_sql(
         "t", {"cols": ["v"]}, db,
-        {"v": {"type": "text", "octet_len": 65535, "char_len": 65535}},
+        {"v": {"type": "text", "octet_len": 65535, "char_len": 65535, "nullable": True}},
         {"v": {"type": "varchar", "char_len": 255}}, repaired={"v"})
     if len(checks) != 1:
         failures.append("the overlength pre-check builder returned {0} "
@@ -494,7 +494,9 @@ def check_exact_special_repair(client: Client, src: str, dst: str,
             return []
         return ["the selected carlos-ctl lacks the scoped drugs.special repair; "
                 "use the fixed CLI release (or its reviewed checkout)"]
-    entry = {"class": "copy", "cols": ["drugid", "special", "comment"],
+    entry = {"class": "copy", "cols": ["drugid", "special", "comment", "quantity",
+                                        "unitName", "dosage", "unit", "drug_form",
+                                        "takemin", "takemax", "custom_instructions"],
              "charset_scan": ["special"]}
 
     def query(sql):
@@ -511,6 +513,7 @@ def check_exact_special_repair(client: Client, src: str, dst: str,
         fixture = Path(__file__).with_name("fixtures") / "drug-special.sql"
         client.setup(fixture.read_text(encoding="utf-8"), src)
         client.setup("CREATE TABLE `{0}`.drugs LIKE `{1}`.drugs".format(dst, src))
+        client.setup("CREATE TABLE `{0}`.favorites LIKE `{1}`.favorites".format(dst, src))
         with patch.object(o19map_schema, "TABLES", {"drugs": entry}):
             measured = o19_preflight.exact_charset_counts(
                 query, "`{0}`.drugs".format(src), "special")
@@ -535,6 +538,10 @@ def check_exact_special_repair(client: Client, src: str, dst: str,
                          "USING(drugid) WHERE e.must_block", src)
             before = client.rows("SELECT drugid, HEX(special), HEX(comment) "
                                  "FROM drugs ORDER BY drugid", src)
+            medication_fields = ("SELECT drugid, HEX(quantity), HEX(unitName), HEX(dosage), "
+                                 "HEX(unit), HEX(drug_form), CAST(takemin AS DOUBLE), "
+                                 "CAST(takemax AS DOUBLE), custom_instructions FROM drugs ORDER BY drugid")
+            before_medications = client.rows(medication_fields, src)
             audit: dict = {}
             repairs = o19etl.detect_repairs(query, src, ["charset-repair"], audit=audit)
             if repairs != {"drugs": {"special"}} or not audit:
@@ -547,6 +554,9 @@ def check_exact_special_repair(client: Client, src: str, dst: str,
                 + "; SHOW COUNT(*) WARNINGS", dst)
             if copied != [["0"]]:
                 failures.append("copy emitted a conversion/truncation warning")
+            if (client.rows(medication_fields, dst) != before_medications
+                    or client.rows(medication_fields, src) != before_medications):
+                failures.append("the copy changed a stored dose, quantity, strength, form, unit or flag")
             def expected_mismatches() -> int:
                 # Prefixes are validated identifiers; expected rows drive the
                 # join so even a missing target whose value was NULL counts.
@@ -586,6 +596,28 @@ def check_exact_special_repair(client: Client, src: str, dst: str,
             client.setup("UPDATE drugs SET special='altered' WHERE drugid=101", dst)
             if not o19etl.copy_content_parity(query, src, dst, sinfo, dinfo, repairs=repairs)[1]:
                 failures.append("P7 missed an altered repaired instruction")
+        favorite_entry = {"class": "copy", "cols": ["favoriteid", "takemin", "takemax",
+                                                   "custom_instructions", "repeat"]}
+        favorite_fields = ("SELECT favoriteid, CAST(takemin AS DOUBLE), CAST(takemax AS DOUBLE), "
+                           "custom_instructions, `repeat` FROM favorites ORDER BY favoriteid")
+        before_favorites = client.rows(favorite_fields, src)
+        default_profile = o19map_schema.O19_PROFILE
+        try:
+            for province in sorted(o19map_schema.SUPPORTED_PROVINCES):
+                if o19map_schema.bind(province) != province:
+                    failures.append("could not bind the {0} medication manifest".format(province))
+                    continue
+                client.setup("DELETE FROM favorites; DELETE FROM drugs", dst)
+                for table, rule, fields, expected, repair in (
+                    ("drugs", entry, medication_fields, before_medications, repairs["drugs"]),
+                    ("favorites", favorite_entry, favorite_fields, before_favorites, None),
+                ):
+                    effective, _ = o19etl.effective_entry(table, rule, sinfo[table], {table})
+                    client.setup(o19etl.copy_statement(table, effective, src, dst, dinfo[table], repair) + ";", dst)
+                    if client.rows(fields, src) != expected or client.rows(fields, dst) != expected:
+                        failures.append("{0} copy changed stored fields in {1}".format(province, table))
+        finally:
+            o19map_schema.bind(default_profile)
         print("\n  exact drugs.special rules: {0}".format(
             "FAILED" if failures else "stored bytes, B8, source preservation and P7 agree"))
         return failures

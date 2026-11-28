@@ -30,7 +30,7 @@
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.pdf;
 
 import java.io.File;
-import java.io.FileNotFoundException;
+import java.nio.file.Files;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -40,6 +40,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -120,6 +122,7 @@ Courier New — 1.60
  * @since 2014-11 (UBC Pharmacy Clinic)
  */
 public class PDFController {
+    private static final int TEMPLATE_MEDICATION_ROWS = 17;
 
     private static final Logger _Logger = MiscUtils.getLogger();
     private final String STRING_FILTER = "[^a-zA-Z0-9_' '!.!#]";
@@ -297,7 +300,8 @@ public class PDFController {
     private void addDataToPDF() {
 
         AcroFields acroFields = getStamper().getAcroFields();
-        Map<String, BpmhDrug> instructionNotes = prepareInstructionNotes(acroFields);
+        Set<String> continuedFields = new HashSet<>();
+        Map<String, BpmhDrug> instructionNotes = prepareInstructionNotes(acroFields, continuedFields);
         Map acroFieldsMap = acroFields.getAllFields();
         Iterator<String> acroFieldsIt = acroFieldsMap.keySet().iterator();
         String replaceWith = "";
@@ -315,6 +319,8 @@ public class PDFController {
             replaceWith = invokeValue(cleanKey);
             if (instructionNotes.containsKey(cleanKey)) {
                 replaceWith = "See instructions #" + instructionNumber(cleanKey);
+            } else if (continuedFields.contains(cleanKey)) {
+                replaceWith = "See #" + instructionNumber(cleanKey);
             }
 
             //count the characters and compare to limit.
@@ -324,12 +330,13 @@ public class PDFController {
 
             try {
 
-                acroFields.setField(cleanKey, replaceWith);
+                if (!acroFields.setField(key, replaceWith) && continueInstructions && fieldType == AcroFields.FIELD_TYPE_TEXT) {
+                    throw new IllegalStateException("BPMH PDF text field could not be filled");
+                }
 
-            } catch (IOException e) {
+            } catch (IOException | DocumentException e) {
                 _Logger.log(Level.FATAL, "Unable to fill BPMH PDF field{}", LogSafe.exceptionTrace(e));
-            } catch (DocumentException e) {
-                _Logger.log(Level.FATAL, "Unable to fill BPMH PDF field{}", LogSafe.exceptionTrace(e));
+                if (continueInstructions) throw new IllegalStateException("BPMH PDF field could not be filled");
             }
 
         }
@@ -338,7 +345,7 @@ public class PDFController {
     }
 
     /** A single line fits the template safely; wrapped text needs more height than its 16pt row. */
-    private Map<String, BpmhDrug> prepareInstructionNotes(AcroFields fields) {
+    private Map<String, BpmhDrug> prepareInstructionNotes(AcroFields fields, Set<String> continuedFields) {
         Map<String, BpmhDrug> notes = new LinkedHashMap<>();
         if (!continueInstructions || !(data instanceof BpmhForm2Bean form) || form.getDrugs() == null) {
             return notes;
@@ -353,22 +360,44 @@ public class PDFController {
         }
         for (int i = 0; i < form.getDrugs().size(); i++) {
             BpmhDrug drug = form.getDrugs().get(i);
-            if (drug == null || drug.getInstruction() == null || drug.getInstruction().isEmpty()) continue;
-            String key = "drugs#" + i + ".instruction";
-            String text = drug.getInstruction();
-            float[] position = fields.getFieldPositions(key);
-            boolean oneLine = text.indexOf('\n') < 0 && text.indexOf('\r') < 0
-                    && text.codePoints().allMatch(font::charExists);
-            if (position != null) {
-                // Use the same embedded font for measurement and the field appearance, always at 7.2pt.
-                fields.setFieldProperty(key, "textfont", font, null);
-                fields.setFieldProperty(key, "textsize", 7.2f, null);
+            if (drug == null) throw new IllegalStateException("BPMH medication list contains an empty row");
+            String prefix = "drugs#" + i + ".";
+            String key = prefix + "instruction";
+            int previousSize = continuedFields.size();
+            boolean templateRow = i < TEMPLATE_MEDICATION_ROWS;
+            checkField(fields, font, prefix + "what", drug.getWhat(), continuedFields, templateRow);
+            checkField(fields, font, prefix + "how", drug.getHow(), continuedFields, templateRow);
+            // The shipped template has no reason field on medication row 9.
+            // Its reason goes on a continuation page with the same row number when present.
+            if (i != 8 || StringUtils.isNotBlank(drug.getWhy())) {
+                checkField(fields, font, prefix + "why", drug.getWhy(), continuedFields, templateRow && i != 8);
             }
-            if (position == null || !oneLine || font.getWidthPoint(text, 7.2f) > position[3] - position[1] - 4) {
+            checkField(fields, font, key, drug.getInstruction(), continuedFields, templateRow);
+            if (StringUtils.isNotBlank(drug.getPatientReportedUse()) || StringUtils.isNotBlank(drug.getReportedMedication())) {
+                notes.put(key, drug);
+            }
+            if (continuedFields.size() > previousSize) {
                 notes.put(key, drug);
             }
         }
         return notes;
+    }
+
+    private static void checkField(AcroFields fields, BaseFont font, String key, String value,
+            Set<String> continuedFields, boolean templateRow) {
+        float[] position = fields.getFieldPositions(key);
+        if (position == null) {
+            if (templateRow) throw new IllegalStateException("BPMH PDF template is missing a medication field");
+            continuedFields.add(key);
+            return;
+        }
+        fields.setFieldProperty(key, "textfont", font, null);
+        fields.setFieldProperty(key, "textsize", 7.2f, null);
+        if (value != null && (value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0
+                || !value.codePoints().allMatch(font::charExists)
+                || font.getWidthPoint(value, 7.2f) > position[3] - position[1] - 4)) {
+            continuedFields.add(key);
+        }
     }
 
     private static int instructionNumber(String key) {
@@ -387,8 +416,19 @@ public class PDFController {
             paragraph.setLeading(14);
             paragraph.setSpacingAfter(12);
             PdfFonts.addText(paragraph, "Instruction #" + instructionNumber(entry.getKey()) + ": " + drug.getWhat() + "\n", heading);
-            PdfFonts.addText(paragraph, "Directions: " + drug.getHow() + "\n", body);
-            PdfFonts.addText(paragraph, drug.getInstruction(), body);
+            if (StringUtils.isNotBlank(drug.getReportedMedication())) {
+                PdfFonts.addText(paragraph, "Patient-reported medicine\n", body);
+            } else {
+                PdfFonts.addText(paragraph, "Recorded directions: "
+                        + StringUtils.defaultIfBlank(drug.getHow(), "Unavailable") + "\n", body);
+            }
+            if (StringUtils.isNotBlank(drug.getPatientReportedUse())) {
+                PdfFonts.addText(paragraph, "Patient-reported use: " + drug.getPatientReportedUse() + "\n", body);
+            }
+            if (StringUtils.isNotBlank(drug.getWhy())) {
+                PdfFonts.addText(paragraph, "Reason: " + drug.getWhy() + "\n", body);
+            }
+            if (StringUtils.isNotBlank(drug.getInstruction())) PdfFonts.addText(paragraph, drug.getInstruction(), body);
             column.addElement(paragraph);
         }
         String patientName = continuationPatientName();
@@ -409,6 +449,9 @@ public class PDFController {
                 column.setCanvas(canvas);
                 column.setSimpleColumn(36, 36, 576, 726);
                 status = column.go();
+                if (ColumnText.hasMoreText(status) && column.getLinesWritten() == 0) {
+                    throw new IllegalStateException("BPMH continuation page could not fit medication text");
+                }
             } while (ColumnText.hasMoreText(status));
         } catch (DocumentException error) {
             throw new IllegalStateException("BPMH instruction continuation could not be rendered", error);
@@ -426,7 +469,8 @@ public class PDFController {
         if (patient == null || StringUtils.isAllBlank(patient.getLastName(), patient.getFirstName())) {
             return null;
         }
-        return patient.getFormattedName();
+        String dateOfBirth = patient.getDateOfBirth();
+        return patient.getFormattedName() + (StringUtils.isBlank(dateOfBirth) ? "" : "  |  DOB " + dateOfBirth);
     }
 
     public void writeDataToPDF(Object data, String[] pages) {
@@ -496,62 +540,29 @@ public class PDFController {
 
             getReader().selectPages(arrayToString(pages, ","));
 
-            FileOutputStream fos = null;
             try {
-
                 File outputDir = PathValidationUtils.resolveConfiguredDirectory(getOutputPath(), "BPMH output path");
-                String generatedName = PathValidationUtils.validateGeneratedFileName(fileId + "_" + new Date().getTime() +
-                        "_" + getFilePath().getName());
-                File outputFile = PathValidationUtils.validateGeneratedChildPath(generatedName, outputDir);
+                String suffix = PathValidationUtils.validateGeneratedFileName("_" + getFilePath().getName());
+                String prefix = PathValidationUtils.validateGeneratedFileName(fileId + "_bpmh_");
+                File outputFile = Files.createTempFile(outputDir.toPath(), prefix, suffix).toFile();
                 setOutputPath(outputFile.getAbsolutePath());
-
                 setFileName(outputFile.getName());
 
-                if (getStamper() == null) {
-                    fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(new File(getOutputPath())));
-                    try {
-                        setStamper(new PdfStamper(getReader(), fos));
-                    } catch (Exception e) {
-                        fos.close();
-                        throw e;
-                    }
+                try (FileOutputStream stream = new FileOutputStream(outputFile);
+                     PdfStamper stamper = new PdfStamper(getReader(), stream)) {
+                    setStamper(stamper);
+                    addDataToPDF();
+                    stamper.getWriter().addJavaScript("this.print({bUI: true, bSilent: true, bShrinkToFit:true});", false);
+                    stamper.getWriter().addJavaScript("this.closeDoc(true);");
+                    stamper.setFreeTextFlattening(true);
+                    stamper.setFormFlattening(true);
                 }
-
-                addDataToPDF();
-
-                getStamper().getWriter().addJavaScript("this.print({bUI: true, bSilent: true, bShrinkToFit:true});", false);
-                getStamper().getWriter().addJavaScript("this.closeDoc(true);");
-
-                getStamper().setFreeTextFlattening(true);
-                getStamper().setFormFlattening(true);
-                getStamper().setFreeTextFlattening(true);
-
-            } catch (FileNotFoundException e1) {
-                _Logger.log(Level.FATAL, "Unable to generate BPMH PDF{}", LogSafe.exceptionTrace(e1));
-            } catch (DocumentException e1) {
-                _Logger.log(Level.FATAL, "Unable to generate BPMH PDF{}", LogSafe.exceptionTrace(e1));
-            } catch (IOException e1) {
-                _Logger.log(Level.FATAL, "Unable to generate BPMH PDF{}", LogSafe.exceptionTrace(e1));
-            } finally {
-                if (getStamper() != null) {
-                    try {
-                        getStamper().close();
-                    } catch (DocumentException e) {
-                        _Logger.log(Level.FATAL, "Unable to finalize BPMH PDF output{}", LogSafe.exceptionTrace(e));
-                    } catch (IOException e) {
-                        _Logger.log(Level.FATAL, "Unable to finalize BPMH PDF output{}", LogSafe.exceptionTrace(e));
-                    }
-                }
-                if (fos != null) {
-                    try {
-                        fos.close();
-                    } catch (IOException e) {
-                        _Logger.log(Level.FATAL, "Unable to finalize BPMH PDF output{}", LogSafe.exceptionTrace(e));
-                    }
-                }
+            } catch (IOException | DocumentException error) {
+                _Logger.log(Level.FATAL, "Unable to generate BPMH PDF{}", LogSafe.exceptionTrace(error));
+                if (continueInstructions) throw new IllegalStateException("BPMH PDF could not be generated");
             }
-
         } else {
+            if (continueInstructions) throw new IllegalStateException("BPMH PDF template could not be loaded");
             _Logger.warn("Unable to load BPMH PDF template.");
         }
 

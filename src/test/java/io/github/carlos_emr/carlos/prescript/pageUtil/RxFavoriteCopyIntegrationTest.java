@@ -31,6 +31,7 @@ class RxFavoriteCopyIntegrationTest extends CarlosUnitTestBase {
         List<Favorites> selected = tx.execute(status -> {
             var share = new FavoritesPrivilege(); share.setProviderNo("997101"); share.setOpenToPublic(true); em.persist(share);
             var first = new Favorites(); first.setProviderNo("997101"); first.setFavoriteName("Synthetic first"); first.setSpecial("Keep directions");
+            first.setMedicationComponents("[{\"name\":\"Amoxicillin\",\"strength\":\"250\",\"unit\":\"mg/5 mL\"}]");
             var second = new Favorites(); second.setProviderNo("997101"); second.setFavoriteName("Synthetic second"); second.setSpecial("Keep other directions");
             em.persist(first); em.persist(second); return List.of(first, second);
         });
@@ -41,7 +42,9 @@ class RxFavoriteCopyIntegrationTest extends CarlosUnitTestBase {
         copies.copy("997101", "997102", selected);
         Long afterRetry = tx.execute(status -> em.createQuery("select count(f) from Favorites f where f.providerNo='997102'", Long.class).getSingleResult());
         assertThat(afterRetry).isEqualTo(2L);
-        List<String> instructions = tx.execute(status -> em.createQuery("select f.special from Favorites f where f.providerNo='997102' order by f.favoriteName", String.class).getResultList());
-        assertThat(instructions).containsExactly("Keep directions", "Keep other directions");
+        List<Favorites> copied = tx.execute(status -> em.createQuery("select f from Favorites f where f.providerNo='997102' order by f.favoriteName", Favorites.class).getResultList());
+        assertThat(copied).extracting(Favorites::getSpecial).containsExactly("Keep directions", "Keep other directions");
+        assertThat(copied).extracting(Favorites::getMedicationComponents)
+                .containsExactly("[{\"name\":\"Amoxicillin\",\"strength\":\"250\",\"unit\":\"mg/5 mL\"}]", null);
     }
 }

@@ -17466,6 +17466,21 @@
       "notes": "Issue #3876: strength values default to one unit per dose; explicit counts, volumes and per-dose amounts (also before the frequency) take precedence; a concentration alone calculates nothing and leaves the card quantity as it was; fractions round once at the final division. The quantity update after a 1000-unit dose derives the duration; a spaced range, written daily counts, the n/7 shorthand, a trailing ', take with food', a second day word before the duration and a 'then' taper are read; 'grams' and 'international units' are classified like 'g' and 'IU', and a method word after a product name opens the dose; a parenthesised product count and a date after the frequency are read correctly, an amount of time before the dose is skipped for the dose written after it, and a taper segment inherits the first segment's method. AJAX, card quantity and saved drugs row are asserted."
     },
     {
+      "name": "rx-medication-preservation",
+      "script": "scripts/rx-medication-preservation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned synthetic patient, allergy, drugs, formBPMH rows, and provider favorites keyed by marker; cleanup removes all created rows and asserts them gone; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "PR #6424 (issues #6398, #6417): unit-qualified quantities skip count-based duration calculation while decimal quantities persist through SearchDrug3.jsp and legacy WriteScript.jsp; stale-draft 409 calculation conflicts surface the Reopen control and hide Retry; BPMH renders PRN directions, refuses whitespace-only reported medications with HTTP 400 while preserving draft note/use/instructions/Remove, preserves editable note textarea and Remove buttons across HTTP 409 review conflict, persists otc_reviewed, sets Cache-Control: no-store on Print, and refuses negative formId with HTTP 400; REST POST /ws/rs/rx/favorites treats explicit medicationDetails.components=null as distinct from a multi-component favorite."
+    },
+    {
       "name": "chart-message-followups",
       "script": "scripts/chart-message-followups-playwright-checks.js",
       "tiers": [

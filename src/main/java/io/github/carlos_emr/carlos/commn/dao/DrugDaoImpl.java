@@ -119,7 +119,13 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     @Override
     public int archiveIfActive(int drugId, int demographicNo, String reason, Date archivedDate) {
         // A bulk update bypasses @PreUpdate, so preserve the sync timestamp explicitly.
-        return entityManager.createQuery("update Drug d set d.archived = true, d.archivedReason = :reason,"
+        return entityManager.createQuery("update Drug d set"
+                + " d.archivedDateBeforeLifecycle = case when d.archivedBeforeLifecycle is null"
+                + " then d.archivedDate else d.archivedDateBeforeLifecycle end,"
+                + " d.archivedReasonBeforeLifecycle = case when d.archivedBeforeLifecycle is null"
+                + " then d.archivedReason else d.archivedReasonBeforeLifecycle end,"
+                + " d.archivedBeforeLifecycle = coalesce(d.archivedBeforeLifecycle, d.archived),"
+                + " d.archived = true, d.archivedReason = :reason,"
                 + " d.archivedDate = :date, d.lastUpdateDate = :date, d.rowVersion = d.rowVersion + 1"
                 + " where d.id = :id and d.demographicId = :patient and d.archived = false")
                 .setParameter("reason", reason).setParameter("date", archivedDate)
@@ -656,7 +662,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     @Override
     public Integer findLastNotArchivedId(String brandName, String genericName, int demographicNo) {
         Query query = entityManager.createQuery(
-                "SELECT max(d.id) from Drug d where d.archived = false AND d.archivedReason='' AND d.brandName = :bn AND d.genericName = :gn  AND d.demographicId = :dn");
+                "SELECT max(d.id) from Drug d where d.archived = false AND (d.archivedReason IS NULL OR d.archivedReason='')"
+                        + " AND d.brandName = :bn AND d.genericName = :gn AND d.demographicId = :dn");
         query.setParameter("bn", brandName);
         query.setParameter("gn", genericName);
         query.setParameter("dn", demographicNo);

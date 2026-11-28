@@ -197,26 +197,15 @@ public class DrugLookUpManager implements DrugLookUp {
         t.setForm((String) h.get("drugForm"));
         t.setName((String) h.get("product"));
 
-        // Component: { name=STRING, strength=INT, unit=STRING }
-        Vector<Hashtable<String, Object>> components = (Vector<Hashtable<String, Object>>) h.get("components");
-
-        DrugSearchTo1.DrugComponentTo1 comp;
-
-        for (Hashtable<String, Object> o : components) {
-            comp = new DrugSearchTo1.DrugComponentTo1();
-            comp.setName((String) o.get("name"));
-            comp.setStrength((Double) o.get("strength"));
-            comp.setUnit((String) o.get("unit"));
-            t.addComponent(comp);
-        }
+        populateComponents(t, h.get("components"));
 
         // Generic Name : { name=STRING, category=INT, id=INT }
         Hashtable generic = dr.getGenericName(id);
-        String gn = (String) generic.get("name");
+        String gn = generic == null ? null : (String) generic.get("name");
 
         // ugh, this is gross...
         // drugref should return null if nothing is found.
-        if (gn.toLowerCase().equals("none found")) {
+        if (gn == null || "none found".equalsIgnoreCase(gn)) {
 
             // if there is no generic name found then we try the following in order:
             //  1) the active ingredient
@@ -224,11 +213,8 @@ public class DrugLookUpManager implements DrugLookUp {
             //
             // This solution is not ideal, drugref seems to do some weird things....
 
-            if (t.getComponents().size() >= 1) {
-                t.setGenericName(t.getComponents().get(0).getName());
-            } else {
-                t.setGenericName(t.getName());
-            }
+            t.setGenericName(t.getComponents().stream().map(DrugSearchTo1.DrugComponentTo1::getName)
+                    .filter(name -> name != null && !name.isBlank()).findFirst().orElse(t.getName()));
 
         } else {
             t.setGenericName(gn);
@@ -236,5 +222,35 @@ public class DrugLookUpManager implements DrugLookUp {
 
     }
 
-
+    static void populateComponents(DrugSearchTo1 product, Object payload) {
+        if (!(payload instanceof Iterable<?> components)) {
+            product.setComponentDataComplete(false);
+            return;
+        }
+        boolean complete = true;
+        for (Object value : components) {
+            var component = new DrugSearchTo1.DrugComponentTo1();
+            if (value instanceof java.util.Map<?, ?> fields) {
+                if (fields.get("name") instanceof String name) component.setName(name);
+                if (fields.get("unit") instanceof String unit) component.setUnit(unit);
+                Object strength = fields.get("strength");
+                if (strength instanceof Number || strength instanceof String) {
+                    String text = strength.toString();
+                    try {
+                        double amount = new java.math.BigDecimal(text.strip()).doubleValue();
+                        if (Double.isFinite(amount)) component.setStrength(amount);
+                    } catch (NumberFormatException ignored) {
+                        // Retain the catalogue text for review. It is not a numeric dose.
+                    }
+                    if (component.getStrength() == null) component.setRawStrength(text);
+                }
+            }
+            if (component.getStrength() == null || component.getName() == null || component.getName().isBlank()
+                    || component.getUnit() == null || component.getUnit().isBlank()) {
+                complete = false;
+            }
+            product.addComponent(component);
+        }
+        if (!complete || product.getComponents().isEmpty()) product.setComponentDataComplete(false);
+    }
 }
