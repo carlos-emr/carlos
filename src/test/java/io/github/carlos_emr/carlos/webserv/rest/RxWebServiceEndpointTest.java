@@ -21,18 +21,21 @@
 package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.io.StringReader;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.xml.bind.UnmarshalException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -57,8 +60,10 @@ import io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.FavoriteConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.PrescriptionConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.DrugResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugSearchTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
 import io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper;
+import io.github.carlos_emr.carlos.webserv.rest.util.DrugXmlContextResolver;
 
 /**
  * CXF local-transport endpoint tests for {@link RxWebService} using CXF local transport.
@@ -172,7 +177,29 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
                 Arguments.of(MediaType.APPLICATION_XML,
                         "<drug><instructions>synthetic private text</instructions></drug>", "archived, prn"),
                 Arguments.of(MediaType.APPLICATION_XML, "<drug><archived>false</archived></drug>", "prn"),
+                Arguments.of(MediaType.APPLICATION_XML, """
+                        <drug xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                          <archived xsi:nil="true"/><prn>true</prn>
+                        </drug>""", "archived"),
+                Arguments.of(MediaType.APPLICATION_XML, """
+                        <drug xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                          <archived>false</archived><prn xsi:nil="true"/>
+                        </drug>""", "prn"),
                 Arguments.of(MediaType.APPLICATION_XML, "<drug><prn>false</prn></drug>", "archived"));
+    }
+
+    @Test
+    void shouldBindTheDrugRootToTheMedication_whenTheSessionAlsoPublishesDrugLookup() throws Exception {
+        var resolver = new DrugXmlContextResolver();
+        var reader = resolver.getContext(DrugTo1.class).createUnmarshaller();
+        var medication = (DrugTo1) reader.unmarshal(new StringReader(
+                "<drug><drugId>73</drugId><archived>false</archived></drug>"));
+        assertThat(medication.getDrugId()).isEqualTo(73);
+        assertThat(medication.isArchived()).isFalse();
+        assertThat(medication.isPrn()).isNull();
+        assertThat(resolver.getContext(DrugSearchTo1.class)).isNull();
+        assertThatThrownBy(() -> reader.unmarshal(new StringReader("<unexpected/>")))
+                .isInstanceOf(UnmarshalException.class);
     }
 
     @ParameterizedTest
@@ -196,19 +223,25 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
         return Stream.of(
                 Arguments.of(MediaType.APPLICATION_JSON, """
                         {"drugId":1,"archived":false,"prn":true}
-                        """),
+                        """, false, true),
+                Arguments.of(MediaType.APPLICATION_JSON, """
+                        {"drugId":1,"archived":true,"prn":false}
+                        """, true, false),
                 Arguments.of(MediaType.APPLICATION_XML,
-                        "<drug><drugId>1</drugId><archived>false</archived><prn>true</prn></drug>"));
+                        "<drug><drugId>1</drugId><archived>false</archived><prn>true</prn></drug>", false, true),
+                Arguments.of(MediaType.APPLICATION_XML,
+                        "<drug><drugId>1</drugId><archived>true</archived><prn>false</prn></drug>", true, false));
     }
 
     @ParameterizedTest
     @MethodSource("replacementsWithRequiredFlags")
-    void shouldPassExplicitBooleanFlagsToConversion_whenReplacingAMedication(String mediaType, String body) throws Exception {
+    void shouldPassExplicitBooleanFlagsToConversion_whenReplacingAMedication(String mediaType, String body,
+                                                                             boolean archived, boolean prn) throws Exception {
         Drug replacement = new Drug();
         when(mockDrugConverter.getAsDomainObject(any(), any())).thenAnswer(invocation -> {
             DrugTo1 input = invocation.getArgument(1);
-            assertThat(input.isArchived()).isFalse();
-            assertThat(input.isPrn()).isTrue();
+            assertThat(input.isArchived()).isEqualTo(archived);
+            assertThat(input.isPrn()).isEqualTo(prn);
             return replacement;
         });
         when(mockRxManager.updateDrug(any(), eq(replacement))).thenReturn(replacement);
