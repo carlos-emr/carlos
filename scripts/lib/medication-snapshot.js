@@ -14,8 +14,12 @@ function medicationSnapshot(rows, patient) {
     const value = type === 'float' ? `CAST(${id} AS DOUBLE)` : id;
     return `HEX(CAST(${value} AS BINARY))`;
   });
-  return JSON.stringify(rows(`SELECT drugid, SHA2(JSON_ARRAY(${expressions.join(', ')}), 256)
-    FROM drugs WHERE demographic_no = ${patient} ORDER BY drugid`));
+  const snapshot = rows(`SELECT drugid, SHA2(JSON_ARRAY(${expressions.join(', ')}), 256)
+    FROM drugs WHERE demographic_no = ${patient} ORDER BY drugid`);
+  if (snapshot.some(([id, digest]) => !/^[1-9]\d*$/.test(id) || !/^[\da-f]{64}$/i.test(digest))) {
+    throw new Error('Medication snapshot row is missing its identity or digest');
+  }
+  return JSON.stringify(snapshot);
 }
 
 module.exports = { medicationSnapshot };

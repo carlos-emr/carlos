@@ -315,8 +315,8 @@ class RxManagerUnitTest extends RxManagerImpl {
         }
 
         @ParameterizedTest
-        @CsvSource({"111,tab", "222,mL"})
-        void shouldKeepSubmittedQuantity_whenUnitOrProductChanges(String productId, String unit) {
+        @CsvSource({"111,tab,false", "222,mL,false", "111,tab,true"})
+        void shouldKeepSubmittedQuantity_whenUnitOrProductChanges(String productId, String unit, boolean quantitySubmitted) {
             Drug source = new Drug();
             source.setId(4);
             source.setDemographicId(1);
@@ -332,6 +332,7 @@ class RxManagerUnitTest extends RxManagerImpl {
             changed.setRegionalIdentifier(productId);
             changed.setQuantity("30");
             changed.setUnitName(unit);
+            if (quantitySubmitted) changed.recordRestFieldPresence(true, true, true);
             Drug replacement = updateDrug(new LoggedInInfo(), changed);
             assertThat(replacement.getQuantity()).isEqualTo("30");
             assertThat(replacement.getUnitName()).isEqualTo(unit);
