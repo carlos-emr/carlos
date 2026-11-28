@@ -2,7 +2,6 @@
 # Copyright (C) 2026 CARLOS Contributors
 """Check the document inputs against the pinned OSCAR 19 importer."""
 
-import hashlib
 from pathlib import Path
 import subprocess
 import tarfile
@@ -17,26 +16,32 @@ FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
 
 class TestDocumentFixture(unittest.TestCase):
-    def test_standalone_archive_contains_the_pinned_editor(self):
+    def test_standalone_archive_preserves_the_synthetic_document_set(self):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
-            subprocess.run(["bash", FIXTURES / "documents/make-documents-tar.sh", work],
-                           cwd=work, check=True, capture_output=True)
+            result = subprocess.run(["bash", FIXTURES / "documents/make-documents-tar.sh", work],
+                                    cwd=work, check=True, capture_output=True, text=True)
+            self.assertIn("placeholder archive", result.stderr)
             with tarfile.open(work / "o19-documents.tar.gz") as documents:
-                with documents.extractfile("oscar_mcmaster/eform/images/editControl.js") as asset:
-                    self.assertEqual(hashlib.sha256(asset.read()).hexdigest(),
-                                     "1222ba3f900b6a16a3d9f0a5cca10bd721e5279f9f1cdd2ffa6b9a351c1b1847")
+                self.assertEqual({item.name for item in documents if item.isfile()}, {
+                    "oscar_mcmaster/document/demo_referral_note.pdf",
+                    "oscar_mcmaster/document/demo_lab_scan.pdf",
+                    "oscar_mcmaster/document/demo_orphan_upload.pdf",
+                    "oscar_mcmaster/eform/images/demo_clinic_logo.png",
+                    "oscar_mcmaster/incomingdocs/queue1/demo_incoming_fax.pdf",
+                })
 
     def test_unusable_explicit_editor_fails_before_writing_an_archive(self):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             empty = work / "empty.js"
             empty.touch()
-            for editor in (empty, work / "missing.js"):
+            for editor in ("", empty, work / "missing.js"):
                 with self.subTest(editor=editor):
                     result = subprocess.run(["bash", FIXTURES / "documents/make-documents-tar.sh", work, editor],
                                             capture_output=True, text=True)
                     self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("expected a readable, non-empty OSCAR editor", result.stderr)
                     self.assertIn(str(editor), result.stderr)
                     self.assertFalse((work / "o19-documents.tar.gz").exists())
 

@@ -15,6 +15,7 @@
      "db_row": "eform 'Demo Letterhead' references ${oscar_image_path}demo_clinic_logo.png",
      "exercises": "eform image asset resolution"},
     {"path": "eform/images/editControl.js", "kind": "js",
+     "source": "Full rehearsal builder or explicit editor argument to make-documents-tar.sh",
      "db_row": "stock letter eForm references the OSCAR 19 editor script",
      "exercises": "stock eForm asset resolution during preflight"},
     {"path": "incomingdocs/queue1/demo_incoming_fax.pdf", "kind": "pdf",
@@ -23,6 +24,6 @@
   ],
   "missing_file_row": {
     "docfilename": "demo_missing_scan.pdf",
-    "exercises": "blocking reconciliation: document row whose file is absent from the tar — the documents phase must fail until resolved"
+    "exercises": "preflight requires the missing-source-documents acknowledgement for this absent chart attachment"
   }
 }
