@@ -493,13 +493,15 @@ public class MeasurementService extends AbstractServiceImpl {
         Boolean numeric = rule.isNumeric();
         boolean requiresNumeric = Boolean.TRUE.equals(numeric) || maxValue != 0.0 || minValue != 0.0;
         boolean dateOnly = Boolean.TRUE.equals(rule.isDate());
+        boolean bloodPressureRule = isBloodPressureValidation(configured, rule)
+                && regex != null && !regex.isEmpty();
 
         try {
             if (!ectValidation.isInRange(maxValue, minValue, value)
                     || !ectValidation.maxLength(maxLength, value)
                     || !ectValidation.minLength(minLength, value)
                     || !ectValidation.matchRegExp(regex, value)
-                    || !ectValidation.isValidBloodPressure(regex, value)
+                    || (bloodPressureRule && !ectValidation.isValidBloodPressure(regex, value))
                     || !ectValidation.isNumeric(numeric, value)
                     // isNumeric and isInRange use Double.valueOf, which also takes NaN, Infinity,
                     // hex ("0x1p3") and type suffixes ("5d"). An API value must be a plain decimal number.
@@ -512,6 +514,11 @@ public class MeasurementService extends AbstractServiceImpl {
         } catch (java.util.regex.PatternSyntaxException _) {
             throw new InternalServerErrorException("Invalid measurement validation configuration");
         }
+    }
+
+    private static boolean isBloodPressureValidation(MeasurementType configured, Validations rule) {
+        return "BP".equalsIgnoreCase(configured.getType())
+                || (rule.getName() != null && "Blood Pressure".equalsIgnoreCase(rule.getName().trim()));
     }
 
     private static boolean isPlainDecimal(String value) {

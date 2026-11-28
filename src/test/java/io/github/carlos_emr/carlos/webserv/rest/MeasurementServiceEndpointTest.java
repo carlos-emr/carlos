@@ -1043,5 +1043,42 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
 
             assertThat(response.getStatus()).isEqualTo(404);
         }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"6/12", "20/40", "6/6"})
+        @DisplayName("should accept non-BP slash-formatted readings such as visual acuity when the pattern matches")
+        void shouldRecordMeasurement_whenNonBloodPressureTypeMatchesSlashRegex(String value) {
+            allowWriteToExistingPatient();
+            configureType("VA", "Snellen", "21");
+            Validations visualAcuity = new Validations();
+            visualAcuity.setName("Visual Acuity");
+            visualAcuity.setRegularExp("[0-9]+/[0-9]+");
+            when(mockValidationsDao.find(21)).thenReturn(visualAcuity);
+            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+
+            Response response = postNew("{\"type\":\"VA\",\"dataField\":\"" + value + "\"}");
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class),
+                argThat(measurement -> "VA".equals(measurement.getType()) && value.equals(measurement.getDataField())));
+        }
+
+        @Test
+        @DisplayName("should still apply blood pressure checks to custom types using the Blood Pressure rule")
+        void shouldReturn400_whenCustomTypeWithBloodPressureRuleIsInverted() {
+            allowWriteToExistingPatient();
+            configureType("ABPM", "24h average", "6");
+            Validations bloodPressure = new Validations();
+            bloodPressure.setName("Blood Pressure");
+            bloodPressure.setRegularExp("[0-9]{2,3}/{1}[0-9]{2,3}");
+            when(mockValidationsDao.find(6)).thenReturn(bloodPressure);
+
+            Response response = postNew("{\"type\":\"ABPM\",\"dataField\":\"80/122\"}");
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(responseJson(response).at("/code").textValue()).isEqualTo("VALUE_REJECTED");
+            verifyNoInteractions(mockMeasurementManager);
+        }
     }
 }

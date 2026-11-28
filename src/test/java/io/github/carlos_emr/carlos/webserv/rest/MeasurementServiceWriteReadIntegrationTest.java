@@ -232,6 +232,29 @@ class MeasurementServiceWriteReadIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @DisplayName("should keep readings distinct when comments differ only by letter case")
+    void shouldStoreDistinctReadings_whenCommentsDifferOnlyByCase() throws Exception {
+        String lower = "{\"type\":\"BP\",\"dataField\":\"118/76\",\"measuringInstruction\":\"sitting position\","
+                + "\"comments\":\"dose 1 mg\",\"dateObserved\":1770000000000}";
+        String upper = "{\"type\":\"BP\",\"dataField\":\"118/76\",\"measuringInstruction\":\"sitting position\","
+                + "\"comments\":\"dose 1 Mg\",\"dateObserved\":1770000000000}";
+
+        EmbeddedMeasurementTo1 first = service.addMeasurement((ObjectNode) mapper.readTree(lower), patient);
+        entityManager.flush();
+        EmbeddedMeasurementTo1 second = service.addMeasurement((ObjectNode) mapper.readTree(upper), patient);
+        entityManager.flush();
+        EmbeddedMeasurementTo1 retrySecond = service.addMeasurement((ObjectNode) mapper.readTree(upper), patient);
+
+        assertThat(second.getId()).isNotEqualTo(first.getId());
+        assertThat(second.getComments()).isEqualTo("dose 1 Mg");
+        assertThat(retrySecond.getId()).isEqualTo(second.getId());
+        assertThat(measurementDao.findByType(patient, List.of("BP")))
+                .hasSize(2)
+                .extracting(Measurement::getComments)
+                .containsExactlyInAnyOrder("dose 1 mg", "dose 1 Mg");
+    }
+
+    @Test
     @DisplayName("should refuse a value the seeded blood pressure rule rejects and store nothing")
     void shouldStoreNothing_whenValueViolatesSeededRule() throws Exception {
         ObjectNode body = (ObjectNode) mapper.readTree(

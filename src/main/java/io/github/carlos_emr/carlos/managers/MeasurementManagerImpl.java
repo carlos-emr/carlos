@@ -179,10 +179,37 @@ public class MeasurementManagerImpl implements MeasurementManager {
         criteria.setComments(measurement.getComments());
         criteria.setDateObserved(measurement.getDateObserved());
         List<Measurement> stored = measurementDao.find(criteria);
-        if (stored != null && !stored.isEmpty()) {
-            return stored.get(0);
+        if (stored != null) {
+            for (Measurement existing : stored) {
+                if (matchesReadingIdentity(existing, measurement)) {
+                    return existing;
+                }
+            }
         }
         return addMeasurement(loggedInInfo, measurement);
+    }
+
+    /**
+     * Compares all deduplication identity fields exactly in Java so case-insensitive or
+     * pad-space database collations (e.g. {@code utf8mb4_general_ci}) never collapse distinct
+     * readings whose text differs only by letter case or trailing spaces.
+     */
+    private static boolean matchesReadingIdentity(Measurement existing, Measurement candidate) {
+        return existing != null
+                && Objects.equals(existing.getDemographicId(), candidate.getDemographicId())
+                && Objects.equals(existing.getType(), candidate.getType())
+                && Objects.equals(existing.getDataField(), candidate.getDataField())
+                && Objects.equals(existing.getMeasuringInstruction(), candidate.getMeasuringInstruction())
+                && Objects.equals(existing.getComments(), candidate.getComments())
+                && sameTimestamp(existing.getDateObserved(), candidate.getDateObserved());
+    }
+
+    private static boolean sameTimestamp(Date existing, Date candidate) {
+        if (existing == null || candidate == null) {
+            return existing == candidate;
+        }
+        // Compare epoch milliseconds so Hibernate java.sql.Timestamp instances match java.util.Date.
+        return existing.getTime() == candidate.getTime();
     }
 
     /**

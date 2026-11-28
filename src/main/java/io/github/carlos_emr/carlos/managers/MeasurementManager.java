@@ -158,11 +158,11 @@ public interface MeasurementManager {
     public Measurement addMeasurement(LoggedInInfo loggedInInfo, Measurement measurement);
 
     /**
-     * Adds the measurement unless the patient already has an identical reading: the same type,
-     * measuring instruction, value, comments and {@code dateObserved}. Then it returns that stored
-     * reading and adds nothing. The lookup and the insert run in one transaction under the patient's
-     * row lock, so overlapping identical requests (a client retrying a request whose response it lost)
-     * store one reading.
+     * Adds the measurement unless the patient already has an identical reading: the exact same
+     * (case-sensitive) type, measuring instruction, value, comments and {@code dateObserved}. Then
+     * it returns that stored reading and adds nothing. The lookup and the insert run in one
+     * transaction under the patient's row lock, so overlapping identical requests (a client retrying
+     * a request whose response it lost) store one reading.
      *
      * @param loggedInInfo the caller, for the audit row
      * @param measurement the reading to add; its {@code dateObserved} must already be at the stored

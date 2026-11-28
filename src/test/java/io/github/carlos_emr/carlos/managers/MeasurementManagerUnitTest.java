@@ -629,9 +629,19 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
         @Test
         @DisplayName("should return the identical stored reading and insert nothing")
         void shouldReturnStoredReading_whenIdenticalReadingStored() {
+            Date observed = new Date(1_770_000_000_000L);
             Measurement measurement = createTestMeasurement();
             measurement.setDemographicId(4321);
+            measurement.setMeasuringInstruction("sitting position");
+            measurement.setComments("dose 1 mg");
+            measurement.setDateObserved(observed);
+
             Measurement stored = createTestMeasurementWithId(TEST_MEASUREMENT_ID);
+            stored.setDemographicId(4321);
+            stored.setMeasuringInstruction("sitting position");
+            stored.setComments("dose 1 mg");
+            stored.setDateObserved(new java.sql.Timestamp(observed.getTime()));
+
             when(mockDemographicDao.findForUpdate(4321)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
             when(mockMeasurementDao.find(any(io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria.class)))
                     .thenReturn(List.of(stored));
@@ -639,6 +649,82 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
             Measurement result = measurementManager.addMeasurementUnlessStored(mockLoggedInInfo, measurement);
 
             assertThat(result).isSameAs(stored);
+            verify(mockMeasurementDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should insert a new reading when a case-insensitive DAO candidate differs by letter case")
+        void shouldInsertNewReading_whenStoredCandidateDiffersOnlyByCase() {
+            Date observed = new Date(1_770_000_000_000L);
+            Measurement candidate = createTestMeasurement("NOTES", "Pos");
+            candidate.setDemographicId(4321);
+            candidate.setMeasuringInstruction("Standing");
+            candidate.setComments("dose 1 Mg");
+            candidate.setDateObserved(observed);
+
+            Measurement differentComment = createTestMeasurementWithId(10);
+            differentComment.setDemographicId(4321);
+            differentComment.setType("NOTES");
+            differentComment.setDataField("Pos");
+            differentComment.setMeasuringInstruction("Standing");
+            differentComment.setComments("dose 1 mg");
+            differentComment.setDateObserved(new java.sql.Timestamp(observed.getTime()));
+
+            Measurement differentValue = createTestMeasurementWithId(11);
+            differentValue.setDemographicId(4321);
+            differentValue.setType("NOTES");
+            differentValue.setDataField("pos");
+            differentValue.setMeasuringInstruction("Standing");
+            differentValue.setComments("dose 1 Mg");
+            differentValue.setDateObserved(new java.sql.Timestamp(observed.getTime()));
+
+            Measurement differentInstruction = createTestMeasurementWithId(12);
+            differentInstruction.setDemographicId(4321);
+            differentInstruction.setType("NOTES");
+            differentInstruction.setDataField("Pos");
+            differentInstruction.setMeasuringInstruction("standing");
+            differentInstruction.setComments("dose 1 Mg");
+            differentInstruction.setDateObserved(new java.sql.Timestamp(observed.getTime()));
+
+            when(mockDemographicDao.findForUpdate(4321)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+            when(mockMeasurementDao.find(any(io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria.class)))
+                    .thenReturn(List.of(differentComment, differentValue, differentInstruction));
+
+            Measurement result = measurementManager.addMeasurementUnlessStored(mockLoggedInInfo, candidate);
+
+            assertThat(result).isSameAs(candidate);
+            verify(mockMeasurementDao).persist(candidate);
+        }
+
+        @Test
+        @DisplayName("should return the exact match when a case-variant row precedes it")
+        void shouldReturnExactMatch_whenCaseVariantPrecedesExactMatch() {
+            Date observed = new Date(1_770_000_000_000L);
+            Measurement candidate = createTestMeasurement();
+            candidate.setDemographicId(4321);
+            candidate.setMeasuringInstruction("sitting position");
+            candidate.setComments("dose 1 Mg");
+            candidate.setDateObserved(observed);
+
+            Measurement caseVariant = createTestMeasurementWithId(10);
+            caseVariant.setDemographicId(4321);
+            caseVariant.setMeasuringInstruction("sitting position");
+            caseVariant.setComments("dose 1 mg");
+            caseVariant.setDateObserved(new java.sql.Timestamp(observed.getTime()));
+
+            Measurement exactMatch = createTestMeasurementWithId(11);
+            exactMatch.setDemographicId(4321);
+            exactMatch.setMeasuringInstruction("sitting position");
+            exactMatch.setComments("dose 1 Mg");
+            exactMatch.setDateObserved(new java.sql.Timestamp(observed.getTime()));
+
+            when(mockDemographicDao.findForUpdate(4321)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+            when(mockMeasurementDao.find(any(io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria.class)))
+                    .thenReturn(List.of(caseVariant, exactMatch));
+
+            Measurement result = measurementManager.addMeasurementUnlessStored(mockLoggedInInfo, candidate);
+
+            assertThat(result).isSameAs(exactMatch);
             verify(mockMeasurementDao, never()).persist(any());
         }
 
