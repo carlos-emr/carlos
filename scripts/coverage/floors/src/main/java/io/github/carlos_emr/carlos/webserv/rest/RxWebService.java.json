@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/RxWebService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "72414c00c8e7508d72661985a85c53071253f399"
+  },
+  "evidenceSha256": "884f1587db15f5a060f172887ca6a02f099b84f57be3e3af0df0996b76203dc9"
+}

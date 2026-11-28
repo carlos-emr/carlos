@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "56b044210a3fa8c64e3c59e6e169f9778ec5ea82",
+  "comparisonSha256": "6554df025a180332453903584f500adc136b39cad64ad01e6d9b003b58d13f90",
+  "baselineCommit": "b48c592c6218ad9f4c845bce5ec9d211a6c34724",
+  "baselineSourceTree": "56b044210a3fa8c64e3c59e6e169f9778ec5ea82",
+  "baselineReportSha256": "5215060e8906fc01c206f72215c4af34aeeff3dde63dc7d0f4bc9858b9f6bd32",
+  "baselineLane": "Focused Java 25 CXF and medication response regressions for PR #6435. The policy importer retains existing release coverage floors.",
+  "baselineTestCounts": {
+    "tests": 63,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineReportHeaderCollisions": 1,
+  "baselineTestReportsSha256": "d774493e3cc1bc1e45e51b4747aff6f652b20e78e88a201c295729ac3dded1bd",
+  "baselineTestReportsHashFormat": "SHA-256 of sorted compact name-to-SHA-256 JSON with a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/RxWebService.java": {
+      "lines": 76.92307692307692,
+      "instructions": 80.58252427184466,
+      "branches": 95.45454545454545,
+      "sourceBlob": "72414c00c8e7508d72661985a85c53071253f399"
+    }
+  }
+}
