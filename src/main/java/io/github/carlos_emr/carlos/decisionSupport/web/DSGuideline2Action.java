@@ -160,7 +160,10 @@ public class DSGuideline2Action extends ActionSupport {
 
     }
 
-    //for returning stuff
+    /**
+     * One row of the guideline detail view: a condition, its result for the patient and the
+     * patient values shown beside it.
+     */
     public class ConditionResult {
         DSCondition condition;
         Boolean result;
@@ -170,6 +173,17 @@ public class DSGuideline2Action extends ActionSupport {
             this.condition = condition;
             this.result = result;
             this.actualValues = actualValues;
+        }
+
+        /**
+         * Whether the view lists patient values for this condition's module. When it does not,
+         * the view says so instead of reporting a missing value as an error (#6328).
+         *
+         * @return {@code true} when the condition's module has displayable patient values
+         */
+        public boolean isValuesShown() {
+            DSDemographicAccess.Module module = condition == null ? null : condition.getConditionType();
+            return module != null && module.displaysPatientValues();
         }
 
         public void setCondition(DSCondition condition) {

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/integration/dashboard/OutcomesDashboardUtils.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 91.66666666666667,
+    "sourceBlob": "8ec0555d27f35302db849c7d1f4aea24f2168b1d"
+  },
+  "evidenceSha256": "91cd3daee766f60c96f1e6cad5544999bca0b27c4c03b8ce3b071ebc9299c6a3"
+}

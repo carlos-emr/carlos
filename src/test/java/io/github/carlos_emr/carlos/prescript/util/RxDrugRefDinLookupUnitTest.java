@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
 
 import java.util.Hashtable;
+import java.util.List;
 import java.util.Vector;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,11 +28,12 @@ import static org.mockito.Mockito.when;
 @DisplayName("DrugRef DIN lookup")
 class RxDrugRefDinLookupUnitTest {
     private static final String ENDPOINT = "http://localhost/drugref2/DrugrefService";
+    private static final String DIN = "00123456";
 
     private static Object lookup(Object answer) throws Exception {
         try (MockedConstruction<SimpleXmlRpcClient> _ = mockConstruction(SimpleXmlRpcClient.class,
                 (client, context) -> when(client.execute(eq("get_drug_by_DIN"), any())).thenReturn(answer))) {
-            return new RxDrugRef(ENDPOINT).getDrugByDIN("00000000", Boolean.TRUE);
+            return new RxDrugRef(ENDPOINT).getDrugByDIN(DIN, Boolean.TRUE);
         }
     }
 
@@ -54,11 +56,20 @@ class RxDrugRefDinLookupUnitTest {
     @Test
     @DisplayName("should return the product of a known DIN")
     void shouldReturnProduct_whenDinIsKnown() throws Exception {
-        Hashtable<String, Object> product = new Hashtable<>();
-        product.put("name", "SYNTHETIC PRODUCT");
-        Vector<Hashtable<String, Object>> answer = new Vector<>();
-        answer.add(product);
-        assertThat(lookup(answer)).isSameAs(product);
+        var product = product(DIN);
+        assertThat(lookup(new Vector<>(List.of(product)))).isSameAs(product);
+    }
+
+    @Test
+    @DisplayName("should discard a monograph whose DIN is different, missing or numeric")
+    void shouldReturnNull_whenTheResponseCannotVerifyTheRequestedDin() throws Exception {
+        try (LogCapture logs = LogCapture.forLogger(RxDrugRef.class)) {
+            for (var product : List.of(product("00629367"), product("123456"), product(null), product(123456))) {
+                assertThat(lookup(new Vector<>(List.of(product)))).isNull();
+            }
+            assertThat(logs.messages()).hasSize(4).allSatisfy(message ->
+                    assertThat(message).doesNotContain(DIN, "00629367", "SYNTHETIC PRODUCT"));
+        }
     }
 
     @Test
@@ -68,5 +79,18 @@ class RxDrugRefDinLookupUnitTest {
                 .hasMessageContaining("unexpected get_drug_by_DIN answer (String)");
         assertThatThrownBy(() -> lookup(new Hashtable<>()))
                 .hasMessageContaining("unexpected get_drug_by_DIN answer (Hashtable)");
+        assertThatThrownBy(() -> lookup(new Vector<>(List.of("not a struct"))))
+                .hasMessageContaining("expected a single product");
+        assertThatThrownBy(() -> lookup(new Vector<>(List.of(product(DIN), product("00629367")))))
+                .hasMessageContaining("expected a single product");
+    }
+
+    private static Hashtable<String, Object> product(Object din) {
+        Hashtable<String, Object> product = new Hashtable<>();
+        product.put("name", "SYNTHETIC PRODUCT");
+        if (din != null) {
+            product.put("regional_identifier", din);
+        }
+        return product;
     }
 }

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "742dd1b7f1bb6549e097170b1eeef88b789afeef",
+  "comparisonSha256": "f1cd8bed87b3d10ada60a9199ccdccc89784af11b198f725559da0c2aa48ea18",
+  "baselineCommit": "d2b8c4438f9e5f9398a60cc343ffa72963b64700",
+  "baselineSourceTree": "742dd1b7f1bb6549e097170b1eeef88b789afeef",
+  "baselineReportSha256": "997c5ccebf302320ee77c616b7289bdca692c8dfef5e6c819740c152a6b3e260",
+  "baselineLane": "Ubuntu 26.04, JDK 25, four RA and OHIP billing lock/report actions and service suites, including concurrent allocation, refusal and hybrid results",
+  "baselineTestCounts": {
+    "tests": 40,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.OnRaViewModelAssemblerUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskConcurrencyUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationServiceDependencyInjectionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.ReportActionDependencyInjectionUnitTest"
+  ],
+  "baselineTestReportsSha256": "e5c89fbff491a5a922d2d09b8eb7f9e49d65f3dfa69242788da4d6d6b5f03f4c",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/OnRaViewModelAssembler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d55eb8090c8d7efae4d00edb541162b742b97c72"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputLock.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "603d146b11f00f51f74a96369407948cfa68a3ad"
+    }
+  },
+  "exclusions": {}
+}

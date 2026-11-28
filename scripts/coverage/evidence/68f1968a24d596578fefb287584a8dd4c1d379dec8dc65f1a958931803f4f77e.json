@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "03cb69c16994cb7be7afc91eeacc22a420c1dde1",
+  "comparisonSha256": "ef7d4ee280a798999710bef65216205599336e2522301aea53df6ea07c7b9976",
+  "baselineCommit": "026bd07cd50ccaf45cf4d5f704b6fc70f162e371",
+  "baselineSourceTree": "03cb69c16994cb7be7afc91eeacc22a420c1dde1",
+  "baselineReportSha256": "23b446b2796d4fb42dcc7f43788856a752ee27792938985a4f73b127caaa61c4",
+  "baselineLane": "Maven focused Rx Java suite after SpotBugs fixes",
+  "baselineTestCounts": {
+    "tests": 1055,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "062807aca4c3bb0b4006a3b2d8a02413e9809550761a5acfd6e6fe50e0aa9c76",
+  "baselineTestReportsHashFormat": "SHA-256 of sorted Surefire XML manifest lines: '<sha256>  <file name>' followed by LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugPriceEstimate.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b26a69804d8d660fa7096d7d19bf220720664c2c"
+    }
+  },
+  "exclusions": {}
+}

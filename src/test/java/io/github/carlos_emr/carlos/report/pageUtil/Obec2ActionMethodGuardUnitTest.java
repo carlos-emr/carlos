@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.BoundedSessionAttributes;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.report.data.ObecData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -118,6 +119,20 @@ class Obec2ActionMethodGuardUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(200);
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @ValueSource(strings = {"0"})
+    void shouldIssueNoDownload_whenNoObecFileWasCreated(String filename) throws Exception {
+        request.setMethod("POST");
+        try (var builder = mockConstruction(ObecData.class, (data, context) ->
+                when(data.generateOBEC(eq("2026-10-01"), any(), any())).thenReturn(filename))) {
+            assertThat(action("2026-10-01").execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(builder.constructed()).hasSize(1);
+        }
+        assertThat(BoundedSessionAttributes.containsKey(request.getSession(), Obec2Action.DOWNLOAD_CATEGORY,
+                Obec2Action.DOWNLOAD_PREFIX + filename)).isFalse();
+    }
+
     @Test
     @DisplayName("should create the report when the form posts a Begin Date")
     void shouldCreateReport_whenBeginDateIsPosted() throws Exception {
@@ -130,6 +145,8 @@ class Obec2ActionMethodGuardUnitTest extends CarlosUnitTestBase {
             assertThat(obec.constructed()).hasSize(1);
         }
         assertThat(request.getAttribute("obectxt")).isEqualTo("OBECE1.TXT");
+        assertThat(BoundedSessionAttributes.containsKey(request.getSession(), Obec2Action.DOWNLOAD_CATEGORY,
+                Obec2Action.DOWNLOAD_PREFIX + "OBECE1.TXT")).isTrue();
         assertThat(response.getStatus()).isEqualTo(200);
     }
 }

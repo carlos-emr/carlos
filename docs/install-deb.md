@@ -259,14 +259,20 @@ another service already listens on the front-door ports, and it lists exactly
 which ones. The default is **no**. Accept to stop each one and, where possible, keep it
 from starting at boot (disabled, or masked when it cannot be disabled); a
 following note shows what was done to each and the command that brings it back
-once it has been moved to other ports.
+once it has been moved to other ports. Only the services the question listed are
+stopped: one that starts using port 80 or 443 while the question is open is left
+running, printed as `NOT stopped`, logged, and recorded as what keeps the
+install from being ready.
 Decline and nothing is changed, but CARLOS is not reachable until you free the
 ports yourself and run `sudo carlos-ctl finish-install`. A non-interactive
 install leaves other services running unless you explicitly opt in by preseeding
 `echo 'carlos-emr carlos-emr/stop-port-conflicts boolean true' | sudo debconf-set-selections`. Every service stopped (or a refusal)
 is printed in the install output, kept in `/var/log/apt/term.log`, and logged
 to the journal: `journalctl -t carlos-emr`. Non-interactive runs already decline
-by default unless explicitly preseeded true. Interactive runs ask again on every
+by default on fresh installations. Debconf retains answers across upgrades,
+including true inherited from an older installer; an unattended configure uses
+that retained answer and announces it before stopping services. To revoke it,
+preseed the same question `false` before upgrading. Interactive runs ask again on every
 configure that finds a conflict; preseeding false does not suppress the question.
 
 **10. Done (only if you accepted the seeded-admin replacement)** — a final
@@ -385,6 +391,30 @@ tool shares its name, language, and overlapping verb set (`check`, `db`,
 `db-migrate`, `db-users`, `backup full|verify|status`, `cert-renew`,
 `rotate`) with the carlos-podman deployment's `carlos-ctl`, so operators can
 move between the two without relearning.
+
+### Ontario billing output storage
+
+CARLOS stages complete OHIP claim and HTML files in `HOME_DIR` before publishing
+them. The billing service needs write access to this directory and support for
+file locking. The default Ubuntu filesystem publishes new files with a hard
+link. On Linux mounts that disallow hard links, CARLOS uses
+`renameat2(RENAME_NOREPLACE)` and a filesystem-provided file identity. This
+includes CIFS mounts whose server and client support that operation.
+
+When both publication methods are unavailable, the billing screen identifies
+the storage requirement. Configure a compatible `HOME_DIR` before retrying.
+If the JVM prohibits native calls, the hard-link method remains available.
+If another program occupies a newly allocated basename or replaces a file
+before a confirmed rollback, CARLOS preserves the independent file, withdraws
+this attempt's remaining outputs and retires its provisional disk records.
+The billing screen requests reconciliation when CARLOS cannot confirm cleanup.
+
+If the service stops abruptly during generation or database cleanup fails, the
+disk and provider rows allocated for that attempt may remain. Before downloading,
+regenerating or submitting that disk, have the billing administrator reconcile
+its claim and HTML files with the recorded providers and the last confirmed
+submission. Provider-restricted downloads briefly share the generation lock while
+opening the authorized file. Keep `.carlos-ohip-disk.lock` in place during service use.
 
 ### Incoming document storage
 
@@ -559,7 +589,7 @@ sudo carlos-ctl check
 | Symptom | Where to look | Usual cause |
 |---|---|---|
 | Install reported no error, but `carlos-ctl check` says the installation never finished, or that the database has **no tables** | `sudo carlos-ctl finish-install`, then `journalctl -u mariadb` | One or more provisioning steps failed or did not run; read the recorded reason and installation output. Those steps are deliberately non-fatal (a database problem must not leave dpkg half-configured), so apt still reports success. `finish-install` completes the install — schema, accounts, administrator credential, demo data if you asked for it — and returns nonzero while any requested step is unfinished. Boot retries require the marker and never migrate a populated invalid schema. If the DrugRef database is empty, also run `sudo dpkg-reconfigure carlos-emr-drugref`, then `sudo carlos-ctl check`. Existing DrugRef tables without a completion marker need a backup and administrator review before any reload |
-| Install ends with "NOT ready to use", and nginx logged `bind() to 0.0.0.0:80 failed (98: Address already in use)` | The "What failed" line of that dialog; `sudo /usr/lib/carlos-emr/carlos-emr-host-conflicts front-door --report 0.0.0.0` | Another program held port 80 or 443. The installer offers to stop any other system service there (a Debian package such as apache2, a snap such as Nextcloud, or your own unit), and does so without asking on a non-interactive install; `journalctl -t carlos-emr` lists what it stopped or what you declined. It names a container or a program started by hand and leaves it running. Stop that program, then `sudo carlos-ctl finish-install` |
+| Install ends with "NOT ready to use", and nginx logged `bind() to 0.0.0.0:80 failed (98: Address already in use)` | The "What failed" line of that dialog; `sudo /usr/lib/carlos-emr/carlos-emr-host-conflicts front-door --report 0.0.0.0` | Another program held port 80 or 443. The installer asks to stop another system service there, and unattended installs use the saved/preseeded debconf answer (fresh default false). A retained true is announced before stopping services. `journalctl -t carlos-emr` lists the result. Containers and programs started by hand are left running. Free the ports, then run `sudo carlos-ctl finish-install` |
 | The install says MariaDB "refuses the system root user", or that it could not reach MariaDB as root | `sudo /usr/lib/carlos-emr/carlos-emr-host-conflicts mariadb` | MariaDB is stopped or failed (the helper names what holds port 3306, or quotes its last error), or a MariaDB set up before CARLOS gave root a password. For the password case follow "MariaDB root access" in `README.Debian` section 6, then `sudo carlos-ctl finish-install` |
 | Drug lookups silent **and** the EMR is stopped | `sudo carlos-ctl check` | One failure, not two: DrugRef is a second webapp in the EMR's Tomcat, so it answers nothing while the EMR is not running. Fix the EMR first |
 | Browser cannot connect at all | `sudo journalctl -u nginx -n 50` | nginx not running, or the listen address is `127.0.0.1` while you are connecting remotely |

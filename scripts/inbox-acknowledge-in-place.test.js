@@ -216,7 +216,9 @@ function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1)
     },
     fetchInboxhubViewData() { state.viewFetches++; },
   });
-  vm.runInContext(acknowledgePath + rapidReview + legacyRemoveReport, context);
+  const completenessNotice = slice('    function consumeInboxCompletenessNotice(data)',
+    '    function addDataInInboxhubListTable(data)');
+  vm.runInContext(acknowledgePath + rapidReview + legacyRemoveReport + completenessNotice, context);
   // resetDataPageCount() sits outside the evaluated slices (it drives the spinner and aborts
   // requests); the bookkeeping statements it runs are lifted verbatim so the tests exercise
   // the same lines the page does.

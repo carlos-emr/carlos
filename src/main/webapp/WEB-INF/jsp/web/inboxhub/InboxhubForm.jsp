@@ -1222,7 +1222,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             success: function(data) {
                 settle();
                 if (generation !== inboxhubResultSetGeneration) { return; }
-                mergeInboxhubPreviewCards(data);
+                mergeInboxhubPreviewCards(consumeInboxCompletenessNotice(data));
                 if (resumePaging || isInboxhubPreviewScrolledToEnd()) { fetchInboxhubViewData(); }
             },
             error: function(xhr, status) {
@@ -1573,9 +1573,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 			data: inboxSearchFormData + filter + "&page=" + page + "&pageSize=" + pageSize,			
 			success: function(data, status, xhr) {
                 if (!ownsInboxhubPageFetch(xhr, generation)) { return; }
-                addDataInInboxhubViewTable(data);
+                const fillPreview = addDataInInboxhubViewTable(data);
                 page++;
                 settleInboxhubPageFetch(xhr, generation);
+                // An omitted page can leave the viewport too short for another scroll event.
+                if (fillPreview && hasMoreData) { fetchInboxhubViewData(); }
 			},
             error: function(xhr, status, error) {
                 if (!settleInboxhubPageFetch(xhr, generation)) { return; }
@@ -1609,7 +1611,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         }
     }
 
+    function consumeInboxCompletenessNotice(data) {
+        return data.replace(/<div data-inbox-incomplete="true"[^>]*>[\s\S]*?<\/div>/g, function(notice) {
+            jQuery('#inboxhubIncompleteNotice').remove();
+            jQuery('#inboxhubMode').before(jQuery(notice).attr('id', 'inboxhubIncompleteNotice'));
+            return '';
+        });
+    }
+
     function addDataInInboxhubListTable(data) {
+        data = consumeInboxCompletenessNotice(data);
         if (page == 1) {
             jQuery("#inboxhubMode").html(data);
             jQuery('#inbox_table').DataTable().draw(false); // `draw(false)` prevents resetting the scroll position
@@ -1661,12 +1672,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     }
 
     function addDataInInboxhubViewTable(data) {
+        data = consumeInboxCompletenessNotice(data);
         if (page == 1) {
             jQuery("#inboxhubMode").html(data);
         } else {
             jQuery("#inboxViewItems").append(data);
         }
         settlePendingPreviewAdvance();
+        return document.getElementById('inboxhubIncompleteNotice') && isInboxhubPreviewScrolledToEnd();
     }
 
     function autoCompleteProvider() {
@@ -1709,6 +1722,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             superseded.request.abort();
         }
         jQuery("#inboxhubMode").empty();
+        jQuery('#inboxhubIncompleteNotice').remove();
         // The rendered result set is going away, so what this window took off screen is no
         // longer a statement about anything. See handledInboxhubItems for why the counted
         // record, whose totals survive the fetch, deliberately does NOT follow it here.
@@ -1774,6 +1788,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     }
 
     function updateInboxhubListProgress() {
+        // Keep the warning visible and load the remaining valid pages. At the end,
+        // omit the 100% completion signal because the visible results have gaps.
+        if (!hasMoreData && document.getElementById('inboxhubIncompleteNotice')) {
+            stopInboxhubListProgress(0);
+            return;
+        }
         const totalResultsCount = jQuery("#totalResultsCount").val();
         const currentlyLoadedResultsCount = jQuery('#inboxhubListModeTableBody tr').length;
 
@@ -1781,7 +1801,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             return;
         }
 
-        if (totalResultsCount >= currentlyLoadedResultsCount && hasMoreData) {
+        if (totalResultsCount > 0 && totalResultsCount >= currentlyLoadedResultsCount && hasMoreData) {
             const percentage = (currentlyLoadedResultsCount / totalResultsCount) * 100;
             const formattedPercentage = percentage === 100 ? '100' : percentage.toFixed(2); // Keep 2 digits after decimal
             jQuery('#loadInboxListProgressBar').css('width', formattedPercentage + '%').attr('aria-valuenow', currentlyLoadedResultsCount);

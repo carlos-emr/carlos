@@ -63,6 +63,9 @@ class LoginJspMigrationRegressionTest {
      */
     private static final Path MENU_CONFIG =
             Path.of("src/main/webapp/WEB-INF/menu-config.xml");
+    /** The unloaded Struts 1 / Quatro bundle removed with it in ae9da405e99a (#5479; #6336 gap test). */
+    private static final Path QUATRO_SHELTER_PROPERTIES =
+            Path.of("src/main/webapp/WEB-INF/QuatroShelter.properties");
     private static final Path PROVIDER_MAIN_MENU =
             Path.of("src/main/webapp/WEB-INF/jsp/provider/mainMenu.jsp");
     private static final Path PROVIDER_CONTROL =
@@ -352,6 +355,7 @@ class LoginJspMigrationRegressionTest {
         assertThat(csrfGuard).contains("%servletContext%/login");
         assertThat(csrfGuard).doesNotContain("%servletContext%/forcepasswordresetSubmit");
         assertThat(MENU_CONFIG).doesNotExist();
+        assertThat(QUATRO_SHELTER_PROPERTIES).doesNotExist();
     }
 
     @Test

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/config/PackagedConfigurationPreflight.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 77.16535433070867,
+    "instructions": 84.79020979020979,
+    "branches": 62.82051282051282,
+    "sourceBlob": "ffda88b33d9469cd4fa26fc4704631e5ad113905"
+  },
+  "evidenceSha256": "9a8c0eb90ae9da91d8b03654a7c32e0166cd88d742596c896e95ec9260bb80fd"
+}

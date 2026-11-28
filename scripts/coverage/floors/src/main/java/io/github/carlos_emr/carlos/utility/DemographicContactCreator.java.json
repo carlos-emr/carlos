@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/utility/DemographicContactCreator.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "22f274baf7aaa156ddf8013155792f85011d83f5"
+  },
+  "evidenceSha256": "0161ea75c2773e07e7145a27890e7cf43430482a10f81462360d54b550ba3239"
+}

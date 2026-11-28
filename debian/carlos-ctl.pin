@@ -11,12 +11,10 @@
 # floor. Raise the floor when the postinst starts using a new verb or flag;
 # raise the pin when a CLI release should reach operators with the next
 # carlos release.
-tag=1.3.5
+tag=1.3.6
 #
-# Until that tag is PUBLISHED, debian-python-tests.yml and
-# script-regressions.yml check out this exact CLI commit. The installed CDS
-# resource gate always uses this commit for reproducible paired-source tests,
-# including after the tag is published, so keep it synchronized with the tag.
-# The release build never uses the fallback: fetch-carlos-ctl.sh downloads
-# the tag's published asset or fails.
-fallback=6525c85234c29f9c9e3fb599865b599ec32c373f
+# This is the exact CLI source commit for CI and the installed CDS resource
+# gate. CI verifies that the published tag resolves to this commit and fetches
+# it directly while the tag is unpublished. Keep both fields synchronized.
+# fetch-carlos-ctl.sh requires the tag's published Debian release asset.
+fallback=c633932d73d134626f2af61a25e9eb078ca0ce12

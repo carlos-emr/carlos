@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/FiledMeasurementDto.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "37ced271235e024d8529f16231c82ea506890d20"
+  },
+  "evidenceSha256": "67db6bbe8edb57e15d5fee6f496a1c6f2d2d7d6a0f16a445efd07e7cb5bacd59"
+}

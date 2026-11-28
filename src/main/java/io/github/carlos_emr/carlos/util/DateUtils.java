@@ -137,7 +137,7 @@ public final class DateUtils {
      * @return if String is null will return null.
      * @throws ParseException
      */
-    public static synchronized GregorianCalendar parseDateAsCalendar(String s, Locale locale) throws ParseException {
+    public static GregorianCalendar parseDateAsCalendar(String s, Locale locale) throws ParseException {
         Date d = parseDate(s, locale);
 
         if (d == null) return (null);

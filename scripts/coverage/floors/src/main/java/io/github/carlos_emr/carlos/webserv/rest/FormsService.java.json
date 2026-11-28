@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/FormsService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "a84b828ce3e34056f8dc3b8baf76acbc4d54914e"
+  },
+  "evidenceSha256": "d1733d6770096d4b5cc5c5eef7f27b7b909c671514facfab2a9ff8f060000d3c"
+}

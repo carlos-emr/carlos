@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnOutputFilenames.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "ecf6233d308b3762f816cacef8fc82cb284627d3"
+  },
+  "evidenceSha256": "e4fc1961a1f5f55929a0abc9c03b83be6f2d7312bcbb59a66bf0452c7fa22b39"
+}

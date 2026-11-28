@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "a2dadf22dbddb8865440887eeb6a8c65916ac558",
+  "comparisonSha256": "8103409abee360d34995f1db40094ca5f65c7b4d4879ec5f953267e203bfdbe0",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/config/PackagedConfigurationPreflight.java": {
+      "lines": 77.16535433070867,
+      "instructions": 84.79020979020979,
+      "branches": 62.82051282051282,
+      "sourceBlob": "ffda88b33d9469cd4fa26fc4704631e5ad113905"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/config/PackagedReportLeaseCheck.java": {
+      "lines": 86.66666666666667,
+      "instructions": 85.71428571428571,
+      "branches": 87.5,
+      "sourceBlob": "1178ce8a255dc6aecdf80e8ece1501eeda16cfb2"
+    }
+  },
+  "baselineCommit": "35af7e40acb60fbb005f3709bc71f0ec069b5dcc",
+  "baselineSourceTree": "a2dadf22dbddb8865440887eeb6a8c65916ac558",
+  "baselineReportSha256": "f4ebc37e7b01c7cca622331452464c050778a11b081e126aa5668b55206baec1",
+  "baselineLane": "Focused Java 25 JaCoCo union for the Debian configuration checks: 41 JUnit cases, 16 package regression cases, and the installed root/service-user preflight fixture.",
+  "baselineTestCounts": {
+    "tests": 58,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "dc3dc2e5fd3ac750d77401ba828a2c3a231e3e55f31cf0c1211d7178c9071c4c",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.config.PackagedReportLeaseCheckUnitTest",
+    "io.github.carlos_emr.carlos.login.StartupKeyPersistenceUnitTest",
+    "io.github.carlos_emr.carlos.login.StartupUnitTest"
+  ],
+  "baselinePackageTests": [
+    "debian/assets/tests/test_modern_chart_cutover.py",
+    "scripts/ci/check-installed-configuration-preflight.sh"
+  ]
+}

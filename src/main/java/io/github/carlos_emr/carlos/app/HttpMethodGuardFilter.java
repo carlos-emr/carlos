@@ -172,6 +172,7 @@ public class HttpMethodGuardFilter implements Filter {
      * bare GET (opening the page, filtering a list) still passes.</p>
      */
     public static final Map<String, Set<String>> MUTATION_INTENT_PARAMS_BY_ROUTE = Map.of(
+            "/admin/AuditLogPurge", Set.of("dateBegin"),
             "/rx/favoriteGroups", Set.of("command"),
             // providerPrivilege.jsp: submit=Add|Delete writes a privilege row, buttonUpdate merges one.
             "/admin/ProviderPrivilege", Set.of("submit", "buttonUpdate"),
@@ -185,6 +186,9 @@ public class HttpMethodGuardFilter implements Filter {
             // Generate Teleplan File: providers (the Create Report form's physician) writes an MSP batch; the menu
             // item and the year archive links open the page without it (#4439 D3).
             "/billing/CA/BC/GenerateTeleplanFile", Set.of("providers"),
+            // Key Manager Create Key: createKey.jsp creates a key pair for any request that names a
+            // service; the Create New Key button opens the form without it (#6321).
+            "/admin/ViewKeygenCreateKey", Set.of("name"),
             // Dashboard administration renders on GET; operation is present only on its mutation forms.
             "/web/dashboard/admin/DashboardManager", Set.of("operation")
     );

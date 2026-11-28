@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/web/BillingreferralEdit2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 87.67123287671232,
+    "instructions": 76.83741648106904,
+    "branches": 73.07692307692308,
+    "sourceBlob": "90c792ddec57b822a0809bf47c246b44f329c62e"
+  },
+  "evidenceSha256": "e3e3872302b499098e554f6f5d1e4ec6893965e1aae560a244a47d56d6d9a897"
+}

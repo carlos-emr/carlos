@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "8e4af7622de2cba5ee2aba969ad41a4a99377253",
+  "comparisonSha256": "9cd8f806a13aa42c9507c0e11ce0afd48f298463272e893679d324110e0a31d3",
+  "baselineCommit": "3bc2f516c93034cef4cfd26fc192edc768d90473",
+  "baselineSourceTree": "8e4af7622de2cba5ee2aba969ad41a4a99377253",
+  "baselineReportSha256": "47d392f708f2059a256b3ebedcf8883e86e6009c7434eba9aae43cb26c4aee5a",
+  "baselineLane": "Java 25 focused scheduler concurrency, jobs REST authorization, and save and cancellation acknowledgements",
+  "baselineTestCounts": {
+    "tests": 31,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "7ecd654cc70f54547e40a86d96cb22d36dd36732c8e256757938288b18e41e12",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/jobs/OscarJobExecutingManager.java": {
+      "sourceBlob": "be91f9ac7f8bc2fe1efc3402b48a0ef794bf7b41",
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/jobs/OscarJobUtils.java": {
+      "sourceBlob": "8419c233aeacb4bbeb0fea844d2b16af9b193312",
+      "lines": 79.3103448275862,
+      "instructions": 85.71428571428571,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/OscarJobService.java": {
+      "sourceBlob": "c65f3f3dcda6de8b9e0e65b3307c84d15c97d619",
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    }
+  }
+}

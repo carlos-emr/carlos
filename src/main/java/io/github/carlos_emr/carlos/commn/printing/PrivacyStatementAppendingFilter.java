@@ -566,6 +566,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
          * known non-HTML static responses and metadata-only responses retain the container buffer.
          */
         private void configureAppendBufferForBody() {
+            if (getStatus() == HttpServletResponse.SC_PARTIAL_CONTENT) return;
             if (appendBufferUnavailable || isKnownNonHtml()) return;
             try {
                 if (super.getBufferSize() < APPEND_BUFFER_SIZE_BYTES) {
@@ -760,7 +761,19 @@ public class PrivacyStatementAppendingFilter implements Filter {
             updateContentLengthForType();
         }
 
+        @Override
+        public void setStatus(int status) {
+            super.setStatus(status);
+            updateContentLengthForType();
+        }
+
         private void updateContentLengthForType() {
+            // Partial HTML is never decorated. Publish now because the first body
+            // write may commit a response larger than the container buffer.
+            if (getStatus() == HttpServletResponse.SC_PARTIAL_CONTENT) {
+                contentLength.publishPending();
+                return;
+            }
             if (responseWriterObtained || (responseOutputStreamObtained && getContentType() != null)) {
                 configureAppendBufferForBody();
             }

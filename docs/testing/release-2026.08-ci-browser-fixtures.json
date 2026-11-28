@@ -22,6 +22,16 @@
       "minimumAssertions": 47
     },
     {
+      "id": "server-table-page-playwright-checks",
+      "command": [
+        "node",
+        "scripts/server-table-page-playwright-checks.js"
+      ],
+      "source": "scripts/server-table-page-playwright-checks.js",
+      "sourceSha256": "c5a5b6535272a4ed5f19bdbbe78f0494434a256d086006a7de3c68e48c34767f",
+      "minimumAssertions": 64
+    },
+    {
       "id": "navigation-cancellation-browser-checks",
       "command": [
         "node",
@@ -79,6 +89,16 @@
       "source": "scripts/eform-toolbar-browser-check.js",
       "sourceSha256": "85a7d84d9b9c1f2ef0a7ac447a2c821336161a5065b96cc1592245266f2e5890",
       "minimumAssertions": 1383
+    },
+    {
+      "id": "eform-select-prefill-fixture-check",
+      "command": [
+        "node",
+        "scripts/eform-select-prefill-fixture-check.js"
+      ],
+      "source": "scripts/eform-select-prefill-fixture-check.js",
+      "sourceSha256": "7b9f3bfc93b433dee03972e3f2180850960330762877e7b3bc50c3aca6ac03f8",
+      "minimumAssertions": 83
     },
     {
       "id": "dashboard-tickler-picker-browser-check",
@@ -157,8 +177,8 @@
         "scripts/tickler-crud-browser-check.js"
       ],
       "source": "scripts/tickler-crud-browser-check.js",
-      "sourceSha256": "d9ce7b57af867d4fabad48cd8bf6f27e928c5def2724d1568406d0441fe3f4c9",
-      "minimumAssertions": 17
+      "sourceSha256": "d457413ad92911f10cbd7627de8d001e0fed4d63a5ee8fc8c86477600e077d69",
+      "minimumAssertions": 44
     },
     {
       "id": "ui-scroll-quick-pick-browser-check",
@@ -196,7 +216,36 @@
       "source": "scripts/job-types-datatable-browser-check.js",
       "sourceSha256": "0bc46bfb85b6521d75ccd670c13c631ff630d7f47f4c20eb29ad30d32e319fb2",
       "minimumAssertions": 139
+    },
+    {
+      "id": "admin-jobs-save-browser-checks",
+      "command": [
+        "node",
+        "--test",
+        "scripts/admin-jobs-save-browser-checks.js"
+      ],
+      "source": "scripts/admin-jobs-save-browser-checks.js",
+      "sourceSha256": "50d5eb22654db38c45f578b2ead8bcd4eef96d5fce09d940c9c4ca83716b3ec8",
+      "minimumAssertions": 98,
+      "requiredCases": [
+        "shouldKeepJobDialogOpen_whileItsSaveIsPending",
+        "shouldRetainJobDialogEntries_andRequireReadbackAfterALostReply",
+        "shouldKeepScheduleDialogOpen_whileItsSaveIsPending",
+        "shouldRetainScheduleDialogEntries_andRequireReadbackAfterALostReply",
+        "shouldKeepTheEditorOpen_forHtmlAcknowledgement",
+        "shouldKeepTheEditorOpen_forWrongAcknowledgement",
+        "shouldKeepTheEditorOpen_forEmptyAcknowledgement",
+        "shouldKeepTheEditorOpen_forZeroAcknowledgement",
+        "shouldKeepTheEditorOpen_forMultipleAcknowledgement",
+        "shouldKeepTheEditorOpen_forNullAcknowledgement",
+        "shouldBlockBlindCreationRetry_whenTheInsertCannotBeConfirmed",
+        "shouldIgnoreAnOldEditorLoad_afterOpeningANewDraft",
+        "shouldKeepTheDialogOpen_whenSavedChangesCannotBeScheduled (scheduleDialog)",
+        "shouldKeepTheDialogOpen_whenSavedChangesCannotBeScheduled (new-job)",
+        "shouldReleaseTheDialog_andKeepTheDraft_whenAnAcceptedPostTimesOut",
+        "shouldRetryTheSavedRow_whenNewJobActivationFails"
+      ]
     }
   ],
-  "workflowSha256": "7b9f3f251739e47d991c43f72d826144cce87e2f28a7289c0d57dff9612cc5fb"
+  "workflowSha256": "c42b7699c892b9e5eb451b358901e781ea6ec1c376b0eab803b97d543604238a"
 }

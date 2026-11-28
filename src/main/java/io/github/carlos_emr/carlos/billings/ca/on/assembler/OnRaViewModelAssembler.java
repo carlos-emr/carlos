@@ -29,6 +29,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnRaService;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.OnRaViewModel;
+import io.github.carlos_emr.carlos.commn.SiteChoice;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -65,8 +66,7 @@ public class OnRaViewModelAssembler {
                 loggedInInfo, "_team_billing_only", "r", null);
         boolean isTeamAccessPrivacy = securityInfoManager.hasPrivilege(
                 loggedInInfo, "_team_access_privacy", "r", null);
-        boolean isSiteAccessPrivacy = securityInfoManager.hasPrivilege(
-                loggedInInfo, "_site_access_privacy", "r", null);
+        boolean isSiteAccessPrivacy = SiteChoice.isSiteAccessRestricted(securityInfoManager, loggedInInfo);
 
         String user = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
 

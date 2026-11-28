@@ -217,5 +217,32 @@ public class WaitingListDaoIntegrationTest extends CarlosTestBase {
             Integer maxPos = dao.getMaxPosition(77);
             assertThat(maxPos).isEqualTo(7);
         }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return a list's current entries by start date, and same-day entries by their place")
+        void shouldOrderSameDayEntries_byTheirPlace() throws Exception {
+            Date sameDay = new Date(1_589_241_600_000L);
+            Date earlier = new Date(sameDay.getTime() - 86_400_000L);
+            // Stored in an order that is neither by place nor by start date.
+            dao.persist(currentEntry(88, 20, sameDay, 3));
+            dao.persist(currentEntry(88, 10, sameDay, 2));
+            dao.persist(currentEntry(88, 30, earlier, 9));
+            hibernateTemplate.flush();
+
+            assertThat(dao.findByWaitingListId(88)).extracting(WaitingList::getDemographicNo)
+                    .as("the earlier start date first, then the same-day entries by place")
+                    .containsExactly(30, 10, 20);
+        }
+    }
+
+    private static WaitingList currentEntry(int listId, int demographicNo, Date onListSince, long position) {
+        WaitingList entry = new WaitingList();
+        entry.setListId(listId);
+        entry.setDemographicNo(demographicNo);
+        entry.setOnListSince(onListSince);
+        entry.setPosition(position);
+        entry.setIsHistory("N");
+        return entry;
     }
 }

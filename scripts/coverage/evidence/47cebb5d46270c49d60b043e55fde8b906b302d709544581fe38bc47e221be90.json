@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "126ef8df17c4c8d35c9a1393a6fe4e27250bec1a",
+  "comparisonSha256": "3451c4687bd22fd8d88f30eb1e0cdc36cbc6f6d0eb71106646c5aa41a8e1a969",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/EDocUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "37ce2f2c6b3fa15049557872f42a62e7e94650ac"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/gate/FormViewVersionValidator.java": {
+      "lines": 100.0,
+      "instructions": 95.34883720930233,
+      "branches": 100.0,
+      "sourceBlob": "fd4e610bf6cbc000891c1dffff4d50f0c20c1c31"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pageUtil/FormForwardNamed2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 50.0,
+      "sourceBlob": "8865fac25ca80630b964f5ff4cac10d0cf7a19d4"
+    }
+  },
+  "baselineCommit": "c7fbae7f6b307ac3ba99509736dc2797b0baf368",
+  "baselineSourceTree": "126ef8df17c4c8d35c9a1393a6fe4e27250bec1a",
+  "baselineReportSha256": "8e41445a03d200c3a7a4191063572fcf66f55951bc938ea67a74458ac4f7ca01",
+  "baselineLane": "PR #6364 focused JDK 25 H2 form, saved-form routing and document regressions",
+  "baselineTestCounts": {
+    "tests": 343,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "360ad5d6e7f5de8bdf99a02cc99654c26aada47605c6af562f5d57fb8ab30336",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.documentManager.ConvertToEdocIntegrationTest",
+    "io.github.carlos_emr.carlos.documentManager.EDocUtilDocumentInfoHtmlUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.EDocUtilEditDocumentPageCountUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.EDocUtilRefileQueueUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.EDocUtilTempPathLogUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.EDocUtilTicklerHtmlUnitTest",
+    "io.github.carlos_emr.carlos.form.FormXmlArchiveUnitTest",
+    "io.github.carlos_emr.carlos.form.FrmRecordCheckboxRestoreUnitTest",
+    "io.github.carlos_emr.carlos.form.FrmRecordCheckboxRoundTripIntegrationTest",
+    "io.github.carlos_emr.carlos.form.FrmRecordFactoryUnitTest",
+    "io.github.carlos_emr.carlos.form.Growth0To36FormAdapterUnitTest",
+    "io.github.carlos_emr.carlos.form.Growth0To36FormPersistenceIntegrationTest",
+    "io.github.carlos_emr.carlos.form.Growth0To36FormServiceUnitTest",
+    "io.github.carlos_emr.carlos.form.RehabStudyFormDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.form.RehabStudyFormServiceUnitTest",
+    "io.github.carlos_emr.carlos.form.RehabStudyFormValuesUnitTest",
+    "io.github.carlos_emr.carlos.form.RehabStudyFormsUnitTest",
+    "io.github.carlos_emr.carlos.form.gate.FormViewVersionValidatorUnitTest",
+    "io.github.carlos_emr.carlos.form.gate.ViewForm2ActionTest",
+    "io.github.carlos_emr.carlos.form.model.rehab.RehabStudyColumnUnitTest",
+    "io.github.carlos_emr.carlos.form.model.rehab.RehabStudyEntitySchemaContractUnitTest",
+    "io.github.carlos_emr.carlos.form.pageUtil.FormForwardNamed2ActionTest",
+    "io.github.carlos_emr.carlos.prevention.reports.PreventionReportUtilUnitTest",
+    "io.github.carlos_emr.carlos.report.data.RptDemographicQueryAsOfRosterUnitTest",
+    "io.github.carlos_emr.carlos.utility.IgnoredStreamReadRegressionTest"
+  ]
+}

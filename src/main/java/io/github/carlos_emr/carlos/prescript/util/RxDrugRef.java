@@ -100,9 +100,9 @@ public class RxDrugRef {
      *
      * @param DIN     String the Drug Identification Number to look up
      * @param boolVal Boolean whether to include additional product details in the response
-     * @return Hashtable&lt;String, Object&gt; drug data keyed by field name, or null if no product carries the DIN
+     * @return Hashtable&lt;String, Object&gt; drug data keyed by field name, or null if the result cannot verify the DIN
      * @throws Exception if the DrugRef service is unavailable, returns a non-zero fault, or answers with
-     *         something other than a list
+     *         a malformed or ambiguous result
      * @since 2026-02-26
      */
     public Hashtable<String, Object> getDrugByDIN(String DIN, Boolean boolVal) throws Exception {
@@ -117,14 +117,21 @@ public class RxDrugRef {
         if (answer == null || "".equals(answer)) {
             return null;
         }
-        if (!(answer instanceof Vector)) {
+        if (!(answer instanceof Vector<?> results)) {
             throw new IllegalStateException("DrugRef: unexpected get_drug_by_DIN answer (" + answer.getClass().getSimpleName() + ")");
         }
-        Vector<Hashtable<String, Object>> vec = (Vector<Hashtable<String, Object>>) answer;
-        if (vec.isEmpty()) {
+        if (results.isEmpty()) {
             return null;
         }
-        return vec.get(0);
+        if (results.size() != 1 || !(results.getFirst() instanceof Hashtable<?, ?> product)) {
+            throw new IllegalStateException("DrugRef: expected a single product from get_drug_by_DIN");
+        }
+        // Older DrugRef catalogues can resolve a product row ID against the search table.
+        if (DIN == null || DIN.isBlank() || !DIN.equals(product.get("regional_identifier"))) {
+            logger.warn("DrugRef: product DIN could not be verified");
+            return null;
+        }
+        return (Hashtable<String, Object>) product;
     }
 
     /**

@@ -25,7 +25,14 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (error) {
+  if (error.code !== 'ERR_UNKNOWN_BUILTIN_MODULE') throw error;
+}
 const vm = require('node:vm');
+const { removeMarkedPatients } = require('./lib/gap-records-fixtures');
 const script = fs.readFileSync(path.join(__dirname, 'demographic-add-playwright-checks.js'), 'utf8');
 const cleanup = script.slice(script.indexOf('function cleanupSyntheticPatient()'), script.indexOf('// The password file'));
 
@@ -67,4 +74,25 @@ test('a failure before any save deletes no unrelated data', () => {
   const result = fixture({ capturedId: null, parentOwned: false });
   assert.equal(result.tables.size, 6);
   assert.equal(result.queries.filter((query) => query.startsWith('DELETE')).length, 0);
+});
+
+test('marked-patient cleanup preserves extension archives for another patient with the same archive ID', { skip: !DatabaseSync }, t => {
+  const db = new DatabaseSync(':memory:');
+  t.after(() => db.close());
+  db.exec(`
+    CREATE TABLE demographic (demographic_no INTEGER PRIMARY KEY, last_name TEXT);
+    CREATE TABLE demographicArchive (id INTEGER PRIMARY KEY, demographic_no INTEGER);
+    CREATE TABLE demographicExtArchive (id INTEGER PRIMARY KEY, archiveId INTEGER, demographic_no INTEGER);
+    CREATE TABLE demographicExt (demographic_no INTEGER);
+    CREATE TABLE demographiccust (demographic_no INTEGER);
+    CREATE TABLE admission (client_id INTEGER);
+    INSERT INTO demographic VALUES (3009, 'FAKE-PW-owned'), (3010, 'FAKE-PW-other');
+    INSERT INTO demographicArchive VALUES (42, 3009);
+    INSERT INTO demographicExtArchive VALUES (1, 42, 3009), (2, 42, 3010), (3, 42, NULL);
+  `);
+  const rows = query => query.includes('information_schema.columns') ? [['demographicExtArchive']]
+    : db.prepare(query).all().map(Object.values);
+  removeMarkedPatients({rows, value: query => String(rows(query)[0][0]), execute: query => db.exec(query)}, 'FAKE-PW-owned');
+  assert.deepEqual(rows('SELECT id FROM demographicExtArchive ORDER BY id'), [[2], [3]]);
+  assert.deepEqual(rows('SELECT demographic_no FROM demographic'), [[3010]]);
 });

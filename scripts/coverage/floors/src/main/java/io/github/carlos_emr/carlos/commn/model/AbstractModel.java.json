@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/model/AbstractModel.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "e7f40d001d5ba8588403d9e4d5a1561c3ab835a3"
+  },
+  "evidenceSha256": "433977c4a8cbb0be0c4df186bc29913164f33cf67ca2dc47547b83757b4eee23"
+}

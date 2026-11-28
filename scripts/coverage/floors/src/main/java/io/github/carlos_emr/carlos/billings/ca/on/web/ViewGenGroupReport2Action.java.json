@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/ViewGenGroupReport2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "04fff707210eb237de50a08031c749a0725fb7d2"
+  },
+  "evidenceSha256": "bab03570058214796bf4d81852f47dcb3a67b906bf8c923237e77b09c47c1f79"
+}

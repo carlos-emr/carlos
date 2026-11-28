@@ -10,6 +10,19 @@ from junit_evidence import EvidenceError, read_surefire
 
 UNMERGE_FAMILY = "DemographicWebUnmergeIntegrationTest"
 UNMERGE_CLASS = "io.github.carlos_emr.carlos.demographic.pageUtil." + UNMERGE_FAMILY
+BOUND_FAMILIES = {
+    UNMERGE_FAMILY: UNMERGE_CLASS,
+    "BillingOnOutputFilenamesIntegrationTest":
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnOutputFilenamesIntegrationTest",
+    "BillingOnFileAccessServiceIntegrationTest":
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessServiceIntegrationTest",
+    "BillingOnSiteVisibilityIntegrationTest":
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnSiteVisibilityIntegrationTest",
+    "IncomingDocumentQueuePreferenceIntegrationTest":
+        "io.github.carlos_emr.carlos.documentManager.IncomingDocumentQueuePreferenceIntegrationTest",
+    "ScheduleDateOverrideServiceIntegrationTest":
+        "io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideServiceIntegrationTest",
+}
 
 CRITICAL = {
     "MariaDbDaoHarnessIntegrationTest": 1,
@@ -21,6 +34,62 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
+    "ReportConnectionLeaseIntegrationTest": {
+        "shouldRetainActiveReportConnection_untilItsQueryDeadline",
+        "shouldRetireIdleAbandonedLeases_withExplicitShortTimeoutOverride",
+        "shouldHonorConfiguredTimeout_withoutDisablingLeakDetection",
+    },
+    "BillingOnOutputFilenamesIntegrationTest": {
+        "shouldReserveEveryHistoricalName_acrossBothGeneratorsAndImportEvidence",
+        "shouldPreservePhysicalEntries_whenMetadataIsMissing",
+        "shouldRefuseAllocation_whenTheConfiguredFolderIsUnavailable",
+    },
+    "BillingOnFileAccessServiceIntegrationTest": {
+        "shouldCheckEveryDiskMember_whileAllowingTheirIndividualHtml",
+        "shouldRequireAUniqueLegacyOhipOwner_acrossInactiveProvidersAndBothFileTables",
+        "shouldKeepTheBillingReadGateAndAllowAnIssuedNonbillingReport_inACoLocatedDirectory",
+    },
+    "BillingOnSiteVisibilityIntegrationTest": {
+        "shouldShowUnassignedBillersAndDisks_whenSingleSiteHasSeededPrivacyGrant",
+        "shouldRestrictBothViewsAndDiskRows_whenMultisitePrivacyIsGranted",
+        "shouldShowUnassignedBillersAndDisks_whenMultisiteHasNoPrivacyGrant",
+        "shouldLimitHistoryToTheTeam_whenSingleSiteLoginHasOnlyTeamBillingAndSeededSiteGrants",
+        "shouldRequireTeamAndSiteForHistory_whenOnlyTeamBillingAndMultisiteGrantsArePresent",
+        "shouldRetainTeamAccessPrecedence_whenBothMultisiteAndTeamPrivacyAreGranted",
+        "shouldMarkOnlyTheAuthorizedLegacyClaim_whenTwoBillersShareAnOhipNumber",
+        "shouldRemoveOnlyProvisionalDiskOwnership_whenNewOutputCollides(Path)",
+    },
+    "IncomingDocumentQueuePreferenceIntegrationTest": {
+        "shouldReadDefaultWithoutCreatingRows_whenConcurrentPreviewsFindNoPreference",
+        "shouldPreserveNullPreference_whenConcurrentPreviewsReadTheDefault",
+        "shouldUseStoredSelection_whenConcurrentPreviewsReadThePreference",
+        "shouldPersistExplicitSelections_andKeepOtherPreferencesIntact",
+        "shouldUpdateExistingNullPreference_whenAQueueIsExplicitlySelected",
+        "shouldKeepHistoricalDuplicateIdentities_andUseTheOldestRow",
+        "shouldKeepOneRowForOverlappingFirstSelections_withoutBlockingOtherProvidersOrPreviews",
+        "shouldPreserveTheLastSelection_whenBothRequestsPreviouslySawNoPreference",
+        "shouldRejectExplicitSelectionsWithoutAnOwner",
+    },
+    "ScheduleDateOverrideServiceIntegrationTest": {
+        "shouldRetireCurrentAndInsertReplacement_inOneCommit",
+        "shouldKeepCurrentOverrideActive_whenReplacementInsertFails",
+        "shouldSerializeOverlappingSaves_thenRetireBothOnDelete",
+        *(f"shouldGenerateFromCommittedDays_whenAnOverlappingPopupSavesOrDeletes(boolean)[{index}]"
+          for index in (1, 2)),
+        "shouldRetireOnlyTheOldRuleRange_andAllowRegenerationAfterACustomDayWasRetired",
+        *(f"shouldRollBackTheEntireGeneration_whenACandidateDoesNotBelongToTheRule(String)[{index}]"
+          for index in range(1, 5)),
+        "shouldRefuseTheWholeTemplate_whenTheProviderNoLongerExists",
+        "shouldRefuseAnOlderSameStartFormAfterAnExtension_thenAllowShorteningTheCurrentPeriod",
+        "shouldAcceptAnActiveLegacyUnavailablePeriodSelectedByTheEditor",
+        "shouldRollBackBothRuleAndDates_whenTheFinalHeaderWriteFails",
+        "shouldPreserveSameStartReplacement_editsAndTheExistingOverlapWarning",
+        "shouldReplaceOnlyThePeriodRenderedInTheSubmittedTab_whenAnotherTabSelectsTheSameProvider",
+        "shouldRetireEveryActiveOverride_whenTheDateHoldsDuplicates",
+        "shouldWriteNothing_whenTheProviderDoesNotExist",
+        "shouldReadTheLatestCommittedOverride_afterEachReplacement",
+    },
+    "AuditLogPurgeMariaDbIntegrationTest": {'shouldUseLiveCredentials_whenApplicationUserHasQuotedPassword', 'shouldRestoreEveryDeletedValue_whenPurgingThroughTheLastInstantOfTheDay', 'shouldRetainRowsAndReleaseLocks_whenDumpFailsTimesOutOrOmitsRows', 'shouldSerializePurgesAndPreserveLateHistoricalRows_whenAnotherWriterRuns', 'shouldRetainBackedUpRows_whenAuditRecordingFailsBeforeDelete', 'shouldRetainCompletedBackupsAndReportFailure_whenALaterCohortFails', 'shouldRecordPurgeAuditWithoutBlocking_whenAllExistingRowsAreEligible'},
     "EncounterFormDaoGroupedHistoryIntegrationTest": {
         "shouldGroupPhysicalHistory_onTheNativeTable",
         "shouldRejectUnregisteredTableBeforeHistorySql_whenIdentifierIsOtherwiseValid",
@@ -42,8 +111,14 @@ REQUIRED_CASES = {
     "AppointmentUpdateDaoIntegrationTest": {
         "shouldReuseReturnedVersion_whenEditEntersTheRepeatedHour",
         "shouldRefuseStoredPatient_beforeArchivalOrMutation",
+        "shouldRollbackArchiveAndMutation_whenFlushFails",
         "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
+        "shouldRollbackFieldEditAndArchive_whenAuditFails",
         "shouldAllowAssignedPatientWrite_withoutReadPermission",
+    },
+    "AppointmentFieldAuditTransactionIntegrationTest": {
+        f"shouldRollBackFieldAndArchive_whenAuditDaoLookupFails(AppointmentUpdateAction)[{index}]"
+        for index in (1, 2, 3)
     },
     "JdbcConnectorMariaDbIntegrationTest": {
         "shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions",
@@ -108,6 +183,24 @@ REQUIRED_CASES = {
         "shouldRetainExplicitEmptyStringClears_inTheNativeTransaction",
         "shouldReportConflict_withoutOverwritingAnOlderTransactionSnapshot",
     },
+    # #6391: the lab-chain row locks on the physical server. Six cases come from the H2 class it
+    # extends (they run again on MariaDB), six are its own: the indexes each lock statement can use,
+    # that a held lock does not hold up an unrelated accession, and that a real lock wait timeout is
+    # recognised as a lock failure. Missing any of them must fail the Ontario Flyway lane.
+    "Hl7TextInfoChainLockMariaDbIntegrationTest": {
+        "shouldReturnTheAccessionsRowsLowestLabNumberFirst_whenLockingByAccession",
+        "shouldIncludeRowsOfOtherAccessions_whenLockingByFillerOrderNumber",
+        "shouldLockNothing_whenTheAccessionOrFillerNumberIsBlank",
+        "shouldMatchNoRow_whenTheReportHasNoAccession",
+        "shouldReturnNull_whenTheReportIsNotStored",
+        "shouldRefuseEveryLock_whenThereIsNoTransaction",
+        "shouldHaveTheAccessionIndexAvailable_whenLockingByAccession",
+        "shouldHaveTheFillerOrderNumberIndexAvailable_whenLockingByFillerOrderNumber",
+        "shouldHaveTheLabNumberIndexAvailable_whenLockingTheReportsOwnRow",
+        "shouldHaveTheKeyValueIndexAvailable_whenFindingAReportsMeasurements",
+        "shouldNotHoldUpAnUnrelatedAccession_whenTheDaoHoldsAnotherOne",
+        "shouldRecogniseARealLockWaitTimeoutAsALockFailure_whenAnotherConnectionHoldsTheRow",
+    },
     UNMERGE_FAMILY: {
         'shouldRefuseARepeatedUnmerge_withoutAnotherAuditOrRecycleWrite',
         'shouldPreserveEarlierUnmergeAttribution_whenAnActiveLinkIsRemoved',
@@ -154,6 +247,40 @@ REQUIRED_CASES = {
     "DemographicMergeMariaDbIntegrationTest": {
         "shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange",
     },
+    # Issue #5298: every write of a demographic update, and of the REST update around it, commits
+    # or rolls back together. Each fault and each authorization refusal is a named requirement.
+    "DemographicUpdateDaoTransactionIntegrationTest": {
+        "shouldCommitArchivePatientAndExtensions_whenEveryWriteSucceeds",
+        "shouldLeaveNoArchiveRow_whenThePatientWriteFailsAfterTheArchive",
+        "shouldLeaveNoPartialUpdate_whenALaterExtensionWriteFails",
+        "shouldRaiseTheRefusalItself_whenAStoredExtensionTakesAHeldKey",
+        "shouldWriteNothing_whenTheActorMayNotUpdateDemographics",
+        "shouldNotCommitTheUpdate_whenItsAuditRowCannotBeWritten",
+        "shouldLeaveNoCustomFieldArchive_whenTheCustomFieldWriteFails",
+        "shouldRefuseTheStoredRow_whenCustomFieldsWereChangedInPlace",
+        "shouldCommitEveryCompanionWrite_whenTheRestUpdateSucceeds",
+        "shouldKeepOneCurrentWaitingListEntry_whenRestUpdatesOverlap",
+        "shouldRetireTheLatestWaitingListEntry_whenRemovalOverlapsRestUpdate",
+        "shouldPreserveStartDateAndPositions_whenRestEditsWaitingListNote",
+        "shouldRetireTheReplacementEntry_whenRemovalWaitsForTheListLock",
+        "shouldPreserveWaitingListOrder_whenStartDatesMatch",
+        "shouldRollBackCompanionWrites_whenThePatientWriteFails",
+        "shouldRollBackCompanionWrites_whenALaterExtensionWriteFails",
+        "shouldAnswerTheDuplicateKeyConflict_whenAStoredExtensionTakesAHeldKey",
+        "shouldStoreBothExtensions_whenAStoredExtensionFreesTheKeyANewOneTakes",
+        "shouldRefuseAndKeepNothing_whenTheWaitingListEntryIsGone",
+        "shouldRefuseAndKeepThePatientOffTheList_whenTheEntryWasRemovedThroughTheApplication",
+        "shouldRefuseAndPreserveTheWaitingListRow_whenItsHistoryFlagIsNull",
+        "shouldSaveThePatient_whenTheRequestNamesNoWaitingList",
+        "shouldRefuseBeforeEitherChartChanges_whenAStoredExtensionIsAnotherPatients",
+        "shouldKeepEveryExtensionWithThePatient_whateverOwnerWasSent",
+        "shouldArchiveThePreviousVersionCode_whenAnObecResponseInvalidatesIt",
+        "shouldWriteNothing_whenTheActorMayNotUpdateThisPatient",
+        "shouldWriteNothing_whenTheActorMayNotReadDemographics",
+        "shouldAnswerNotFound_whenThePatientDoesNotExist",
+        "shouldPropagateALockFailure_beforeAnyWrite",
+        "shouldCommitTheUpdate_whenTheResourceWasBuiltWithoutADao",
+    },
     "Growth0To36FormPersistenceIntegrationTest": {
         f"{method}(boolean)[{index}]"
         for method in (
@@ -161,12 +288,31 @@ REQUIRED_CASES = {
             "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp",
         )
         for index in (1, 2)
+    } | {"shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection"},
+    # Issue #5693: every one of the eighteen rehabilitation-study tables must be compared with the
+    # retired writer and reader on the physical server, and each rollback and archive case must run.
+    "RehabStudyFormDaoIntegrationTest": {
+        f"shouldStoreAndShowEveryColumn_exactlyAsTheRetiredRecordDid(String, RehabStudyFormType)[{index}]"
+        for index in range(1, 19)
+    } | {
+        f"shouldRetainTheCommittedFormAndLogSafely_whenTheArchiveReadOrWriteFails(boolean)[{index}]"
+        for index in (1, 2)
+    } | {
+        "shouldRollBackEarlierFormWrites_whenALaterVersionIsRefused",
+        "shouldRollBackAnEarlierInsert_whenARelatedDatabaseWriteFails",
+        "shouldRollBackTheGeneratedInsert_whenTheServiceFailsAfterFlushing",
+        "shouldCommitTheDemographicAudit_whenStartingANewForm",
+        "shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection",
+        # Two versions committed together keep an XML copy each, and both restore (#5693 review).
+        "shouldKeepAndRestoreEachVersionsArchive_whenTwoVersionsCommitTogether",
     },
 }
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
-REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 18,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
+REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, "AuditLogPurgeMariaDbIntegrationTest": 7,
+                          "ReportConnectionLeaseIntegrationTest": 3,
+                          "AppointmentUpdateDaoIntegrationTest": 19,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "JdbcConnectorMariaDbIntegrationTest": 47,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6,
@@ -180,6 +326,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 18,**CRITICAL, 
                           "RxFavoriteCopyIntegrationTest": 1,
                           "RxRestPrescriptionRollbackIntegrationTest": 1,
                           "DemographicMergeMariaDbIntegrationTest": 9,
+                          "DemographicUpdateDaoTransactionIntegrationTest": 30,
                           UNMERGE_FAMILY: 19,
                           "SiteRenameClockMariaDbIntegrationTest": 8,
                           "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
@@ -189,16 +336,24 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 18,**CRITICAL, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                          "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2},
+                          "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
+                          "RehabStudyFormDaoIntegrationTest": 69},
             "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6,
                        "LegacyLabNativeMariaDbIntegrationTest": 8, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
                        "CaseManagementNoteLockMariaDbIntegrationTest": 15,
+                       "Hl7TextInfoChainLockMariaDbIntegrationTest": 12,
                        "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
                        "CaseManagementIssueDAOIntegrationTest": 22,
+                       "BillingOnFileAccessServiceIntegrationTest": 3,
+                       "BillingOnOutputFilenamesIntegrationTest": 3,
+                       "BillingOnSiteVisibilityIntegrationTest": 8,
+                       "IncomingDocumentQueuePreferenceIntegrationTest": 9,
+                       "ScheduleDateOverrideServiceIntegrationTest": 19,
                        "ConsultationListProjectionIntegrationTest": 17,
                        "RxCorrectionSaveRollbackIntegrationTest": 2,
                        "DemographicMergeMariaDbIntegrationTest": 9,
+                       "DemographicUpdateDaoTransactionIntegrationTest": 30,
                        UNMERGE_FAMILY: 19,
                           "SiteRenameClockMariaDbIntegrationTest": 8,
                           "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
@@ -208,7 +363,8 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 18,**CRITICAL, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                       "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2},
+                       "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
+                       "RehabStudyFormDaoIntegrationTest": 69},
             "bc-flyway": {"FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementTransactionIntegrationTest": 2, "LabRoutingLookupDaoIntegrationTest": 6,
                            "LegacyLabNativeMariaDbIntegrationTest": 8,
                            "ConsultationArchiveDaoIntegrationTest": 1,
@@ -216,6 +372,8 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 18,**CRITICAL, 
                            "CaseManagementNoteLockMariaDbIntegrationTest": 15,
                        "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
                            "BcBillingNativeMariaDbIntegrationTest": 22,
+                           "IncomingDocumentQueuePreferenceIntegrationTest": 9,
+                           "ScheduleDateOverrideServiceIntegrationTest": 19,
                            "FormXmlImportServiceIntegrationTest": 7,
                            "EFormApColumnLookupIntegrationTest": 2,
                            "AppointmentDaySheetServiceIntegrationTest": 5,
@@ -225,6 +383,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 18,**CRITICAL, 
                            "LegacyBcTeleplanExportMariaDbIntegrationTest": 29,
                            "BCAR2020FormSaveTransactionIntegrationTest": 15,
                            "DemographicMergeMariaDbIntegrationTest": 9,
+                           "DemographicUpdateDaoTransactionIntegrationTest": 30,
                            UNMERGE_FAMILY: 19,
                           "SiteRenameClockMariaDbIntegrationTest": 8,
                           "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
@@ -234,7 +393,8 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 18,**CRITICAL, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                           "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2}}
+                           "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
+                           "RehabStudyFormDaoIntegrationTest": 69}}
 
 
 INBOX_CASES = (
@@ -294,7 +454,7 @@ def verify(reports: Path, output: Path) -> dict:
             if mode == 'bc-flyway' and case.classname == suite and not case.container and case.outcome == 'pass':
                 bc_physical_cases.add((case.classname, case.name))
             if (family in families[mode] and case.outcome == "pass"
-                    and (family != UNMERGE_FAMILY or suite == case.classname == UNMERGE_CLASS)):
+                    and (family not in BOUND_FAMILIES or suite == case.classname == BOUND_FAMILIES[family])):
                 families[mode][family] += 1
                 if family in REQUIRED_CASES and case.classname == suite:
                     passed_cases[mode][family].add(case.name)

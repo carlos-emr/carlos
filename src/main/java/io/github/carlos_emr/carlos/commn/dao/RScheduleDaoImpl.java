@@ -82,7 +82,8 @@ public class RScheduleDaoImpl extends AbstractDaoImpl<RSchedule> implements RSch
 
     @Override
     public Long search_rschedule_exists(String providerNo, Date d1, Date d2) {
-        Query query = entityManager.createQuery("select count(r.id) from RSchedule r where r.providerNo=?1 and r.sDate =?2 and r.eDate =?3 and r.status = 'A'");
+        Query query = entityManager.createQuery("select count(r.id) from RSchedule r where r.providerNo=?1 and r.sDate =?2 "
+                + "and (r.eDate = ?3 or (r.eDate is null and ?3 is null)) and r.status = 'A'");
         query.setParameter(1, providerNo);
         query.setParameter(2, d1);
         query.setParameter(3, d2);

@@ -1,6 +1,7 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Exercise native verdicts with real subprocess exits, including python -O."""
 import importlib.util
+import json
 import os
 from pathlib import Path
 import re
@@ -23,6 +24,22 @@ GROWTH_REQUIRED_CASES = {
     "shouldRetainCommittedFormAndLogSafely_whenArchiveReadOrWriteFails(boolean)[2]",
     "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp(boolean)[1]",
     "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp(boolean)[2]",
+    "shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection",
+}
+
+# Issue #5693: one physical comparison per rehabilitation-study table, plus the rollback, audit
+# and archive-failure cases. Spelled out here, independently of the verifier.
+REHAB_REQUIRED_CASES = {
+    *(f"shouldStoreAndShowEveryColumn_exactlyAsTheRetiredRecordDid(String, RehabStudyFormType)[{index}]"
+      for index in range(1, 19)),
+    "shouldRetainTheCommittedFormAndLogSafely_whenTheArchiveReadOrWriteFails(boolean)[1]",
+    "shouldRetainTheCommittedFormAndLogSafely_whenTheArchiveReadOrWriteFails(boolean)[2]",
+    "shouldRollBackEarlierFormWrites_whenALaterVersionIsRefused",
+    "shouldRollBackAnEarlierInsert_whenARelatedDatabaseWriteFails",
+    "shouldRollBackTheGeneratedInsert_whenTheServiceFailsAfterFlushing",
+    "shouldCommitTheDemographicAudit_whenStartingANewForm",
+    "shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection",
+    "shouldKeepAndRestoreEachVersionsArchive_whenTwoVersionsCommitTogether",
 }
 
 
@@ -65,8 +82,16 @@ ADMISSION_REQUIRED_CASES = {
 APPOINTMENT_REQUIRED_CASES = {
     "shouldReuseReturnedVersion_whenEditEntersTheRepeatedHour",
     "shouldRefuseStoredPatient_beforeArchivalOrMutation",
+    "shouldRollbackArchiveAndMutation_whenFlushFails",
     "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
+    "shouldRollbackFieldEditAndArchive_whenAuditFails",
     "shouldAllowAssignedPatientWrite_withoutReadPermission",
+}
+
+APPOINTMENT_FIELD_AUDIT_REQUIRED_CASES = {
+    "shouldRollBackFieldAndArchive_whenAuditDaoLookupFails(AppointmentUpdateAction)[1]",
+    "shouldRollBackFieldAndArchive_whenAuditDaoLookupFails(AppointmentUpdateAction)[2]",
+    "shouldRollBackFieldAndArchive_whenAuditDaoLookupFails(AppointmentUpdateAction)[3]",
 }
 
 JDBC_REQUIRED_CASES = {
@@ -165,7 +190,125 @@ LEGACY_NOTE_FLAG_REQUIRED_CASES = {
 } | {"shouldUseTheNullablePublishedColumnTypes_onThePhysicalSchema"}
 
 
+HL7_CHAIN_LOCK_REQUIRED_CASES = {
+    # inherited from the H2 class (they run again on the physical server)
+    "shouldReturnTheAccessionsRowsLowestLabNumberFirst_whenLockingByAccession",
+    "shouldIncludeRowsOfOtherAccessions_whenLockingByFillerOrderNumber",
+    "shouldLockNothing_whenTheAccessionOrFillerNumberIsBlank",
+    "shouldMatchNoRow_whenTheReportHasNoAccession",
+    "shouldReturnNull_whenTheReportIsNotStored",
+    "shouldRefuseEveryLock_whenThereIsNoTransaction",
+    # its own
+    "shouldHaveTheAccessionIndexAvailable_whenLockingByAccession",
+    "shouldHaveTheFillerOrderNumberIndexAvailable_whenLockingByFillerOrderNumber",
+    "shouldHaveTheLabNumberIndexAvailable_whenLockingTheReportsOwnRow",
+    "shouldHaveTheKeyValueIndexAvailable_whenFindingAReportsMeasurements",
+    "shouldNotHoldUpAnUnrelatedAccession_whenTheDaoHoldsAnotherOne",
+    "shouldRecogniseARealLockWaitTimeoutAsALockFailure_whenAnotherConnectionHoldsTheRow",
+}
+
+
 class MariaDbReportEvidenceTest(unittest.TestCase):
+    def test_ontario_requires_single_site_and_multisite_billing_results(self):
+        family = 'BillingOnSiteVisibilityIntegrationTest'
+        names = {
+            'shouldShowUnassignedBillersAndDisks_whenSingleSiteHasSeededPrivacyGrant',
+            'shouldRestrictBothViewsAndDiskRows_whenMultisitePrivacyIsGranted',
+            'shouldShowUnassignedBillersAndDisks_whenMultisiteHasNoPrivacyGrant',
+            'shouldLimitHistoryToTheTeam_whenSingleSiteLoginHasOnlyTeamBillingAndSeededSiteGrants',
+            'shouldRequireTeamAndSiteForHistory_whenOnlyTeamBillingAndMultisiteGrantsArePresent',
+            'shouldRetainTeamAccessPrecedence_whenBothMultisiteAndTeamPrivacyAreGranted',
+            'shouldMarkOnlyTheAuthorizedLegacyClaim_whenTwoBillersShareAnOhipNumber',
+            'shouldRemoveOnlyProvisionalDiskOwnership_whenNewOutputCollides(Path)',
+        }
+        self.assertEqual(MODULE.REQUIRED_CASES[family], names)
+        self.assertEqual(MODULE.REQUIRED['flyway'][family], len(names))
+        root = Path(__file__).resolve().parents[2]
+        workflow = (root / '.github/workflows/maven-project.yml').read_text()
+        on = next(block for block in workflow.split('      - name: ')
+                  if block.startswith('Verify critical DAO paths against the Flyway schema\n'))
+        self.assertIn('CARLOS_TEST_MARIADB_PROVINCE=on', on)
+        selected = re.search(r'-Dtest=([^\s\'"\\]+)', on).group(1).split(',')
+        self.assertIn(family, selected)
+        plan = json.loads((root / 'docs/testing/release-2026.08-verification.json').read_text())
+        h2 = next(check for check in plan['checks'] if check['id'] == 'java-all')
+        route = h2['routedSkips'][MODULE.BOUND_FAMILIES[family]]
+        self.assertEqual(route['check'], 'java-native-flyway')
+        self.assertEqual({(case['name'], case['container']) for case in route['cases']}, {(name, '') for name in names})
+        self.seed()
+        report = self.reports / f'TEST-{self.suite(family)}-flyway.xml'
+        original = report.read_text()
+        for name in names:
+            with self.subTest(name=name):
+                report.write_text(original.replace(f'name="{name}"', 'name="unrelatedCase"'))
+                self.assert_refused(self.invoke(), f'Required MariaDB flyway cases missing: {family}')
+
+    def test_ontario_requires_file_ownership_and_allocation_on_its_real_schema(self):
+        suites = {
+            'BillingOnFileAccessServiceIntegrationTest': {
+                'shouldCheckEveryDiskMember_whileAllowingTheirIndividualHtml',
+                'shouldRequireAUniqueLegacyOhipOwner_acrossInactiveProvidersAndBothFileTables',
+                'shouldKeepTheBillingReadGateAndAllowAnIssuedNonbillingReport_inACoLocatedDirectory',
+            },
+            'BillingOnOutputFilenamesIntegrationTest': {
+                'shouldReserveEveryHistoricalName_acrossBothGeneratorsAndImportEvidence',
+                'shouldPreservePhysicalEntries_whenMetadataIsMissing',
+                'shouldRefuseAllocation_whenTheConfiguredFolderIsUnavailable',
+            },
+        }
+        root = Path(__file__).resolve().parents[2]
+        plan = json.loads((root / 'docs/testing/release-2026.08-verification.json').read_text())
+        workflow = (root / '.github/workflows/maven-project.yml').read_text()
+        on = next(block for block in workflow.split('      - name: ')
+                  if block.startswith('Verify critical DAO paths against the Flyway schema\n'))
+        selected = next(line for line in on.splitlines() if '-Dtest=' in line).split('-Dtest=')[1].split()[0].split(',')
+        self.seed()
+        for family, names in suites.items():
+            for lane in ('java-all', 'java-native-flyway'):
+                check = next(check for check in plan['checks'] if check['id'] == lane)
+                self.assertEqual(check['requiredFamilies'][family], len(names))
+            self.assertIn(family, selected)
+            self.assertEqual(MODULE.REQUIRED_CASES[family], names)
+            self.assertEqual(MODULE.REQUIRED['flyway'][family], len(names))
+            report = self.reports / f'TEST-{self.suite(family)}-flyway.xml'
+            original = report.read_text()
+            for name in names:
+                with self.subTest(name=name):
+                    report.write_text(original.replace(f'name="{name}"', 'name="unrelatedCase"'))
+                    try:
+                        self.assert_refused(self.invoke(), f'Required MariaDB flyway cases missing: {family}')
+                    finally:
+                        report.write_text(original)
+
+    def test_both_provinces_require_the_named_queue_and_schedule_regressions(self):
+        root = Path(__file__).resolve().parents[2]
+        workflow = (root / '.github/workflows/maven-project.yml').read_text()
+        blocks = re.split(r'(?m)^      - name: ', workflow)
+        cases = {
+            'IncomingDocumentQueuePreferenceIntegrationTest':
+                'shouldPreserveTheLastSelection_whenBothRequestsPreviouslySawNoPreference',
+            'ScheduleDateOverrideServiceIntegrationTest':
+                'shouldGenerateFromCommittedDays_whenAnOverlappingPopupSavesOrDeletes(boolean)[2]',
+        }
+        self.seed()
+        for mode, title in (
+                ('flyway', 'Verify critical DAO paths against the Flyway schema'),
+                ('bc-flyway', 'Verify BC billing, encounter and day-sheet transactions against the Flyway schema')):
+            block = next(block for block in blocks if block.startswith(title + '\n'))
+            selected = re.search(r'-Dtest=([^\s\'"\\]+)', block).group(1).split(',')
+            for family, name in cases.items():
+                with self.subTest(mode=mode, family=family):
+                    self.assertIn(family, selected)
+                    self.assertIn(name, MODULE.REQUIRED_CASES[family])
+                    self.assertEqual(MODULE.REQUIRED[mode][family], len(MODULE.REQUIRED_CASES[family]))
+                    report = self.reports / f'TEST-{self.suite(family)}-{mode}.xml'
+                    original = report.read_text()
+                    report.write_text(original.replace(f'name="{name}"', 'name="unrelatedCase"'))
+                    try:
+                        self.assert_refused(self.invoke(), f'Required MariaDB {mode} cases missing: {family}')
+                    finally:
+                        report.write_text(original)
+
     def test_shipped_flyway_commands_select_the_legacy_note_flag_regressions(self):
         workflow = (Path(__file__).resolve().parents[2]
                     / '.github/workflows/maven-project.yml').read_text()
@@ -189,6 +332,66 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         self.assertEqual(MODULE.REQUIRED_CASES.get(family, set()), LEGACY_NOTE_FLAG_REQUIRED_CASES)
         self.assertNotIn(family, MODULE.REQUIRED['generated'])
 
+    def test_ontario_flyway_requires_every_lab_chain_lock_case(self):
+        family = 'Hl7TextInfoChainLockMariaDbIntegrationTest'
+        workflow = (Path(__file__).resolve().parents[2]
+                    / '.github/workflows/maven-project.yml').read_text()
+        blocks = re.split(r'(?m)^      - name: ', workflow)
+        block = next(block for block in blocks
+                     if block.startswith('Verify critical DAO paths against the Flyway schema\n'))
+        selection = re.search(r'-Dtest=([^\s\'"\\]+)', block).group(1).split(',')
+        self.assertIn(family, selection)
+        self.assertEqual(len(HL7_CHAIN_LOCK_REQUIRED_CASES), 12)
+        self.assertEqual(MODULE.REQUIRED['flyway'].get(family, 0), 12)
+        self.assertEqual(MODULE.REQUIRED_CASES.get(family, set()), HL7_CHAIN_LOCK_REQUIRED_CASES)
+        # Only the Ontario Flyway lane runs it (the generated-schema lane allows no skips, and the
+        # BC lane does not select it).
+        self.assertNotIn(family, MODULE.REQUIRED['generated'])
+        self.assertNotIn(family, MODULE.REQUIRED['bc-flyway'])
+        self.seed()
+        self.assertEqual(self.invoke().returncode, 0)
+        report = self.reports / ("TEST-" + self.suite(family) + "-flyway.xml")
+        original = report.read_text()
+        for name in sorted(HL7_CHAIN_LOCK_REQUIRED_CASES):
+            with self.subTest(case=name):
+                report.write_text(original.replace('name="' + name + '"', 'name="unrelatedCase"'))
+                try:
+                    self.assert_refused(self.invoke(),
+                                        'Required MariaDB flyway cases missing: ' + family + ': ' + name)
+                finally:
+                    report.write_text(original)
+        # The whole family silently not running fails the lane too.
+        report.unlink()
+        try:
+            self.assert_refused(self.invoke(), 'Required MariaDB flyway coverage missing: ' + family)
+        finally:
+            report.write_text(original)
+
+    def test_rehab_study_evidence_is_required_in_both_flyway_lanes(self):
+        family = 'RehabStudyFormDaoIntegrationTest'
+        workflow = (Path(__file__).resolve().parents[2]
+                    / '.github/workflows/maven-project.yml').read_text()
+        blocks = re.split(r'(?m)^      - name: ', workflow)
+        self.seed()
+        baseline = self.invoke()
+        self.assertEqual(baseline.returncode, 0, baseline.stderr)
+        self.assertEqual(MODULE.REQUIRED_CASES[family], REHAB_REQUIRED_CASES)
+        for mode, title in (
+                ('flyway', 'Verify critical DAO paths against the Flyway schema'),
+                ('bc-flyway', 'Verify BC billing, encounter and day-sheet transactions against the Flyway schema')):
+            with self.subTest(mode=mode):
+                block = next(block for block in blocks if block.startswith(title + '\n'))
+                selection = re.search(r'-Dtest=([^\s\'"\\]+)', block).group(1).split(',')
+                self.assertIn(family, selection)
+                self.assertEqual(MODULE.REQUIRED[mode].get(family), 69)
+                report = self.reports / f'TEST-{self.suite(family)}-{mode}.xml'
+                original = report.read_bytes()
+                report.unlink()
+                try:
+                    self.assert_refused(self.invoke(), f'Required MariaDB {mode} coverage missing: {family}')
+                finally:
+                    report.write_bytes(original)
+
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
@@ -211,12 +414,15 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         for selected, required in MODULE.REQUIRED.items():
             required = dict(required)
             if selected == "generated":
+                required["AppointmentUpdateDaoIntegrationTest"] = 19
+                required["AppointmentFieldAuditTransactionIntegrationTest"] = 3
                 required["MeasurementDaoIntegrationTest"] += 3000 - sum(required.values())
             for family, count in required.items():
                 suite = self.suite(family)
                 suffix = "" if selected == "generated" else "-" + selected
                 required_names = sorted({
                     "Growth0To36FormPersistenceIntegrationTest": GROWTH_REQUIRED_CASES,
+                    "RehabStudyFormDaoIntegrationTest": REHAB_REQUIRED_CASES,
                     "SoapTokenHousekeepingDaoIntegrationTest": TOKEN_REQUIRED_CASES,
                     "DemographicMergeMariaDbIntegrationTest": MERGE_REQUIRED_CASES,
                     "DemographicWebUnmergeIntegrationTest": UNMERGE_REQUIRED_CASES,
@@ -227,6 +433,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "RxPrescribeMariaDbIntegrationTest": RX_REQUIRED_CASES,
                     "TicklerPatientAccessMariaDbIntegrationTest": TICKLER_REQUIRED_CASES,
                     "AppointmentUpdateDaoIntegrationTest": APPOINTMENT_REQUIRED_CASES,
+                    "AppointmentFieldAuditTransactionIntegrationTest": APPOINTMENT_FIELD_AUDIT_REQUIRED_CASES,
                     "JdbcConnectorMariaDbIntegrationTest": JDBC_REQUIRED_CASES,
                     "ProgramAdmissionAuditMariaDbIntegrationTest": ADMISSION_REQUIRED_CASES,
                     "ReportingPatientListAuditMariaDbIntegrationTest": REPORTING_REQUIRED_CASES,
@@ -257,8 +464,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
     def suite(family: str) -> str:
         if family == 'LegacyLabNativeMariaDbIntegrationTest':
             return MODULE.INBOX_CLASS
-        if family == 'DemographicWebUnmergeIntegrationTest':
-            return 'io.github.carlos_emr.carlos.demographic.pageUtil.DemographicWebUnmergeIntegrationTest'
+        if family in MODULE.BOUND_FAMILIES:
+            return MODULE.BOUND_FAMILIES[family]
         return next((name for name in MODULE.BC_PHYSICAL_CASES if name.rsplit('.', 1)[-1] == family), 'example.' + family)
 
     def test_each_physical_type_case_is_required_even_when_family_counts_are_unchanged(self):
@@ -301,6 +508,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             if mode == "generated":
                 families = [
                     ("AppointmentUpdateDaoIntegrationTest", APPOINTMENT_REQUIRED_CASES),
+                    ("AppointmentFieldAuditTransactionIntegrationTest", APPOINTMENT_FIELD_AUDIT_REQUIRED_CASES),
                     ("JdbcConnectorMariaDbIntegrationTest", JDBC_REQUIRED_CASES),
                 ]
             else:
@@ -378,6 +586,20 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             finally:
                 replacement.unlink()
                 report.write_text(original)
+
+    def test_generated_appointment_report_requires_nineteen_cases(self):
+        self.seed()
+        family = "AppointmentUpdateDaoIntegrationTest"
+        suite = self.suite(family)
+        report = self.reports / ("TEST-" + suite + ".xml")
+        original = report.read_text()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        case = f'<testcase classname="{suite}" name="shouldRead_forRow18"></testcase>'
+        self.assertIn(case, original)
+        report.write_text(original.replace(case, "", 1).replace('tests="19"', 'tests="18"', 1))
+        self.assert_refused(self.invoke(), f"Required MariaDB generated coverage missing: {family}")
 
     def test_another_package_or_nested_class_cannot_supply_required_inbox_cases(self):
         self.seed()
@@ -521,6 +743,40 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                                                 f"Required MariaDB {mode} cases missing: Growth0To36FormPersistenceIntegrationTest: {missing}")
                     finally:
                         path.write_bytes(original)
+
+    def test_rehab_study_required_cases_cannot_be_replaced_in_the_generated_lane(self):
+        self.seed()
+        path = self.reports / "TEST-example.RehabStudyFormDaoIntegrationTest.xml"
+        self.assertTrue(path.exists())
+        for missing in sorted(REHAB_REQUIRED_CASES):
+            with self.subTest(missing=missing):
+                original = path.read_bytes()
+                root = ET.fromstring(original)
+                for case in root:
+                    if case.get("name") == missing:
+                        case.set("name", "shouldPass_forUnrelatedScenario")
+                path.write_bytes(ET.tostring(root))
+                try:
+                    self.assert_refused(self.invoke(),
+                                        f"Required MariaDB generated cases missing: RehabStudyFormDaoIntegrationTest: {missing}")
+                finally:
+                    path.write_bytes(original)
+
+    def test_rehab_study_table_comparisons_cannot_be_removed_in_the_generated_lane(self):
+        self.seed()
+        path = self.reports / "TEST-example.RehabStudyFormDaoIntegrationTest.xml"
+        original = path.read_bytes()
+        root = ET.fromstring(original)
+        for case in list(root):
+            if case.get("name", "").startswith("shouldStoreAndShowEveryColumn_exactlyAsTheRetiredRecordDid"):
+                root.remove(case)
+        root.set("tests", str(len(root)))
+        path.write_bytes(ET.tostring(root))
+        try:
+            self.assert_refused(self.invoke(),
+                                "Required MariaDB generated coverage missing: RehabStudyFormDaoIntegrationTest")
+        finally:
+            path.write_bytes(original)
 
     def test_growth_archive_failure_cases_cannot_be_removed_in_any_lane(self):
         self.seed()

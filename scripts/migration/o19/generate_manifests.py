@@ -2021,22 +2021,13 @@ def content_version(base: str, content) -> str:
     return "{0}+{1}".format(base, digest)
 
 
-def schema_map_version(tables, ov, province: str) -> str:
-    """The manifest's version string: the curated `SCHEMA_MAP_VERSION`
-    plus a digest of the generated tables AND the province they were
-    curated for, so any drift in the output changes the version the
-    ledger binds a run to.
-
-    The province is in the digest and not merely alongside it because
-    the version is what `--resume` and `--cleanup` compare: two profiles
-    whose table classifications happened to coincide would otherwise
-    share a version, and a workspace staged under one set of rulings
-    could be resumed under the other. The rest of a profile -- its
-    primitive columns, its seed floors, its CARLOS column lists --
-    differs even when `TABLES` does not."""
-    return content_version(ov.SCHEMA_MAP_VERSION,
-                           [("__province__", province)]
-                           + sorted(tables.items()))
+def schema_map_version(tables, ov, province: str, primitives: Dict[str, List[str]]) -> str:
+    """Bind the ETL checkpoint to the province, table rulings and the columns
+    on which an imported SQL NULL must be replaced for Java hydration."""
+    return content_version(
+        ov.SCHEMA_MAP_VERSION,
+        [("__province__", province), ("__primitive_columns__", sorted(primitives.items()))]
+        + sorted(tables.items()))
 
 
 def schema_manifest_data(tables, carlos: Schema, seed_counts, ov,
@@ -2099,8 +2090,9 @@ def schema_manifest_data(tables, carlos: Schema, seed_counts, ov,
     carlos_columns = {t: list(carlos.tables[t]) for t in copy_tables}
     seeded = {t: seed_counts[t] for t in sorted(seed_counts)
               if t in copy_tables and seed_counts[t] > 0}
+    primitives = primitive_columns(copy_tables, carlos, extras)
     data: Dict = {}
-    data["SCHEMA_MAP_VERSION"] = schema_map_version(tables, ov, province)
+    data["SCHEMA_MAP_VERSION"] = schema_map_version(tables, ov, province, primitives)
     data["O19_PROFILE"] = province
     # provenance is the O19 commit only — no wall-clock stamp, so --check
     # compares content, not the day it was generated
@@ -2127,7 +2119,7 @@ def schema_manifest_data(tables, carlos: Schema, seed_counts, ov,
         extras.get("prevention_type_map", {}).items()))
     data["KNOWN_PREVENTION_TYPES"] = list(
         extras.get("known_prevention_types", []))
-    data["PRIMITIVE_COLUMNS"] = primitive_columns(copy_tables, carlos, extras)
+    data["PRIMITIVE_COLUMNS"] = primitives
     data["PROFILES"] = _schema_profiles(ov, extras, profiles)
     return data
 
@@ -2160,17 +2152,16 @@ def _schema_profiles(ov, extras, profiles) -> Dict:
         seeded = {t: data["seed_counts"][t]
                   for t in sorted(data["seed_counts"])
                   if t in copy_tables and data["seed_counts"][t] > 0}
+        primitives = primitive_columns(copy_tables, data["carlos"], p_extras)
         body = {
-            "SCHEMA_MAP_VERSION": schema_map_version(p_tables, ov,
-                                                     province),
+            "SCHEMA_MAP_VERSION": schema_map_version(p_tables, ov, province, primitives),
             "O19_PROFILE": province,
             "TABLES": p_tables,
             "CARLOS_COLUMNS": {t: list(data["carlos"].tables[t])
                                for t in copy_tables},
             "SEED_ROW_COUNTS": seeded,
             "STOCK_ROLE_NAMES": data["stock_role_names"],
-            "PRIMITIVE_COLUMNS": primitive_columns(
-                copy_tables, data["carlos"], p_extras),
+            "PRIMITIVE_COLUMNS": primitives,
             "PRISTINE_TOLERATED_TABLES": sorted(
                 TableRules(ov, province).pristine_tolerated),
         }
@@ -2363,13 +2354,14 @@ PREFLIGHT_PROFILE_NAMES = ("SCHEMA_MAP_VERSION", "O19_PROFILE",
                            "B3_FLAGGED_COLUMNS", "CHARSET_SCAN",
                            "STOCK_ROLE_NAMES")
 
-def _preflight_profile(tables, province: str, stock_role_names, ov) -> Dict:
+def _preflight_profile(schema: Dict) -> Dict:
     """The preflight's per-province data for one profile.
 
     ONE definition, used for the module-level default and for every
     `PROFILES` entry alike: a second province derived by a second code
     path would be a second set of rulings, and the drift would be
     invisible from the generated file."""
+    tables = schema["TABLES"]
     known = {t: e["class"] for t, e in sorted(tables.items())}
     patient = sorted(t for t, e in tables.items() if e.get("patient_data"))
     b3_cols: Dict[str, Dict[str, str]] = {}
@@ -2383,13 +2375,13 @@ def _preflight_profile(tables, province: str, stock_role_names, ov) -> Dict:
     charset = {t: e["charset_scan"] for t, e in sorted(tables.items())
                if e.get("charset_scan")}
     return {
-        "SCHEMA_MAP_VERSION": schema_map_version(tables, ov, province),
-        "O19_PROFILE": province,
+        "SCHEMA_MAP_VERSION": schema["SCHEMA_MAP_VERSION"],
+        "O19_PROFILE": schema["O19_PROFILE"],
         "PATIENT_DATA_TABLES": patient,
         "KNOWN_TABLES": known,
         "B3_FLAGGED_COLUMNS": b3_cols,
         "CHARSET_SCAN": charset,
-        "STOCK_ROLE_NAMES": sorted(set(stock_role_names)),
+        "STOCK_ROLE_NAMES": sorted(set(schema["STOCK_ROLE_NAMES"])),
     }
 
 
@@ -2404,9 +2396,7 @@ PREFLIGHT_BLOCK_NAMES = (
 )
 
 
-def preflight_manifest_data(tables, ov, props_ov,
-                            extras: Optional[Dict] = None,
-                            profiles: Optional[Dict] = None) -> Dict:
+def preflight_manifest_data(schema: Dict, props_ov) -> Dict:
     """The preflight manifest (`o19_preflight.json`) as data: table
     classes, patient tables, dropped columns and their emptiness
     predicates, and the property keys the import prunes.
@@ -2427,15 +2417,12 @@ def preflight_manifest_data(tables, ov, props_ov,
     * PROFILES: every province beyond the default; only the
       PREFLIGHT_PROFILE_NAMES are repeated per province.
     """
-    extras = extras or {}
-    default_province = extras.get("province", "on")
-    default = _preflight_profile(tables, default_province,
-                                 extras.get("stock_role_names", []), ov)
+    default = _preflight_profile(schema)
     data: Dict = {}
     data["SCHEMA_MAP_VERSION"] = default["SCHEMA_MAP_VERSION"]
     data["O19_PROFILE"] = default["O19_PROFILE"]
-    data["SUPPORTED_PROVINCES"] = list(ov.SUPPORTED_PROVINCES)
-    data["REQUIRED_TABLES"] = list(ov.REQUIRED_TABLES)
+    data["SUPPORTED_PROVINCES"] = list(schema["SUPPORTED_PROVINCES"])
+    data["REQUIRED_TABLES"] = list(schema["REQUIRED_TABLES"])
     data["PATIENT_DATA_TABLES"] = default["PATIENT_DATA_TABLES"]
     data["KNOWN_TABLES"] = default["KNOWN_TABLES"]
     data["B3_FLAGGED_COLUMNS"] = default["B3_FLAGGED_COLUMNS"]
@@ -2447,15 +2434,10 @@ def preflight_manifest_data(tables, ov, props_ov,
         k for k, spec in props_ov.KEYS.items()
         if spec.get("d") == "dropped-flag")
     data["STOCK_ROLE_NAMES"] = default["STOCK_ROLE_NAMES"]
-    data["LEGACY_PREVENTION_TYPES"] = sorted(
-        extras.get("prevention_type_map", {}))
+    data["LEGACY_PREVENTION_TYPES"] = sorted(schema["PREVENTION_TYPE_MAP"])
     data["PROFILES"] = {}
-    for province in sorted(profiles or {}):
-        if province == default_province:
-            continue
-        p = profiles[province]
-        body = _preflight_profile(p["tables"], province,
-                                  p["stock_role_names"], ov)
+    for province, profile in sorted(schema["PROFILES"].items()):
+        body = _preflight_profile(profile)
         data["PROFILES"][province] = {
             name: body[name] for name in PREFLIGHT_PROFILE_NAMES}
     return data
@@ -2507,16 +2489,6 @@ def render_preflight_block(data: Dict) -> str:
                 "generated preflight line exceeds 79 columns ({0}): "
                 "{1}".format(len(line), line))
     return block
-
-
-def emit_preflight_data(tables, ov, props_ov,
-                        extras: Optional[Dict] = None,
-                        profiles: Optional[Dict] = None) -> str:
-    """The generated block of `o19_preflight.py`: the preflight manifest
-    data, rendered (see render_preflight_block)."""
-    return render_preflight_block(
-        preflight_manifest_data(tables, ov, props_ov, extras, profiles))
-
 
 
 def rewrite_markers(path: Path, block: str) -> bool:
@@ -2719,14 +2691,13 @@ def main() -> int:
         parse_properties(oscar / O19_RESOURCE_BUNDLE),
         parse_properties(CARLOS_RESOURCE_BUNDLE), ov_props)
 
+    schema = schema_manifest_data(
+        tables, carlos, seed_counts, ov_schema, commit, extras, profiles)
     outputs = {
-        "o19map-schema": schema_manifest_data(
-            tables, carlos, seed_counts, ov_schema, commit, extras,
-            profiles),
+        "o19map-schema": schema,
         "o19map-props": props_manifest_data(
             o19_defaults, ov_props, carlos_defaults, bundle_renames),
-        "o19-preflight": preflight_manifest_data(
-            tables, ov_schema, ov_props, extras, profiles),
+        "o19-preflight": preflight_manifest_data(schema, ov_props),
     }
     targets = [(MANIFEST_DIR / MANIFEST_FILES[kind], emit_json(kind, data))
                for kind, data in outputs.items()]

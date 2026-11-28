@@ -73,6 +73,7 @@ public class CategoryData {
     private int totalNumDocs = 0;
     private Integer abnormalCount;
     private boolean populated;
+    private boolean failed;
     private int unmatchedHRMCount = 0;
     private int matchedHRMCount = 0;
 
@@ -80,30 +81,37 @@ public class CategoryData {
     private java.util.function.IntPredicate hrmPatientReadable = patient -> true;
 
     public int getTotalDocs() {
+        requireAvailable();
         return totalDocs;
     }
 
     public int getTotalLabs() {
+        requireAvailable();
         return totalLabs;
     }
 
     public int getUnmatchedLabs() {
+        requireAvailable();
         return unmatchedLabs;
     }
 
     public int getUnmatchedDocs() {
+        requireAvailable();
         return unmatchedDocs;
     }
 
 	public int getUnmatchedHRMCount() {
+        requireAvailable();
 		return unmatchedHRMCount;
 	}
 
 	public int getMatchedHRMCount() {
+        requireAvailable();
 		return matchedHRMCount;
 	}
 
     public int getTotalNumDocs() {
+        requireAvailable();
         return totalNumDocs;
     }
 
@@ -113,6 +121,7 @@ public class CategoryData {
      * @throws IllegalStateException if the lazy query fails
      */
     public int getAbnormalCount() {
+        requireAvailable();
         if (!populated) return 0;
         if (abnormalCount == null) {
             try {
@@ -126,14 +135,17 @@ public class CategoryData {
 
     /** @return int normal labs in the most recent population; shares the lazy abnormal query */
     public int getNormalCount() {
+        requireAvailable();
         return populated ? totalLabs - getAbnormalCount() : 0;
     }
 
     public HashMap<Integer, PatientInfo> getPatients() {
+        requireAvailable();
         return patients;
     }
 
     public List<PatientInfo> getPatientList() {
+        requireAvailable();
         if (patients == null || patients.isEmpty()) {
             return Collections.emptyList();
         }
@@ -325,6 +337,7 @@ public class CategoryData {
      * @throws SQLException if a required population query fails
      */
     public void populateCountsAndPatients() throws SQLException {
+        failed = true;
         populated = false;
         abnormalCount = null;
         // Each population reads the date-mode preference once, on its first count.
@@ -368,10 +381,16 @@ public class CategoryData {
 
         // Ordinary inbox loads do not pay for the optional legacy aggregate getters.
         populated = true;
+        failed = false;
 
     }
 
+    private void requireAvailable() {
+        if (failed) throw new IllegalStateException("Inbox counts are unavailable");
+    }
+
     public Long getCategoryHash() {
+        requireAvailable();
         return Long.valueOf("" + (int) 'A' + totalNumDocs)
                 + Long.valueOf("" + (int) 'D' + totalDocs)
                 + Long.valueOf("" + (int) 'L' + totalLabs);

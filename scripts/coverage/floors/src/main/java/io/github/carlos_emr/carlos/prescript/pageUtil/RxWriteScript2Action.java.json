@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 87.87878787878788,
+    "instructions": 86.13782051282051,
+    "branches": 100.0,
+    "sourceBlob": "74ce0664e6c1e01d4021b7b4addcb15c23f1ee88"
+  },
+  "evidenceSha256": "be0238a402eac67ef7ae3cfcbdffbdfe922928ea43762749f58ca66aae139ae1"
+}

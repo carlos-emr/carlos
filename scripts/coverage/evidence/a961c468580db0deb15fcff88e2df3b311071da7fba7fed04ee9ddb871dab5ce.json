@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "99aef7b75dd704d39f67c3767405ebc20e7d2a04",
+  "comparisonSha256": "20d20e0f805d7e946d266df46e0c35ca0dbce6af045c0151ed6b6a821d9cbb8c",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputFiles.java": {
+      "lines": 96.7032967032967,
+      "instructions": 89.74358974358974,
+      "branches": 80.55555555555556,
+      "sourceBlob": "0f82b63cdeb6e2301f30e97603afe181fdc5e72c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/LinuxNoReplaceMove.java": {
+      "lines": 62.96296296296296,
+      "instructions": 68.125,
+      "branches": 50.0,
+      "sourceBlob": "eac5a4ede7b2e29c2cb518aaaac1a3a788c539f4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipClaimFileService.java": {
+      "lines": 69.56521739130434,
+      "instructions": 67.27272727272727,
+      "branches": 100.0,
+      "sourceBlob": "945e39b7a7b2149c73e7f6626c3424d6e939707d"
+    }
+  },
+  "exclusions": {},
+  "baselineCommit": "1d377b33e8df1e94c23c18c36d856e3894f4092a",
+  "baselineSourceTree": "99aef7b75dd704d39f67c3767405ebc20e7d2a04",
+  "baselineReportSha256": "261ec81af15c37c1cf3cc0e9c2d8fee387bd141ea67f1ddf2f78aaa0f814f7a8",
+  "baselineLane": "Ubuntu 26.04, OpenJDK 25, JaCoCo 0.8.16 and Maven Surefire. Six Ontario billing unit suites ran against the archived publication and transaction sources, with DAC override and search capabilities removed. The filesystem tests used local Ubuntu storage and an actual Linux no-replace rename for the filesystem-without-hard-links path.",
+  "baselineTestCounts": {
+    "tests": 120,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskConcurrencyUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskServiceGroupDiskUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskServiceUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOutputFilesUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOutputLockUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimFileServiceUnitTest"
+  ],
+  "baselineTestReportsSha256": "619f128e10215ccaa99dfd2a515225471944a45fe5a5d5a5e0152f328f0537f0",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

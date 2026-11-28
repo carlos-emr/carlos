@@ -37,6 +37,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.ArrayList;
+import org.springframework.web.util.WebUtils;
 import java.util.HashMap;
 import java.util.List;
 
@@ -103,8 +104,9 @@ public class PrintReferralLabel2Action extends ActionSupport {
         }
         boolean checklist = "true".equals(request.getParameter("useCheckList"));
         List<String> ids = new ArrayList<>();
+        Object selected = null;
         if (checklist) {
-            Object selected = request.getSession().getAttribute("billingReferralAdminCheckList");
+            selected = request.getSession().getAttribute(ReferralLabelChecklist.SELECTION);
             if (selected instanceof List<?> entries) {
                 for (Object entry : entries) {
                     if (entry instanceof ProfessionalSpecialist specialist) {
@@ -143,7 +145,14 @@ public class PrintReferralLabel2Action extends ActionSupport {
             response.setDateHeader("Expires", 0);
             pdf.writeTo(response.getOutputStream());
             if (checklist) {
-                request.getSession().setAttribute("billingReferralAdminCheckList", new ArrayList<ProfessionalSpecialist>());
+                var session = request.getSession();
+                synchronized (WebUtils.getSessionMutex(session)) {
+                    // Another tab may have edited or reselected these labels during PDF rendering.
+                    // Only consume the exact selection this response printed.
+                    if (session.getAttribute(ReferralLabelChecklist.SELECTION) == selected) {
+                        ReferralLabelChecklist.publish(session, List.of());
+                    }
+                }
             }
         } catch (MissingReferralException e) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "A selected referral no longer exists.");

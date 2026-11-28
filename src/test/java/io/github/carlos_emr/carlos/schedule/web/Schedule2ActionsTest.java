@@ -319,6 +319,18 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
         }
 
         @Test
+        void shouldResolveTheOverrideServiceForANewlyConstructedPopupAction() throws Exception {
+            postedSave("Save");
+            addRequestParameter("available", "1");
+            replaceSpringUtilsBean(io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService.class,
+                    overrides);
+            ScheduleDateSave2Action action = inject(new ScheduleDateSave2Action());
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            verify(overrides).currentOverride("999998", java.sql.Date.valueOf("2031-05-14"));
+        }
+
+        @Test
         @DisplayName("should refuse, and keep the session cache, when the provider does not exist (#5297)")
         void shouldRefuseAndKeepCache_whenTheProviderDoesNotExist() throws Exception {
             ScheduleDateSave2Action action = postedSave("Save");
@@ -490,19 +502,8 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
 
         /** The given provider's rule schedule, as the month view leaves it in the session. */
         private io.github.carlos_emr.RscheduleBean ruleSchedule(String providerNo, boolean coversDate) {
-            io.github.carlos_emr.RscheduleBean rule = new io.github.carlos_emr.RscheduleBean() {
-                @Override
-                public boolean getDateAvail(String date) {
-                    return coversDate;
-                }
-
-                @Override
-                public String getDateAvailHour(String date) {
-                    return "0900-1700";
-                }
-            };
-            rule.provider_no = providerNo;
-            return rule;
+            return new io.github.carlos_emr.RscheduleBean(providerNo, "2031-01-01", "2031-12-31", "1",
+                    coversDate ? "4" : "", "", "<WED>0900-1700</WED>", "FAKE");
         }
 
         @org.junit.jupiter.params.ParameterizedTest
@@ -525,11 +526,12 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
             org.mockito.Mockito.verifyNoInteractions(overrides);
         }
 
-        @Test
-        @DisplayName("should reject a Save with an empty availability before anything is written (#5297)")
-        void shouldRejectSaveWithEmptyAvailability_beforeAnyWrite() throws Exception {
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"", " ", "2", "10", "available"})
+        @DisplayName("should reject a Save without a valid availability selection before anything is written (#5297)")
+        void shouldRejectSaveWithInvalidAvailability_beforeAnyWrite(String value) throws Exception {
             ScheduleDateSave2Action action = postedSave("Save");
-            addRequestParameter("available", "");
+            addRequestParameter("available", value);
 
             assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
 
@@ -537,6 +539,28 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
             assertThat(mockRequest.getAttribute(io.github.carlos_emr.carlos.utility.RefusalNotice.KEY_ATTRIBUTE))
                     .isEqualTo("error.refusal.scheduleAvailability");
             org.mockito.Mockito.verifyNoInteractions(overrides);
+        }
+
+        @Test
+        void shouldKeepTheOriginalProvidersRule_whenAnotherTabChangesTheRuleDuringDelete() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Delete");
+            var rule = ruleSchedule("999998", true);
+            setSessionAttribute("scheduleRscheduleBean", rule);
+            var session = org.mockito.Mockito.spy(mockSession);
+            mockRequest.setSession(session);
+            // The calendar passes the ownership check. A template in another tab then
+            // replaces its session rule before the date-save request builds the replacement.
+            org.mockito.Mockito.doAnswer(call -> {
+                rule.setRscheduleBean("999997", "2031-01-01", "2031-12-31", "1", "4", "",
+                        "<WED>1200-1300</WED>", "FAKE");
+                return call.callRealMethod();
+            }).when(session).getAttribute("userlastname");
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat(rule.provider_no).isEqualTo("999997");
+            assertThat(committed.get().getProviderNo()).isEqualTo("999998");
+            assertThat(committed.get().getHour()).isEqualTo("0900-1700");
         }
 
         @Test

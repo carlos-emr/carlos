@@ -11,8 +11,8 @@ FROM ubuntu:26.04
 # Only https_proxy, matching the host: an agent proxy that answers 405
 # to non-CONNECT GETs breaks plain-HTTP archive traffic, which should
 # go direct. Harmless when no proxy is set.
-ARG https_proxy=
-ENV https_proxy=$https_proxy
+ARG https_proxy
+ENV https_proxy="${https_proxy}"
 # Deliberately unpinned. The whole point of this image is "whatever
 # Ubuntu 26.04 currently ships" — pinning the interpreter would make the
 # harness stop tracking the platform it exists to check, which is the
@@ -27,5 +27,5 @@ RUN apt-get -qq update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
       python3 dash coreutils findutils tar gzip ca-certificates \
  && rm -rf /var/lib/apt/lists/*
-ENV https_proxy=
+ENV https_proxy=""
 WORKDIR /work

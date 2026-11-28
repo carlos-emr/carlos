@@ -395,8 +395,8 @@ class StartupUnitTest extends CarlosUnitTestBase {
         String originalUserHome = System.getProperty("user.home");
 
         // CarlosProperties is a process-wide singleton; snapshot and clear it so contextInitialized
-        // sees an empty set and both the user-home and WEB-INF lookups fail, reaching the new
-        // fail-fast path. Restored in finally so other tests in the JVM are unaffected.
+        // sees an empty set and the user-home lookup fails, reaching mandatory key persistence.
+        // Restored in finally so other tests in the JVM are unaffected.
         Properties snapshot = new Properties();
         snapshot.putAll(props);
 

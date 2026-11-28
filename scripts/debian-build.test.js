@@ -62,6 +62,55 @@ for (const [label, body, expected] of [
   });
 }
 
+test('packaged Tomcat starts with the Base64 intrinsic disabled on fresh and customized installs', async (t) => {
+  const { once } = require('node:events');
+  const net = require('node:net');
+  const root = fs.mkdtempSync('/tmp/carlos-tomcat-');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  // Relocate only the package directories. Run the complete launcher, including
+  // its startup checks and its exec of catalina.sh, inside this fixture.
+  const source = fs.readFileSync(path.join(__dirname, '..', 'debian/assets/bin/carlos-emr-tomcat'), 'utf8');
+  const launcher = path.join(root, 'carlos-emr-tomcat');
+  const packagePaths = /\/(?:etc\/carlos-emr|var\/lib\/carlos-emr|usr\/share\/tomcat11|run\/carlos-emr)\b/g;
+  fs.writeFileSync(launcher, source.replace(packagePaths, directory => root + directory));
+  for (const directory of [
+    'etc/carlos-emr', 'var/lib/carlos-emr/catalina/conf', 'usr/share/tomcat11/bin', 'usr/share/tomcat11/lib', 'jdk/bin',
+  ]) {
+    fs.mkdirSync(path.join(root, directory), { recursive: true });
+  }
+  fs.writeFileSync(path.join(root, 'etc/carlos-emr/carlos.properties'), '');
+  fs.writeFileSync(path.join(root, 'var/lib/carlos-emr/catalina/conf/server.xml'), '<Server/>');
+  fs.writeFileSync(path.join(root, 'jdk/release'), 'JAVA_VERSION="25"\n');
+  fs.symlinkSync('/bin/true', path.join(root, 'jdk/bin/java'));
+  const catalina = path.join(root, 'usr/share/tomcat11/bin/catalina.sh');
+  fs.writeFileSync(catalina, '#!/bin/sh\nset -eu\n[ "$1" = run ]\nprintf "%s\\n" "$CATALINA_OPTS"\n', { mode: 0o755 });
+
+  const database = net.createServer(socket => socket.end());
+  await once(database.listen(0, '127.0.0.1'), 'listening');
+  t.after(() => new Promise(resolve => database.close(resolve)));
+
+  for (const siteOptions of ['', '-Dclinic.example=true -XX:+UseBASE64Intrinsics']) {
+    fs.writeFileSync(path.join(root, 'etc/carlos-emr/carlos-emr.env'), `CARLOS_JAVA_OPTS="${siteOptions}"\n`);
+    const result = spawnSync('bash', [launcher, 'run'], {
+      env: {
+        PATH: process.env.PATH,
+        JAVA_HOME: path.join(root, 'jdk'),
+        CARLOS_TZ: 'UTC',
+        CARLOS_DB_PORT: String(database.address().port),
+      },
+      encoding: 'utf8',
+      timeout: 10_000,
+    });
+    assert.ifError(result.error);
+    assert.equal(result.status, 0, result.stderr);
+    const options = result.stdout.trim().split(/\s+/);
+    if (siteOptions) assert.ok(options.includes('-Dclinic.example=true'));
+    assert.equal(options.filter(option => /^-XX:[+-]UseBASE64Intrinsics$/.test(option)).at(-1),
+      '-XX:-UseBASE64Intrinsics');
+  }
+});
+
 test('Tomcat startup invalidates only generated JSP code without following cache symlinks', () => {
   const os = require('node:os');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-jsp-cache-'));
@@ -201,4 +250,206 @@ test('source builds retain both dependency-lock gates', () => {
   assert.match(recipe, /se\.vandmo:dependency-lock-maven-plugin:1\.1\.1:check/);
   assert.match(recipe, /-DdependencyLock\.filename=\$\$lock/);
   assert.match(rules, /lock=.*debian\/drugref-dependencies-lock\.json/);
+});
+
+// ---- #6336 gap tests: packaged units, launcher and wrappers -------------------------------
+
+const REPO = path.join(__dirname, '..');
+const readRepo = (...p) => fs.readFileSync(path.join(REPO, ...p), 'utf8');
+/** A systemd unit or shell text without its comment lines, so prose cannot satisfy a match. */
+const withoutComments = (text) => text.split('\n').filter(line => !/^\s*#/.test(line)).join('\n');
+const megabytes = (value) => Number(/^(\d+)M$/.exec(value)[1]);
+
+// The render browser's cgroup ceilings are sized for one browser per concurrent render slot
+// (#5853): the two shared slots plus the chart-only one, 300M peak each beyond the old 1G/1536M.
+test('render browser memory ceilings cover every browser the render slots can admit', () => {
+  const unit = withoutComments(readRepo('debian/assets/systemd/carlos-emr-render-browser.service'));
+  assert.match(unit, /^MemoryAccounting=yes$/m);
+  const high = megabytes(/^MemoryHigh=(\S+)$/m.exec(unit)[1]);
+  const max = megabytes(/^MemoryMax=(\S+)$/m.exec(unit)[1]);
+  assert.ok(high < max, 'MemoryHigh throttles below the MemoryMax kill');
+
+  const service = readRepo('src/main/java/io/github/carlos_emr/carlos/eform/util/EFormBrowserPdfService.java');
+  const shared = Number(/private static final int MAX_CONCURRENT_RENDERS = (\d+);/.exec(service)[1]);
+  const chartOnly = Number(/static final int CHART_ONLY_RENDERS = (\d+);/.exec(service)[1]);
+  const browsers = shared + chartOnly;
+  assert.equal(browsers, 3, 'the unit comment budgets three concurrent browsers');
+  const browserPeak = 300;
+  const baseHigh = 1024;
+  const baseMax = 1536;
+  // The ceilings are the pre-#5853 two-browser budget plus one peak per extra browser.
+  assert.equal(high, baseHigh + (browsers - 2) * browserPeak);
+  assert.equal(max, baseMax + (browsers - 2) * browserPeak);
+});
+
+// The root-run preflight wrapper (#6133), executed with its absolute paths relocated into a
+// temporary tree and a shell stub in place of java.
+function preflightFixture(t) {
+  const root = fs.mkdtempSync('/tmp/carlos-preflight-');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const source = readRepo('debian/assets/bin/carlos-emr-config-preflight');
+  const wrapper = path.join(root, 'carlos-emr-config-preflight');
+  fs.writeFileSync(wrapper, source.replace(/\/(?:usr\/lib\/jvm|usr\/share\/carlos-emr|etc\/carlos-emr)\b/g,
+    directory => root + directory), { mode: 0o755 });
+  const jdk = (name, version) => {
+    const home = path.join(root, 'usr/lib/jvm', name);
+    fs.mkdirSync(path.join(home, 'bin'), { recursive: true });
+    fs.writeFileSync(path.join(home, 'release'), `JAVA_VERSION="${version}"\n`);
+    fs.writeFileSync(path.join(home, 'bin/java'),
+      `#!/bin/sh\n{ echo "JDK=${name}"; for a in "$@"; do echo "ARG=$a"; done; env; } > "${root}/seen"\n`, { mode: 0o755 });
+  };
+  const run = (args, env = {}) => {
+    fs.rmSync(path.join(root, 'seen'), { force: true });
+    const result = spawnSync('/bin/sh', [wrapper, ...args], {
+      env: { PATH: process.env.PATH, ...env }, encoding: 'utf8', timeout: 10_000,
+    });
+    assert.ifError(result.error);
+    const seen = fs.existsSync(path.join(root, 'seen')) ? fs.readFileSync(path.join(root, 'seen'), 'utf8') : null;
+    return { ...result, seen };
+  };
+  return { root, jdk, run };
+}
+
+test('config preflight wrapper refuses a missing or unknown verb before running java', (t) => {
+  const { jdk, run } = preflightFixture(t);
+  jdk('java-25-openjdk-amd64', '25.0.1');
+  for (const args of [[], ['frobnicate'], ['']]) {
+    const result = run(args);
+    assert.equal(result.status, 2, JSON.stringify(args));
+    assert.match(result.stderr, /usage: carlos-emr-config-preflight reconcile\|verify/);
+    assert.equal(result.seen, null, 'java must not run');
+  }
+});
+
+test('config preflight wrapper strips JVM injection variables and runs the jar with verb and properties', (t) => {
+  const { root, jdk, run } = preflightFixture(t);
+  jdk('java-25-openjdk-amd64', '25.0.1');
+  for (const verb of ['reconcile', 'verify']) {
+    const result = run([verb], {
+      JAVA_TOOL_OPTIONS: '-invalid-option', _JAVA_OPTIONS: '-Dx=1', JDK_JAVA_OPTIONS: '-Dy=2', CLASSPATH: '/evil',
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const lines = result.seen.split('\n');
+    assert.deepEqual(lines.filter(l => l.startsWith('ARG=')), [
+      'ARG=-jar',
+      `ARG=${root}/usr/share/carlos-emr/lib/carlos-configuration-preflight.jar`,
+      `ARG=${verb}`,
+      `ARG=${root}/etc/carlos-emr/carlos.properties`,
+    ]);
+    for (const name of ['JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS', 'CLASSPATH']) {
+      assert.ok(!lines.some(l => l.startsWith(`${name}=`)), `${name} must be scrubbed`);
+    }
+  }
+});
+
+test('config preflight wrapper skips a non-25 runtime and refuses to start without Java 25', (t) => {
+  const { jdk, run } = preflightFixture(t);
+  jdk('default-java', '21.0.5');
+  jdk('java-25-openjdk-old', '2');
+  let result = run(['verify']);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Java 25 is unavailable/);
+  assert.equal(result.seen, null, 'a Java 21 runtime must not be used');
+
+  jdk('java-25-openjdk-amd64', '25.0.1');
+  result = run(['verify']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.seen, /^JDK=java-25-openjdk-amd64$/m);
+});
+
+test('packaged Tomcat launcher hands catalina the preflight agent and refuses a database that never answers', async (t) => {
+  const { once } = require('node:events');
+  const net = require('node:net');
+  const root = fs.mkdtempSync('/tmp/carlos-tomcat-agent-');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const packagePaths = /\/(?:etc\/carlos-emr|var\/lib\/carlos-emr|usr\/share\/tomcat11|usr\/share\/carlos-emr|run\/carlos-emr)\b/g;
+  const source = readRepo('debian/assets/bin/carlos-emr-tomcat');
+  // Shorten the 120 s database wait so the refusal branch can run in a test.
+  const shortened = source.replace('SECONDS + 120 ', 'SECONDS + 1 ');
+  assert.notEqual(shortened, source, 'the database wait deadline must be found');
+  const launcher = path.join(root, 'carlos-emr-tomcat');
+  fs.writeFileSync(launcher, shortened.replace(packagePaths, directory => root + directory));
+  for (const directory of ['etc/carlos-emr', 'var/lib/carlos-emr/catalina/conf', 'usr/share/tomcat11/bin', 'usr/share/tomcat11/lib', 'jdk/bin']) {
+    fs.mkdirSync(path.join(root, directory), { recursive: true });
+  }
+  fs.writeFileSync(path.join(root, 'etc/carlos-emr/carlos.properties'), '');
+  fs.writeFileSync(path.join(root, 'etc/carlos-emr/carlos-emr.env'), 'CARLOS_JAVA_OPTS=""\n');
+  fs.writeFileSync(path.join(root, 'var/lib/carlos-emr/catalina/conf/server.xml'), '<Server/>');
+  fs.writeFileSync(path.join(root, 'jdk/release'), 'JAVA_VERSION="25"\n');
+  fs.symlinkSync('/bin/true', path.join(root, 'jdk/bin/java'));
+  fs.writeFileSync(path.join(root, 'usr/share/tomcat11/bin/catalina.sh'),
+    '#!/bin/sh\nset -eu\nprintf "%s\\n" "$CATALINA_OPTS"\n', { mode: 0o755 });
+  const run = (port) => spawnSync('bash', [launcher, 'run'], {
+    env: { PATH: process.env.PATH, JAVA_HOME: path.join(root, 'jdk'), CARLOS_TZ: 'UTC', CARLOS_DB_PORT: String(port) },
+    encoding: 'utf8', timeout: 20_000,
+  });
+
+  const sockets = new Set();
+  const database = net.createServer(socket => { sockets.add(socket); socket.on('error', () => {}); socket.end(); });
+  await once(database.listen(0, '127.0.0.1'), 'listening');
+  t.after(() => { sockets.forEach(s => s.destroy()); database.close(); });
+  const livePort = database.address().port;
+  const started = run(livePort);
+  assert.equal(started.status, 0, started.stderr);
+  const options = started.stdout.trim().split(/\s+/);
+  const properties = `${root}/etc/carlos-emr/carlos.properties`;
+  assert.ok(options.includes(`-javaagent:${root}/usr/share/carlos-emr/lib/carlos-configuration-preflight.jar=${properties}`),
+    'the JVM verifies the effective configuration through the preflight agent');
+  assert.ok(options.includes(`-Dcarlos_override_properties=${properties}`));
+
+  sockets.forEach(s => s.destroy());
+  await new Promise(resolve => database.close(resolve)); // the port is now closed
+  const refused = run(livePort);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /did not accept a connection within 120s/);
+  assert.equal(refused.stdout, '', 'catalina must not start without a database');
+});
+
+// The service unit reconciles the packaged properties after the guards and before Tomcat starts.
+test('carlos-emr service reconciles configuration after the O19 guard and before ExecStart', () => {
+  const unit = withoutComments(readRepo('debian/carlos-emr.carlos-emr.service'));
+  const lines = unit.split('\n');
+  const at = (re) => lines.findIndex(line => re.test(line));
+  const guard = at(/^ExecCondition=\+\/usr\/lib\/carlos-emr\/carlos-emr-o19-guard$/);
+  const reconcile = at(/^ExecStartPre=\+\/usr\/lib\/carlos-emr\/carlos-emr-config-preflight reconcile$/);
+  const start = at(/^ExecStart=\/usr\/lib\/carlos-emr\/carlos-emr-tomcat run$/);
+  assert.ok(guard >= 0 && reconcile >= 0 && start >= 0, 'guard, reconcile and start are all declared');
+  assert.ok(guard < reconcile && reconcile < start, 'order: O19 guard, preflight reconcile, ExecStart');
+  assert.equal(lines.filter(line => /^ExecStartPre=/.test(line)).length, 1);
+});
+
+// The migration README names files by path; each must exist and be in the merge ledger, in order.
+// Its "highest migration" sentence is NOT asserted: it is stale (see the Task 6 report).
+test('every migration the README layout names exists on disk and is ledgered in Flyway order', () => {
+  const { MIGRATION_ROOT, readLedger, versionOf } = require('./lib/flyway-ledger');
+  const compareVersions = (a, b) => {
+    for (let i = 0; i < Math.max(a.length, b.length); i++) { const d = (a[i] || 0) - (b[i] || 0); if (d) return d; }
+    return 0;
+  };
+  const readme = fs.readFileSync(path.join(MIGRATION_ROOT, 'README.md'), 'utf8');
+  const layout = readme.slice(readme.indexOf('```text'), readme.indexOf('```', readme.indexOf('```text') + 7));
+  let location = null;
+  const named = [];
+  for (const line of layout.split('\n')) {
+    const heading = /^\s{2}(common|on|bc)\/\s+(V\S+\.sql)/.exec(line);
+    if (heading) location = heading[1];
+    const file = heading ? heading[2] : /^\s+(V\S+\.sql)/.exec(line)?.[1];
+    if (file) named.push(`${location}/${file}`);
+  }
+  assert.ok(named.length > 50, 'the layout lists the migrations');
+  const ledger = readLedger(path.join(__dirname, 'flyway-merge-order.txt')).map(([file]) => file);
+  for (const file of named) {
+    assert.ok(fs.existsSync(path.join(MIGRATION_ROOT, file)), `${file} exists`);
+    assert.ok(ledger.includes(file), `${file} is in scripts/flyway-merge-order.txt`);
+  }
+  // The README groups files by location; within each group they are listed in version order, and
+  // the ledger lists them in that same relative order.
+  for (const loc of ['common', 'on', 'bc']) {
+    const mine = named.filter(file => file.startsWith(`${loc}/`));
+    for (let i = 1; i < mine.length; i++) {
+      assert.ok(compareVersions(versionOf(mine[i - 1]), versionOf(mine[i])) < 0,
+        `${mine[i - 1]} sorts before ${mine[i]}`);
+      assert.ok(ledger.indexOf(mine[i - 1]) < ledger.indexOf(mine[i]), `${mine[i]} follows ${mine[i - 1]} in the ledger`);
+    }
+  }
 });
