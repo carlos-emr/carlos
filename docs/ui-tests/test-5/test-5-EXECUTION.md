@@ -110,6 +110,15 @@ echo "Test run directory: ui-test-runs/$TIMESTAMP/test-5"
 - Shows message, date, patient
 - Status shows as "Active" or "Open"
 
+#### Step 9: Check Attach Popup Sort Controls
+**Action**: Open attach popup for a chart
+**Screenshot**: `test-5-09-attach-popup.png`
+**Expected**:
+- Attach popup contains client-side sort controls
+- Table has 'data-carlos-table' attribute
+- Headers have 'data-table-sort' attributes
+- No server sort links ('a[href*="/PMmodule/ClientSearch2"]') present
+
 #### Step 9: Update Tickler Status
 **Action**:
 1. Click on tickler to open or use status dropdown
