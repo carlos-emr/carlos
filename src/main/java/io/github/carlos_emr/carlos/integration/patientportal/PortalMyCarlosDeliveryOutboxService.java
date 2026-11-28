@@ -66,35 +66,102 @@ final class PortalMyCarlosDeliveryOutboxService {
         if (snapshot == null) throw invalid();
         requireStaff(session, snapshot.demographicNo());
         standalone();
+        validateCopy(copy, snapshot);
+        return transactions.withSigningInventory(inventory -> {
+            eligible(snapshot);
+            requireSigner(inventory.orElseThrow(() -> unavailable()), snapshot);
+            return stageWithinOwner(copy, snapshot);
+        });
+    }
+
+    /** B and C outbox row IDs, not the IDs of retained original-PDF rows. */
+    record StagedPair(long originalRowId, long readingAidRowId) { }
+
+    /**
+     * Synthetic, unwired transaction seam for an already verified B/C assembler. This does not
+     * authenticate a reading aid, verify recipient capabilities, or authorize sending C. Both
+     * snapshots must reference the same raw eDoc mapping; their signed document IDs are separate
+     * assembler inputs. The existing schema retains no pair relationship or pair authority.
+     */
+    StagedPair stagePair(LoggedInInfo session,
+            PortalMyCarlosDeliveryComposer.Copy original, PortalMyCarlosDeliverySnapshot originalSnapshot,
+            PortalMyCarlosDeliveryComposer.Copy readingAid, PortalMyCarlosDeliverySnapshot readingAidSnapshot) {
+        if (originalSnapshot == null || readingAidSnapshot == null) throw invalid();
+        requireStaff(session, originalSnapshot.demographicNo());
+        standalone();
+        validateCopy(original, originalSnapshot);
+        validateCopy(readingAid, readingAidSnapshot);
+        requirePairScope(originalSnapshot, readingAidSnapshot);
+        if (!original.recipientId().equals(originalSnapshot.recipientId())
+                || !readingAid.recipientId().equals(readingAidSnapshot.recipientId())) throw invalid();
+        return transactions.withSigningInventory(inventory -> {
+            var signer = inventory.orElseThrow(() -> unavailable());
+            eligible(originalSnapshot);
+            eligible(readingAidSnapshot);
+            requireSigner(signer, originalSnapshot);
+            requireSigner(signer, readingAidSnapshot);
+            boolean originalExists = priorPairItem(originalSnapshot);
+            boolean readingAidExists = priorPairItem(readingAidSnapshot);
+            if (originalExists != readingAidExists) throw conflict();
+            return new StagedPair(stageWithinOwner(original, originalSnapshot),
+                    stageWithinOwner(readingAid, readingAidSnapshot));
+        });
+    }
+
+    private static void requirePairScope(PortalMyCarlosDeliverySnapshot b, PortalMyCarlosDeliverySnapshot c) {
+        if (b.deliveryId().equals(c.deliveryId()) || b.sourceDocumentId() == null
+                || !b.sourceDocumentId().equals(c.sourceDocumentId())
+                || !b.clinicId().equals(c.clinicId()) || b.demographicNo() != c.demographicNo()
+                || !b.recipientId().equals(c.recipientId()) || !b.publicBase().equals(c.publicBase())
+                || !b.internalTarget().equals(c.internalTarget()) || !b.configSha256().equals(c.configSha256())
+                || b.acceptedDeviceId() != c.acceptedDeviceId() || b.acceptanceVersion() != c.acceptanceVersion()
+                || !b.acceptanceSha256().equals(c.acceptanceSha256()) || !b.device().equals(c.device())
+                || !b.signerKid().equals(c.signerKid())) throw invalid();
+    }
+
+    /** Both delivery identities must be unused, or each have its sole matching-device row. */
+    private boolean priorPairItem(PortalMyCarlosDeliverySnapshot s) {
+        var rows = outbox.findForDelivery(s.clinicId(), s.deliveryId());
+        var original = outbox.original(s.clinicId(), s.deliveryId());
+        if (rows.isEmpty()) {
+            if (original.isPresent()) throw conflict();
+            return false;
+        }
+        if (rows.size() != 1 || !rows.get(0).deviceKid().equals(s.device().kid())
+                || original.isEmpty() || rows.get(0).originalId() != original.get().id()) throw conflict();
+        return true;
+    }
+
+    private static void validateCopy(PortalMyCarlosDeliveryComposer.Copy copy, PortalMyCarlosDeliverySnapshot snapshot) {
         if (copy == null || !copy.deliveryId().equals(snapshot.deliveryId())
                 || !copy.bodySha256().equals(snapshot.bodySha256()) || !copy.device().equals(snapshot.device())
                 || !copy.signerKid().equals(snapshot.signerKid()) || !copy.documentSha256().equals(snapshot.documentSha256())
                 || !copy.uploadBody().equals(snapshot.body())
                 || !PortalMyCarlosDeviceApprovalCrypto.sha256(copy.originalPdf().copy()).equals(snapshot.documentSha256())) throw invalid();
-        return transactions.withSigningInventory(inventory -> {
-            eligible(snapshot);
-            requireSigner(inventory.orElseThrow(() -> unavailable()), snapshot);
-            long originalId;
-            var priorOriginal = outbox.original(snapshot.clinicId(), snapshot.deliveryId());
-            if (priorOriginal.isPresent()) {
-                var original = priorOriginal.get();
-                if (!original.hash().equals(snapshot.documentSha256()) || !Arrays.equals(copy.originalPdf().copy(),
-                        cipher.open(context(snapshot, "original"), original.encrypted().copy()))) throw conflict();
-                originalId = original.id();
-            } else {
-                originalId = outbox.insertOriginal(snapshot.clinicId(), snapshot.deliveryId(), snapshot.documentSha256(),
-                        cipher.seal(context(snapshot, "original"), copy.originalPdf().copy()), snapshot.createdAt());
-            }
-            var prior = outbox.find(snapshot.clinicId(), snapshot.deliveryId(), snapshot.device().kid());
-            if (prior.isPresent()) {
-                Row row = prior.get();
-                if (row.originalId() != originalId || !Arrays.equals(load(row).encode(), snapshot.encode())) throw conflict();
-                return row.id();
-            }
-            byte[] exact = snapshot.encode();
-            return outbox.insert(originalId, snapshot, cipher.seal(context(snapshot, "outbox"), exact),
-                    PortalMyCarlosDeviceApprovalCrypto.sha256(exact));
-        });
+    }
+
+    /** Caller owns the existing signing-inventory transaction; never opens a nested owner. */
+    private long stageWithinOwner(PortalMyCarlosDeliveryComposer.Copy copy, PortalMyCarlosDeliverySnapshot snapshot) {
+        long originalId;
+        var priorOriginal = outbox.original(snapshot.clinicId(), snapshot.deliveryId());
+        if (priorOriginal.isPresent()) {
+            var original = priorOriginal.get();
+            if (!original.hash().equals(snapshot.documentSha256()) || !Arrays.equals(copy.originalPdf().copy(),
+                    cipher.open(context(snapshot, "original"), original.encrypted().copy()))) throw conflict();
+            originalId = original.id();
+        } else {
+            originalId = outbox.insertOriginal(snapshot.clinicId(), snapshot.deliveryId(), snapshot.documentSha256(),
+                    cipher.seal(context(snapshot, "original"), copy.originalPdf().copy()), snapshot.createdAt());
+        }
+        var prior = outbox.find(snapshot.clinicId(), snapshot.deliveryId(), snapshot.device().kid());
+        if (prior.isPresent()) {
+            Row row = prior.get();
+            if (row.originalId() != originalId || !Arrays.equals(load(row).encode(), snapshot.encode())) throw conflict();
+            return row.id();
+        }
+        byte[] exact = snapshot.encode();
+        return outbox.insert(originalId, snapshot, cipher.seal(context(snapshot, "outbox"), exact),
+                PortalMyCarlosDeviceApprovalCrypto.sha256(exact));
     }
 
     enum SendResult { WAITING, EXPIRED, REMOVED, RETRY_PENDING, FENCED, ERROR, NOT_CLAIMED, STALE }
