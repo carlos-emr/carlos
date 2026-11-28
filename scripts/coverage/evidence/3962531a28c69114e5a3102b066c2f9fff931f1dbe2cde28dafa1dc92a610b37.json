@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "7571f721e6ec64efc6f98e12eb5a7280c0a500bb",
+  "comparisonSha256": "5db74b3196e9892f39052783b6d2e24f83864a2704a9741b43121198c5f16848",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/FavoriteDaoImpl.java": {
+      "lines": 96.875,
+      "instructions": 96.875,
+      "branches": 84.61538461538461,
+      "sourceBlob": "3f5615e858d6732b2a66289f18adf3a2d917db14"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": {
+      "lines": 96.15384615384616,
+      "instructions": 78.75894988066825,
+      "branches": 48.75,
+      "sourceBlob": "f96f208d1468f03b42e0edf040ac62313494f5f8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/bean/BpmhDrug.java": {
+      "lines": 100.0,
+      "instructions": 97.98657718120805,
+      "branches": 88.76404494382022,
+      "sourceBlob": "b8efd193d05e3d583502813bf6c2440874d46297"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionData.java": {
+      "lines": 94.44444444444444,
+      "instructions": 92.75,
+      "branches": 82.3529411764706,
+      "sourceBlob": "73c159b6880d1525da63a19956f534557c797bb9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2Action.java": {
+      "lines": 90.9090909090909,
+      "instructions": 89.54666666666667,
+      "branches": 76.29629629629629,
+      "sourceBlob": "1cf3a52929dbde808bd1d8cfed0b71a4b976b5a8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugStrength.java": {
+      "lines": 96.875,
+      "instructions": 95.61170212765957,
+      "branches": 76.7605633802817,
+      "sourceBlob": "e98442ee0f38d99a8acd8ed509069a9abd9cd430"
+    }
+  },
+  "baselineCommit": "82100010db8d1e6b33407ed0bd86734af648bc04",
+  "baselineSourceTree": "7571f721e6ec64efc6f98e12eb5a7280c0a500bb",
+  "baselineReportSha256": "2e3d4f7284830cf287a4458e17776c98e9bc096bb767123cb467690bb045e22d",
+  "baselineLane": "Focused Java 25 JaCoCo run for PR #6424 review follow-up (FavoriteDaoImpl, Drug, BpmhDrug, RxPrescriptionData, RxWriteScript2Action, DrugStrength): 31 JUnit 5 test suites (1435 test cases, 0 failures, 0 errors, 0 skipped).",
+  "baselineTestCounts": {
+    "tests": 1435,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "f9e04d4077da9b895ada8adb30773fcb33232f7d13c2e396dcfbf692066fc21d",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.commn.dao.DrugDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.DrugReasonDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.FavoriteDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.FavoritesDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.hl7.v2.OmpO09MedicationUnitTest",
+    "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhDrugUnitTest",
+    "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.business.BpmhForm2HandlerUnitTest",
+    "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.pdf.BpmhMedicationPaginationUnitTest",
+    "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2ActionUnitTest",
+    "io.github.carlos_emr.carlos.managers.RxManagerUnitTest",
+    "io.github.carlos_emr.carlos.prescript.data.RxFavoriteSaveUnitTest",
+    "io.github.carlos_emr.carlos.prescript.data.RxPrescriptionDataNullRepeatUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxAuditRowContentUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxPatientWriteAuthorizationUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxSaveReceiptCommitIntegrationTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxStashWriteIsolationUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionCardCorrectionUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionCreateNewRxUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionCustomNoteTextUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionIntegrationTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionListPreviousInstructionsUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionStrutsBindingIntegrationTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionWriteIsolationUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScriptFormLogPrivacyUnitTest",
+    "io.github.carlos_emr.carlos.prescript.util.DrugStrengthUnitTest",
+    "io.github.carlos_emr.carlos.prescript.util.RxUtilInstrucParserUnitTest",
+    "io.github.carlos_emr.carlos.webserv.conversion.DrugConverterUnitTest",
+    "io.github.carlos_emr.carlos.webserv.conversion.MedicationDetailsUnitTest",
+    "io.github.carlos_emr.carlos.webserv.rest.RxWebServiceEndpointTest",
+    "io.github.carlos_emr.carlos.webserv.rest.RxWebServiceRegressionTest",
+    "io.github.carlos_emr.carlos.webserv.rest.RxWebServiceUnitTest"
+  ]
+}
