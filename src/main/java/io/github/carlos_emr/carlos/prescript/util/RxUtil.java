@@ -38,6 +38,7 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.model.Drug;
@@ -3007,13 +3008,14 @@ public class RxUtil {
     }
 
     private static void setResultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx, Drug d) {
-        // The previous quantity's whole amount is carried over: its first run of digits alone
-        // turned a previous 2.5 (mL) into the default 2 (#6185). The unit is the stored unit name.
-        String previousAmount = getQuantityFromQuantityText(d.getQuantity());
-        if (previousAmount != null) {
-            rx.setQuantity(previousAmount);
+        // Imported quantities can carry their unit in the quantity text instead of the unit column.
+        String unitName = d.getUnitName();
+        String quantity = StringUtils.isBlank(unitName)
+                ? DoseText.ofNumericText(d.getQuantity()) : getQuantityFromQuantityText(d.getQuantity());
+        if (StringUtils.isNotBlank(quantity)) {
+            rx.setQuantity(quantity);
         }
-        rx.setUnitName(d.getUnitName());
+        rx.setUnitName(unitName);
 
         rx.setRepeat(d.getRepeat() == null ? 0 : d.getRepeat());
         rx.setSpecial(d.getSpecial());

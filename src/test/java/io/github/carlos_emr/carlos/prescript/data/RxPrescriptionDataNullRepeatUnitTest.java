@@ -135,9 +135,12 @@ class RxPrescriptionDataNullRepeatUnitTest extends CarlosUnitTestBase {
      * of digits was carried over, so a previous "2.5" (of 2.5 mL) became the default "2" (#6185).
      */
     @ParameterizedTest(name = "previous quantity {0} {1} -> {2}")
-    @CsvSource(nullValues = "NULL", value = {"2.5,mL,2.5", "0.5,mL,0.5", "0.0625,mL,0.0625", "2.5,NULL,2.5", "30,NULL,30"})
-    @DisplayName("should carry the whole decimal quantity of the previous prescription")
-    void shouldCarryWholeQuantity_whenPreviousQuantityIsADecimal(String quantity, String unitName, String expected) {
+    @CsvSource(nullValues = "NULL", value = {
+            "2.5,mL,2.5", "0.5,mL,0.5", "0.0625,mL,0.0625", "2.5,NULL,2.5", "30.0,NULL,30",
+            "2.5 mL,NULL,2.5 mL", "1 bottle (120 mL),NULL,1 bottle (120 mL)"
+    })
+    @DisplayName("should carry the amount together with either form of the stored unit")
+    void shouldCarryQuantityAndUnit_whenReusingPreviousPrescription(String quantity, String unitName, String expected) {
         Drug drug = new Drug();
         drug.setRepeat(0);
         drug.setQuantity(quantity);

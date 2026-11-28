@@ -164,11 +164,12 @@ class RxUniquePrescriptionsUnitTest extends CarlosUnitTestBase {
      * A strength of ten million units was stored as the float's own text ("1.0E7unit") before
      * #6185 and is stored as "10000000unit" since.
      */
-    @Test
-    void shouldListTheRenewalOnce_whenTheEarlierStrengthWasWrittenWithAnExponent() {
+    @ParameterizedTest
+    @ValueSource(strings = {"1.0E7unit", "1E7unit"})
+    void shouldListTheRenewalOnce_whenTheEarlierStrengthWasWrittenWithAnExponent(String earlierStrength) {
         Drug before = drug(1, "Synthetic X");
-        before.setGenericName("synthetic 1.0E7unit vial");
-        before.setDosage("1.0E7unit");
+        before.setGenericName("synthetic " + earlierStrength + " vial");
+        before.setDosage(earlierStrength);
         Drug after = drug(2, "Synthetic X");
         after.setGenericName("synthetic 10000000unit vial");
         after.setDosage("10000000unit");

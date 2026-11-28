@@ -285,8 +285,7 @@ class DoseTextUnitTest {
         }
 
         /**
-         * Where a number starts and ends inside a longer text: a digit run with a fraction, and an
-         * exponent only when it is complete. Anything else around it is copied as it is.
+         * A digit run with a fraction or a complete exponent. The text around it is copied as it is.
          */
         @ParameterizedTest(name = "\"{0}\" -> \"{1}\"")
         @CsvSource(delimiter = '|', value = {
@@ -303,6 +302,9 @@ class DoseTextUnitTest {
             "12.50.0 | 12.5.0",
             "1.0e+7unit | 10000000unit",
             "1.0e-4mg | 0.0001mg",
+            "1e+7unit | 10000000unit",
+            "1e-4mg | 0.0001mg",
+            "1e+unit | 1e+unit",
             "7.0e5 | 700000",
             "1.50e | 1.5e",
             "1.50E | 1.5E",

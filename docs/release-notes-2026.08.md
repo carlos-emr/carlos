@@ -74,6 +74,10 @@ strength too small for the REST numeric field is left unknown. On a same-product
 an explicit JSON null for a fractional dispense quantity is indistinguishable from an
 echo of the old response and retains that quantity. [REST representation follow-up](https://github.com/carlos-emr/carlos/issues/6401)
 
+Changing a dispense amount on a same-product REST edit keeps the stored unit, including a unit
+written next to the amount in a legacy quantity such as `2.5 mL`. When the legacy text does not
+clearly identify the unit, the update is refused and the existing prescription stays active.
+
 OSCAR19 transfers that use the new exact-dose supplement require a matching carlos-ctl
 release on the source and destination. The current 1.3.6 importer rejects that dump, and
 its format 3 digests can accept rounded doses in a stock dump. Preserve the original source

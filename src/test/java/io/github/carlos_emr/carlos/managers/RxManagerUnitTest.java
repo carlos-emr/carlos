@@ -262,25 +262,56 @@ class RxManagerUnitTest extends RxManagerImpl {
         }
 
         @ParameterizedTest
-        @CsvSource({"30.0", "30", "030", "2.5", "100 mL"})
-        void shouldPreserveQuantityAndUnit_whenRestEchoesPublishedMedication(String quantity) throws Exception {
+        @CsvSource(nullValues = "NULL", value = {
+                "30.0,mL,,mL", "30,mL,,mL", "030,mL,,mL", "2.5,mL,,mL", "100 mL,mL,,mL",
+                "30,mL,60,mL", "2.5,mL,60,mL", "2.5 mL,NULL,60,mL", "3e1,NULL,60,NULL",
+                "NULL,NULL,60,NULL", "-2.5,NULL,60,NULL", "+2.5,NULL,60,NULL"
+        })
+        void shouldKeepDispenseUnit_whenRestEditsSameProduct(String quantity, String unitName, Integer submittedQuantity,
+                                                           String expectedUnit) throws Exception {
             Drug stored = new Drug();
             stored.setId(4);
             stored.setDemographicId(1);
             stored.setGenericName("ASA");
             stored.setProviderNo("999001");
             stored.setQuantity(quantity);
-            stored.setUnitName("mL");
+            stored.setUnitName(unitName);
             ((MockDrugDao) drugDao).seed(stored);
             var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
             LoggedInInfo info = new LoggedInInfo();
             var dto = converter.getAsTransferObject(info, stored);
-            dto.setExternalProvider("Changed provider");
+            if (submittedQuantity == null) {
+                dto.setExternalProvider("Changed provider");
+            } else {
+                dto.setQuantity(submittedQuantity);
+            }
             Drug replacement = updateDrug(info, converter.getAsDomainObject(info, dto));
-            assertThat(replacement.getQuantity()).isEqualTo(quantity);
-            assertThat(replacement.getUnitName()).isEqualTo("mL");
+            assertThat(replacement.getQuantity()).isEqualTo(submittedQuantity == null ? quantity : submittedQuantity.toString());
+            assertThat(replacement.getUnitName()).isEqualTo(expectedUnit);
             assertThat(stored.getQuantity()).isEqualTo(quantity);
-            assertThat(stored.getUnitName()).isEqualTo("mL");
+            assertThat(stored.getUnitName()).isEqualTo(unitName);
+        }
+
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"1/2 mL", "one bottle"})
+        void shouldKeepOriginalPrescription_whenRestCannotRecoverTheDispenseUnit(String quantity) throws Exception {
+            Drug stored = new Drug();
+            stored.setId(4);
+            stored.setDemographicId(1);
+            stored.setGenericName("Synthetic product");
+            stored.setQuantity(quantity);
+            ((MockDrugDao) drugDao).seed(stored);
+            var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+            var info = new LoggedInInfo();
+            var dto = converter.getAsTransferObject(info, stored);
+            dto.setQuantity(60);
+            Drug incoming = converter.getAsDomainObject(info, dto);
+
+            assertThatThrownBy(() -> updateDrug(info, incoming))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("The stored dispense unit could not be determined");
+            assertThat(stored.getQuantity()).isEqualTo(quantity);
+            assertThat(stored.isArchived()).isFalse();
         }
 
         @ParameterizedTest
@@ -455,8 +486,10 @@ class RxManagerUnitTest extends RxManagerImpl {
                 assertThat(replacement.getUnitName()).isEqualTo("mL");
             } else if ("zero".equals(change)) {
                 assertThat(replacement.getQuantity()).isEqualTo("5");
+                assertThat(replacement.getUnitName()).isEqualTo("mL");
             } else {
                 assertThat(replacement.getQuantity()).isNull();
+                assertThat(replacement.getUnitName()).isNull();
             }
             assertThat(replacement.getTakeMin()).isEqualTo(changedProduct || "zero".equals(change) ? 0f : 0.33333334f);
             assertThat(replacement.getTakeMax()).isEqualTo(changedProduct ? 0f : 3f);

@@ -152,7 +152,7 @@ public final class DoseText {
      * <p>This is for comparison. Text shown to a person is shown as it is stored.
      *
      * @param text the text, which may be {@code null}
-     * @return the text with each number that has a fraction rewritten by
+     * @return the text with each number that has a fraction or exponent rewritten by
      *     {@link #ofNumericText(String)}; {@code null} for {@code null}
      */
     public static String withPlainNumbers(String text) {
@@ -167,7 +167,7 @@ public final class DoseText {
         while (at < text.length()) {
             int end = decimalEnd(text, at);
             if (end == at) {
-                // No number with a fraction starts here. Step over this character, or over the
+                // No number with a fraction or exponent starts here. Step over this character, or over the
                 // whole run of digits, so that no number is read from the middle of a longer one.
                 at = Math.max(at + 1, digitsEnd(text, at));
             } else {
@@ -183,17 +183,20 @@ public final class DoseText {
     }
 
     /**
-     * The index after the decimal number that starts at {@code index}: digits, a fraction and an
-     * optional exponent ("250.0", "1.0E7"). It is {@code index} itself when no such number starts
-     * there: the character is not a digit, or the digits have no fraction ("250mg", "5.", "5.x"),
-     * and a whole number has no trailing zero to drop.
+     * The index after a number with a fraction or exponent that starts at {@code index}
+     * ("250.0", "1.0E7", "1E7"). Returns {@code index} for text that starts with a non-digit
+     * or with a whole number that needs no decimal normalization.
      */
     private static int decimalEnd(String text, int index) {
         int integerEnd = digitsEnd(text, index);
-        if (integerEnd == index || !isFractionAt(text, integerEnd)) {
+        if (integerEnd == index) {
             return index;
         }
-        return exponentEnd(text, digitsEnd(text, integerEnd + 1));
+        if (isFractionAt(text, integerEnd)) {
+            return exponentEnd(text, digitsEnd(text, integerEnd + 1));
+        }
+        int end = exponentEnd(text, integerEnd);
+        return end == integerEnd ? index : end;
     }
 
     /**

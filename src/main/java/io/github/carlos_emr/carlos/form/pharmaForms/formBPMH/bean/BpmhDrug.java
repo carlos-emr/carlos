@@ -32,6 +32,8 @@ package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.regex.Pattern;
+
 /*
  * Author: Dennis Warren
  * Company: Colcamex Resources
@@ -46,6 +48,11 @@ import org.apache.commons.lang3.StringUtils;
  *
  */
 public class BpmhDrug {
+
+    private static final String DISPENSE_NUMBER = "(?:[0-9]++(?:\\.[0-9]++)?+|\\.[0-9]++)";
+    private static final Pattern DISPENSE_AMOUNT = Pattern.compile(
+            "Qty:\\h*+" + DISPENSE_NUMBER + "[^\\n]*+|Mitte:\\h*+" + DISPENSE_NUMBER + "(?:\\h*+\\p{L}++)?+");
+    private static final Pattern REPEAT_COUNT = Pattern.compile("Repeats:\\h*+[0-9]++(?:\\h++No Subs)?");
 
     private String id;
     private String demographicId;
@@ -127,12 +134,7 @@ public class BpmhDrug {
         if (hasHeading) {
             text = lineBreak < 0 ? "" : text.substring(lineBreak + 1);
         }
-        String withoutTrailingSpace = text.stripTrailing();
-        int lastBreak = withoutTrailingSpace.lastIndexOf('\n');
-        String last = withoutTrailingSpace.substring(lastBreak + 1);
-        if ((last.startsWith("Qty:") || last.startsWith("Mitte:")) && last.contains(" Repeats:")) {
-            text = lastBreak < 0 ? "" : text.substring(0, lastBreak);
-        }
+        text = withoutDispensingFooter(text);
         if (hasHeading && StringUtils.isNotBlank(pharmacyInstruction)) {
             String pharmacy = pharmacyInstruction.replace("\r\n", "\n").replace('\r', '\n').stripTrailing();
             String body = text.stripTrailing();
@@ -156,6 +158,24 @@ public class BpmhDrug {
         how = String.join(" ", java.util.stream.Stream.of(getMethod(), amount, doseUnit, getFreqCode(), getRoute(),
                         Boolean.parseBoolean(getPrn()) ? "as needed" : "")
                 .filter(StringUtils::isNotBlank).toList());
+    }
+
+    private static String withoutDispensingFooter(String text) {
+        String trimmed = text.stripTrailing();
+        int lastBreak = trimmed.lastIndexOf('\n');
+        int repeatsSeparator = trimmed.lastIndexOf(" Repeats:");
+        int footerStart = lastBreak;
+        // The legacy editor puts the repeats on a separate line after the amount.
+        if (repeatsSeparator <= lastBreak) {
+            repeatsSeparator = lastBreak;
+            footerStart = trimmed.lastIndexOf('\n', lastBreak - 1);
+        }
+        if (repeatsSeparator > footerStart
+                && REPEAT_COUNT.matcher(trimmed).region(repeatsSeparator + 1, trimmed.length()).matches()
+                && DISPENSE_AMOUNT.matcher(trimmed.substring(footerStart + 1, repeatsSeparator).stripTrailing()).matches()) {
+            return text.substring(0, Math.max(footerStart, 0));
+        }
+        return text;
     }
 
     // Possessive digit runs, a single optional space and a fixed unit vocabulary bound the match to linear time.

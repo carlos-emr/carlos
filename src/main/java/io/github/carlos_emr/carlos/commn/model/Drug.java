@@ -569,6 +569,10 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
                 && (Boolean.FALSE.equals(restQuantitySubmitted) || Objects.equals(Objects.toString(publishedQuantity, null), quantity))) {
             quantity = source.quantity;
             unitName = source.unitName;
+        } else if (Boolean.TRUE.equals(restQuantitySubmitted) && quantity != null && unitName == null) {
+            // The REST client can replace the amount but has no field for the dispense unit.
+            unitName = StringUtils.getIfBlank(source.unitName,
+                    () -> publishedQuantity == null ? embeddedDispenseUnit(source.quantity) : null);
         }
         if (source.dosage != null && (dosage == null || DrugStrength.fromDosage(source.dosage).dosageText().equals(dosage))) {
             dosage = source.dosage;
@@ -579,6 +583,16 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         if (source.customInstructions == null && !isCustomInstructions()) customInstructions = null;
         if (source.hideFromCpp == null && !getHideFromCpp()) hideFromCpp = null;
         if (source.startDateUnknown == null && !getStartDateUnknown()) startDateUnknown = null;
+    }
+
+    private static String embeddedDispenseUnit(String storedQuantity) {
+        String text = StringUtils.stripToEmpty(storedQuantity);
+        int amountStart = text.startsWith("+") || text.startsWith("-") ? 1 : 0;
+        int amountEnd = DoseText.numberEnd(text, amountStart);
+        String suffix = text.substring(amountEnd).stripLeading();
+        if (suffix.isEmpty()) return null;
+        if (amountEnd > amountStart && Character.isLetter(suffix.codePointAt(0))) return suffix;
+        throw new IllegalArgumentException("The stored dispense unit could not be determined");
     }
 
     /**

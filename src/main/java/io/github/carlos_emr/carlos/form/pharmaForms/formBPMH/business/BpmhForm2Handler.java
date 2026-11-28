@@ -475,8 +475,7 @@ public class BpmhForm2Handler {
                     float min = drug.getTakeMin();
                     float max = drug.getTakeMax();
                     if (Float.isFinite(min) && Float.isFinite(max) && !(min > 0 && max > 0 && max < min)) {
-                        float first = min > 0 ? min : max;
-                        bpmhDrug.setTakeMin(first > 0 ? DoseText.of(first) : "");
+                        bpmhDrug.setTakeMin(min > 0 ? DoseText.of(min) : "");
                         bpmhDrug.setTakeMax(max > 0 ? DoseText.of(max) : "");
                     }
                     // A selected product's unit can be its strength unit. Its form alone

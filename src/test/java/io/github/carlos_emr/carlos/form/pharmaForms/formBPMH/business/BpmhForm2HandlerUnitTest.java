@@ -126,13 +126,15 @@ class BpmhForm2HandlerUnitTest {
         assertThat(formRowFor(drug).getHow()).isEqualTo("Take only as directed by the clinic");
     }
 
-    @Test
-    void shouldWriteUpperBoundAlone_whenOnlyTheUpperBoundIsRecorded() {
-        Drug drug = structuredDrug(0f, 2f);
+    @ParameterizedTest
+    @CsvSource({"0, 2", "-1, 3"})
+    void shouldLeaveDirectionsMissing_whenOnlyTheUpperBoundIsRecorded(float min, float max) {
+        Drug drug = structuredDrug(min, max);
 
         BpmhDrug row = formRowFor(drug);
 
-        assertThat(row.getHow().trim()).isEqualTo("Take 2 TAB BID PO");
+        assertThat(row.getTakeMin()).isEmpty();
+        assertThat(row.getHow()).isEmpty();
     }
 
     @Test
@@ -165,6 +167,15 @@ class BpmhForm2HandlerUnitTest {
         drug.setSpecial("FAKE metoprolol\r\nTake 1 tablet for 2 days\r\nThen take half a tablet"
                 + "\r\nSupply blister pack\r\nQty:30.0 TAB Repeats:0");
         assertThat(formRowFor(drug).getHow()).isEqualTo("Take 1 tablet for 2 days\nThen take half a tablet");
+    }
+
+    @Test
+    void shouldKeepAdministrationDirections_whenLegacyEditorWritesRepeatsOnTheirOwnLine() {
+        Drug drug = structuredDrug(5, 5);
+        drug.setSpecialInstruction("Supply blister pack");
+        drug.setSpecial("FAKE metoprolol\r\nUse once daily\r\nSupply blister pack\r\nQty:30 \r\nRepeats:2 No Subs\r\n");
+
+        assertThat(formRowFor(drug).getHow()).isEqualTo("Use once daily");
     }
 
     @Test

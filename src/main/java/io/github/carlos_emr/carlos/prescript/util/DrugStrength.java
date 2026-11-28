@@ -25,6 +25,9 @@ public record DrugStrength(Float amount, String unit) {
     private static final Pattern PER_VOLUME = Pattern.compile("\\s*+(?:/|per\\b)\\s*+", UNIT_FLAGS);
     private static final Pattern VOLUME_UNIT =
             Pattern.compile("\\s*+(?:[mµμun]?l|(?:milli|micro)?lit(?:er|re)s?)\\b\\S*+", UNIT_FLAGS);
+    // A plus can belong to the unit or to an exponent. It separates ingredients when it introduces another amount.
+    private static final Pattern INGREDIENT_SEPARATOR =
+            Pattern.compile("[,;]|(?<![0-9]e)\\+(?=\\s*+(?:[0-9]|\\.[0-9]))", UNIT_FLAGS);
 
     /**
      * Reads the leading strength from stored dosage text. For a combination it returns the first
@@ -61,8 +64,12 @@ public record DrugStrength(Float amount, String unit) {
             Matcher volume = VOLUME_UNIT.matcher(text).region(amountEnd, text.length());
             if (volume.lookingAt()) unitEnd = Math.max(unitEnd, volume.end());
         }
-        // A separator before a later ingredient can be attached to the first unit.
-        while ("/,;".indexOf(text.charAt(unitEnd - 1)) >= 0) {
+        Matcher nextIngredient = INGREDIENT_SEPARATOR.matcher(text).region(unitMatch.end(1), text.length());
+        if (nextIngredient.find() && nextIngredient.start() < unitEnd) {
+            unitEnd = nextIngredient.start();
+        }
+        // A trailing slash may be attached to the first unit before the next ingredient.
+        while (text.charAt(unitEnd - 1) == '/') {
             unitEnd--;
         }
         return new DrugStrength(strength, text.substring(unitMatch.start(1), unitEnd));

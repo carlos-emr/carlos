@@ -203,6 +203,18 @@ class BpmhDrugUnitTest {
         drug.setSpecial("Mitte: confirm with the pharmacy");
         drug.usePrescriptionDirections(null, null, null);
         assertThat(drug.getHow()).isEqualTo("Mitte: confirm with the pharmacy");
+
+        drug.setSpecial("Mitte: confirm with the pharmacy Repeats: confirm with prescriber");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Mitte: confirm with the pharmacy Repeats: confirm with prescriber");
+
+        drug.setSpecial("Mitte: confirm with the pharmacy Repeats:0");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Mitte: confirm with the pharmacy Repeats:0");
+
+        drug.setSpecial("Mitte:7 days Repeats: confirm with prescriber");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Mitte:7 days Repeats: confirm with prescriber");
     }
 
     @Test
