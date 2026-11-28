@@ -1,0 +1,583 @@
+/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+'use strict';
+// The document page's "Send to myCarlos" dialog (mycarlos-send-dialog.js over mycarlos-send.js), run
+// as shipped on a deterministic DOM: run with `node --test scripts/mycarlos-send-dialog.test.js`.
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const h = require('./lib/playwright-harness');
+const {Element, FakeDocument, sendRoot, load, tick, delivery, state} = require('./lib/mycarlos-send-fake-dom');
+
+const MINTED = delivery(500).deliveryId;
+const SCRIPTS = ['mycarlos-send.js', 'mycarlos-send-dialog.js'];
+
+function page({documents = ['44'], scripts = SCRIPTS, context = '/FAKE', globals = {}} = {}) {
+    const document = new FakeDocument();
+    const dialogs = {};
+    const openers = {};
+    for (const id of documents) {
+        const {root, parts} = sendRoot(document, {dialog: true, data: {document: id, context}, token: ''});
+        document.ids['mycarlos-send-dialog-' + id] = root;
+        const opener = new Element(document, 'a');
+        opener.dataset.mycarlosDialog = 'mycarlos-send-dialog-' + id;
+        dialogs[id] = {root, parts};
+        openers[id] = opener;
+    }
+    // The page's token, as CSRFGuard puts in the document page's own forms.
+    const pageToken = new Element(document, 'input'); pageToken.name = 'CSRF-TOKEN'; pageToken.value = 'FAKE-CSRF';
+    document.pageInputs.push(pageToken);
+    const {window, calls} = load(document, {scripts, globals});
+    return {document, dialogs, openers, window, calls};
+}
+
+// The inbox redraws a document by rebuilding its dialog and Send button (clearDocView, then showDocLab).
+function rebuild(view, id = '44') {
+    const {root, parts} = sendRoot(view.document, {dialog: true, data: {document: id, context: '/FAKE'}, token: ''});
+    view.document.ids['mycarlos-send-dialog-' + id] = root;
+    const opener = new Element(view.document, 'a');
+    opener.dataset.mycarlosDialog = 'mycarlos-send-dialog-' + id;
+    view.dialogs[id] = {root, parts};
+    view.openers[id] = opener;
+    return {root, parts};
+}
+
+const device = id => ({deviceKeyId: id, acceptedAt: '2026-10-26T00:00:00Z', fingerprint: '0'.repeat(64)});
+
+async function openRead(view, id = '44', minted = MINTED, rows = []) {
+    const event = view.openers[id].click();
+    assert.equal(event.defaultPrevented, true, 'the link does not open the standalone page');
+    await tick();
+    const read = view.calls.at(-1);
+    view.calls.at(-1).resolve(state(rows, {deliveryId: minted})); await tick(); await tick();
+    return read;
+}
+
+test('opens as a modal dialog, reads once, takes the minted id and moves focus to the device', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    const read = await openRead(view);
+    assert.equal(root.open, true);
+    assert.equal(view.calls.length, 1);
+    const url = new URL(read.url);
+    assert.equal(url.origin, 'https://localhost');
+    assert.equal(url.pathname, '/FAKE/demographic/PortalDelivery');
+    assert.equal(read.options.method, 'GET');
+    assert.equal(url.searchParams.get('method'), 'read');
+    assert.equal(url.searchParams.has('deliveryId'), false, 'the server names the id');
+    assert.equal(root.dataset.delivery, MINTED);
+    assert.equal(parts['document-title'].textContent, 'FAKE Document');
+    assert.equal(view.document.focused, parts.device);
+    assert.equal(view.window.history.replaced.length, 0, 'the document page URL is never rewritten');
+});
+
+test('Close and Esc wait while a send runs, until its result shows', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    const sent = new URLSearchParams(view.calls[1].options.body);
+    assert.equal(view.calls[1].options.method, 'POST');
+    assert.equal(sent.get('method'), 'send');
+    assert.equal(sent.get('deliveryId'), MINTED);
+    assert.equal(sent.get('deviceKeyId'), 'FAKE-current-device');
+    assert.equal(sent.get('CSRF-TOKEN'), 'FAKE-CSRF', 'a filled token on the page is used');
+    assert.equal(parts.message.textContent, 'sending');
+    assert.equal(parts.close.disabled, true);
+    parts.close.disabled = false; parts.close.click();
+    assert.equal(root.open, true, 'Close does not close while sending');
+    assert.equal(root.pressEscape(), false, 'Esc does not close while sending');
+    assert.equal(root.open, true);
+    view.calls[1].resolve(state([{...delivery(500, 'waiting'), deviceKeyId: 'FAKE-current-device'}])); await tick();
+    assert.equal(parts.message.textContent, 'sent');
+    assert.equal(parts.close.disabled, false);
+    assert.equal(root.pressEscape(), true);
+    assert.equal(root.open, false);
+    assert.equal(view.document.focused, view.openers['44'], 'focus returns to the Send button');
+});
+
+test('a send keeps the focus in the dialog, on its status line, not on the disabled Send button', async () => {
+    const view = page();
+    const {parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.send.focus();
+    parts.form.dispatch('submit'); await tick();
+    assert.equal(parts.send.disabled, true);
+    // A browser drops the focus from a disabled control out of the dialog; the status line keeps it.
+    assert.equal(view.document.focused, parts.message);
+    assert.equal(parts.message.tabIndex, -1);
+    view.calls[1].resolve(state([{...delivery(500, 'waiting'), deviceKeyId: 'FAKE-current-device'}])); await tick();
+    assert.equal(view.document.focused, parts.message, 'the result is read where the focus is');
+    assert.equal(parts.message.textContent, 'sent');
+});
+
+test('Esc pressed again and again with the focus outside the dialog still waits while a send runs', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    assert.equal(root.pressEscape({focusInside: false}), false);
+    // A repeated Esc may come with a cancel the dialog can no longer refuse: the key is refused first.
+    assert.equal(root.pressEscape({focusInside: false, cancelable: false}), false);
+    assert.equal(root.open, true);
+    view.calls[1].resolve(state([{...delivery(500, 'staged'), deviceKeyId: 'FAKE-current-device'}])); await tick();
+    assert.equal(root.pressEscape({focusInside: false, cancelable: false}), true, 'once the send ends, Esc closes');
+    assert.equal(root.open, false);
+});
+
+test('a Ctrl, Cmd, Shift, Alt or middle click opens the standalone page, not the dialog', () => {
+    for (const fields of [{ctrlKey: true}, {metaKey: true}, {shiftKey: true}, {altKey: true}, {button: 1}]) {
+        const view = page();
+        const event = view.openers['44'].click(fields);
+        assert.equal(event.defaultPrevented, false, JSON.stringify(fields));
+        assert.equal(view.dialogs['44'].root.open, false, JSON.stringify(fields));
+        assert.equal(view.calls.length, 0, JSON.stringify(fields));
+    }
+});
+
+test("closing returns the focus to the document's Send button when the page redrew it meanwhile", async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    Object.defineProperty(view.openers['44'], 'isConnected', {get: () => false});
+    const redrawn = new Element(view.document, 'a');
+    view.document.ids['mycarlos-document-send-44'] = redrawn;
+    parts.close.click();
+    assert.equal(root.open, false);
+    assert.equal(view.document.focused, redrawn);
+});
+
+// The inbox's reading view inserts each document inside its own reassign form, where the parser drops
+// the dialog's <form> (a form start tag inside a form is ignored) and keeps the controls it held.
+function dropForm(root, form) {
+    root.children = root.children.flatMap(child => (child === form ? form.children : [child]));
+    form.children.forEach(child => { child.parent = root; });
+}
+
+test('inside the inbox reassign form, which drops the dialog form, the dialog opens and Send submits no other form', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    dropForm(root, parts.form);
+    await openRead(view);
+    assert.equal(root.open, true);
+    assert.equal(parts.send.disabled, false);
+    const click = parts.send.click(); await tick();
+    assert.equal(click.defaultPrevented, true, 'the inbox form is not submitted');
+    assert.equal(view.calls.length, 2);
+    const sent = new URLSearchParams(view.calls[1].options.body);
+    assert.equal(view.calls[1].options.method, 'POST');
+    assert.equal(sent.get('method'), 'send');
+    assert.equal(sent.get('deliveryId'), MINTED);
+    assert.equal(sent.get('deviceKeyId'), 'FAKE-current-device');
+    assert.equal(sent.get('CSRF-TOKEN'), 'FAKE-CSRF');
+});
+
+test('a dialog its script cannot wire leaves the click to the link, which opens the standalone page', () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    // A part missing (here the delivery table): the script cannot wire the dialog.
+    root.children = root.children.filter(child => child !== parts.history);
+    const event = view.openers['44'].click();
+    assert.equal(event.defaultPrevented, false, 'the link keeps its default');
+    assert.equal(root.open, false);
+    assert.equal(view.calls.length, 0);
+});
+
+// The shipped script, which must say 120 s, with its request deadline cut to a few milliseconds.
+const shortDeadline = name => ({name, transform: source => {
+    const changed = source.replace('const REQUEST_TIMEOUT_MS = 120000;', 'const REQUEST_TIMEOUT_MS = 20;');
+    assert.notEqual(changed, source, 'mycarlos-send.js ships a 2-minute request deadline');
+    return changed;
+}});
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+test('every request carries a deadline', async () => {
+    const view = page();
+    const read = await openRead(view);
+    assert.equal(read.options.signal instanceof AbortSignal, true);
+    view.dialogs['44'].parts.form.dispatch('submit'); await tick();
+    assert.equal(view.calls[1].options.signal instanceof AbortSignal, true);
+});
+
+test('a send that hears nothing back ends at its deadline: the error shows, Close and Esc work, and Send again reuses the id', async () => {
+    const view = page({scripts: [shortDeadline('mycarlos-send.js'), 'mycarlos-send-dialog.js']});
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    assert.equal(parts.close.disabled, true);
+    assert.equal(root.pressEscape({focusInside: false}), false, 'held while the send runs');
+    await pause(60); await tick();
+    assert.equal(parts.message.textContent, 'error', 'the stalled send ends as failed');
+    assert.equal(parts.close.disabled, false);
+    assert.equal(parts.send.disabled, false);
+    parts.form.dispatch('submit'); await tick();
+    assert.equal(new URLSearchParams(view.calls[2].options.body).get('deliveryId'), MINTED, 'the same operation id, so no second copy');
+    view.calls[2].resolve(state([{...delivery(500, 'waiting'), deviceKeyId: 'FAKE-current-device'}])); await tick();
+    assert.equal(parts.message.textContent, 'sent');
+    assert.equal(root.pressEscape({focusInside: false}), true);
+    assert.equal(root.open, false);
+});
+
+test('a browser without AbortSignal.timeout or abort reasons still ends a stalled send at its deadline', async () => {
+    // As Safari 15: an AbortController whose signal carries no reason, and no AbortSignal.timeout.
+    class OldAbortController {
+        constructor() { this.signal = new EventTarget(); this.signal.aborted = false; }
+        abort() { this.signal.aborted = true; this.signal.dispatchEvent(new Event('abort')); }
+    }
+    const view = page({scripts: [shortDeadline('mycarlos-send.js'), 'mycarlos-send-dialog.js'],
+        globals: {AbortSignal: class AbortSignal {}, AbortController: OldAbortController}});
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    assert.equal(view.calls[1].options.signal instanceof EventTarget, true, 'the send carries the timer deadline');
+    assert.equal(root.pressEscape({focusInside: false}), false, 'held while the send runs');
+    await pause(60); await tick();
+    assert.equal(parts.message.textContent, 'error');
+    assert.equal(parts.close.disabled, false);
+    assert.equal(root.pressEscape({focusInside: false}), true);
+});
+
+test('a dialog the page removed while sending no longer holds Esc on the page', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    assert.equal(view.document.dispatchKey({key: 'Escape'}).defaultPrevented, true, 'held while on the page');
+    Object.defineProperty(root, 'isConnected', {get: () => false});
+    assert.equal(view.document.dispatchKey({key: 'Escape'}).defaultPrevented, false);
+});
+
+test('a failed send shows what went wrong, then lets the dialog close', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    view.calls[1].resolve({ok: false, message: 'FAKE portal refused'}, 409); await tick();
+    assert.equal(parts.message.textContent, 'FAKE portal refused');
+    assert.equal(parts.close.disabled, false);
+    parts.close.click();
+    assert.equal(root.open, false);
+});
+
+// The action answers 200 whatever the outbox recorded for the copy, a refused upload (error) or one
+// still to send (staged) included.
+test('a send says Sent only for an upload the portal took, otherwise the state of the copy it submitted', async () => {
+    for (const [status, shown] of [['waiting', 'sent'], ['picked_up', 'sent'], ['staged', 'staged'], ['error', 'error'],
+        ['fenced', 'fenced'], ['expired', 'expired'], ['removed', 'removed'], [null, 'error']]) {
+        const view = page();
+        const {parts} = view.dialogs['44'];
+        await openRead(view);
+        parts.form.dispatch('submit'); await tick();
+        // An earlier copy of this document, picked up, is listed too: only the submitted copy's row counts.
+        const rows = [delivery(400, 'picked_up')];
+        if (status) rows.unshift({...delivery(500, status), deviceKeyId: 'FAKE-current-device'});
+        view.calls[1].resolve(state(rows)); await tick();
+        assert.equal(parts.message.textContent, shown, `a copy recorded as ${status}`);
+    }
+});
+
+test('reading or checking status does not hold the dialog open', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.check.click(); await tick();
+    assert.equal(parts.close.disabled, false);
+    assert.equal(root.pressEscape(), true);
+});
+
+test('with the switch flipped, Close works at once even while sending', async () => {
+    const flipped = {name: 'mycarlos-send-dialog.js',
+        transform: source => source.replace('const CLOSE_WHILE_SENDING = false;', 'const CLOSE_WHILE_SENDING = true;')};
+    const view = page({scripts: ['mycarlos-send.js', flipped]});
+    assert.equal(view.window.CarlosMyCarlosSendDialog.CLOSE_WHILE_SENDING, true);
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    assert.equal(parts.close.disabled, false);
+    assert.equal(root.pressEscape(), true);
+});
+
+test('ships with Close blocked while sending, as Ben decided', () => {
+    assert.equal(page().window.CarlosMyCarlosSendDialog.CLOSE_WHILE_SENDING, false);
+});
+
+test('reopening reads again and keeps the same operation id; a new copy takes a new one', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    const queued = [{...delivery(500, 'staged'), deviceKeyId: 'FAKE-current-device'}];
+    view.calls[1].resolve(state(queued)); await tick();
+    assert.equal(parts.send.disabled, true, 'the same copy is not sent twice');
+    assert.equal(parts.new.hidden, false, 'a new copy is offered');
+    parts.close.click();
+    await openRead(view, '44', delivery(501).deliveryId, queued);
+    assert.equal(root.dataset.delivery, MINTED, 'reopening keeps the id');
+    parts.new.click(); await tick();
+    assert.equal(new URL(view.calls[3].url).searchParams.get('method'), 'read');
+    view.calls[3].resolve(state(queued, {deliveryId: delivery(502).deliveryId})); await tick();
+    assert.equal(root.dataset.delivery, delivery(502).deliveryId);
+    assert.equal(parts.send.disabled, false);
+    assert.equal(parts.new.hidden, true);
+});
+
+// The server lists the patient's deliveries 20 at a time, then keeps this document's: once 20 later
+// deliveries of other documents follow, the first page lists none of this document's copies.
+test('a queued copy whose row is on an older page still offers a new copy, and its id is never sent again', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    view.calls[1].resolve(state([{...delivery(500, 'waiting'), deviceKeyId: 'FAKE-current-device'}])); await tick();
+    parts.close.click();
+    await openRead(view, '44', delivery(501).deliveryId, []);
+    assert.equal(root.dataset.delivery, MINTED);
+    assert.equal(parts.history.rows.length, 0, "the copy's row is on an older page");
+    assert.equal(parts.send.disabled, true, 'the queued id is not sent again');
+    assert.equal(parts.new.hidden, false, 'a new copy is offered');
+    parts.new.click(); await tick();
+    view.calls.at(-1).resolve(state([], {deliveryId: delivery(502).deliveryId})); await tick();
+    assert.equal(root.dataset.delivery, delivery(502).deliveryId);
+    assert.equal(parts.send.disabled, false);
+    assert.equal(parts.new.hidden, true);
+});
+
+test('a send the server took is queued even when its reply lists no row for it', async () => {
+    const view = page();
+    const {parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    view.calls[1].resolve(state([])); await tick();
+    assert.equal(parts.message.textContent, 'error', 'no outcome is claimed for a copy the reply does not list');
+    assert.equal(parts.send.disabled, true, 'the queued id is not sent again');
+    assert.equal(parts.new.hidden, false, 'a new copy is offered');
+});
+
+test('a dialog rebuilt after a lost send reply takes that send back, and its listed copy is not sent again', async () => {
+    const view = page();
+    const first = view.dialogs['44'];
+    await openRead(view);
+    first.parts.form.dispatch('submit'); await tick();
+    view.calls[1].reject(new Error('FAKE lost reply')); await tick();
+    assert.equal(first.parts.message.textContent, 'error');
+    first.parts.close.click();
+    const {root, parts} = rebuild(view);
+    // The send had reached the server: its copy waits for pickup on the first page.
+    await openRead(view, '44', delivery(501).deliveryId, [{...delivery(500, 'waiting'), deviceKeyId: 'FAKE-current-device'}]);
+    assert.equal(root.dataset.delivery, MINTED, 'the rebuilt dialog keeps the submitted operation id');
+    assert.equal(parts.send.disabled, true, 'the submitted copy is not sent again');
+    assert.equal(parts.new.hidden, false, 'a new copy is offered');
+});
+
+test('a dialog rebuilt after a lost send reply retries it with the same id and device when no row lists it', async () => {
+    const view = page();
+    const first = view.dialogs['44'];
+    const devices = [device('FAKE-device-a'), device('FAKE-device-b')];
+    view.openers['44'].click(); await tick();
+    view.calls[0].resolve(state([], {deliveryId: MINTED, devices})); await tick(); await tick();
+    first.parts.device.value = 'FAKE-device-b'; first.parts.device.dispatch('change');
+    first.parts.form.dispatch('submit'); await tick();
+    view.calls[1].reject(new Error('FAKE lost reply')); await tick();
+    first.parts.close.click();
+    const {root, parts} = rebuild(view);
+    view.openers['44'].click(); await tick();
+    view.calls[2].resolve(state([], {deliveryId: delivery(501).deliveryId, devices})); await tick(); await tick();
+    assert.equal(root.dataset.delivery, MINTED, 'the rebuilt dialog keeps the submitted operation id');
+    assert.equal(parts.device.value, 'FAKE-device-b', 'and its device');
+    assert.equal(parts.send.disabled, false, 'Send again retries the submitted operation');
+    parts.form.dispatch('submit'); await tick();
+    const sent = new URLSearchParams(view.calls[3].options.body);
+    assert.equal(sent.get('deliveryId'), MINTED);
+    assert.equal(sent.get('deviceKeyId'), 'FAKE-device-b');
+});
+
+test('a late new-copy read from a replaced dialog leaves the newer send it did not start from', async () => {
+    const view = page();
+    const first = view.dialogs['44'];
+    const waiting = index => ({...delivery(index, 'waiting'), deviceKeyId: 'FAKE-current-device'});
+    await openRead(view);
+    first.parts.form.dispatch('submit'); await tick();
+    view.calls[1].resolve(state([waiting(500)])); await tick();
+    // The first dialog asks for a new copy, then closes before that read answers.
+    first.parts.new.click(); await tick();
+    const late = view.calls[2];
+    first.parts.close.click();
+    const second = rebuild(view);
+    await openRead(view, '44', delivery(501).deliveryId, [waiting(500)]);
+    second.parts.new.click(); await tick();
+    view.calls[4].resolve(state([waiting(500)], {deliveryId: delivery(502).deliveryId})); await tick();
+    assert.equal(second.root.dataset.delivery, delivery(502).deliveryId);
+    second.parts.form.dispatch('submit'); await tick();
+    view.calls[5].reject(new Error('FAKE lost reply')); await tick();
+    // The first dialog's read answers only now.
+    late.resolve(state([waiting(500)], {deliveryId: delivery(503).deliveryId})); await tick();
+    second.parts.close.click();
+    const third = rebuild(view);
+    await openRead(view, '44', delivery(504).deliveryId, [waiting(500), waiting(502)]);
+    assert.equal(third.root.dataset.delivery, delivery(502).deliveryId, 'the newer send is taken back');
+    assert.equal(third.parts.send.disabled, true, 'its listed copy is not sent again under a new id');
+    assert.equal(third.parts.new.hidden, false);
+});
+
+test('reopened while Older deliveries loads, the dialog reads the first page again once that load ends', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    view.openers['44'].click(); await tick();
+    view.calls[0].resolve(state([delivery(400, 'waiting')], {deliveryId: MINTED, nextCursor: '20'})); await tick(); await tick();
+    parts.more.click(); await tick();
+    assert.equal(new URL(view.calls[1].url).searchParams.get('before'), '20');
+    parts.close.click();
+    assert.equal(root.open, false, 'a read does not hold the dialog');
+    view.openers['44'].click(); await tick();
+    assert.equal(view.calls.length, 2, 'the reopened read waits for the older page');
+    view.calls[1].resolve(state([delivery(300, 'picked_up')])); await tick(); await tick();
+    assert.equal(view.calls.length, 3, 'the reopened dialog reads the first page again');
+    const fresh = new URL(view.calls[2].url);
+    assert.equal(fresh.searchParams.get('method'), 'read');
+    assert.equal(fresh.searchParams.has('before'), false);
+    view.calls[2].resolve(state([delivery(400, 'picked_up')])); await tick(); await tick();
+    assert.deepEqual(parts.history.rows.map(row => row.dataset.status), ['picked_up'], 'the first page as it is now');
+});
+
+test('a device choice the patient removed stays unmade in a dialog the inbox rebuilds, until the clinician picks one', async () => {
+    const view = page();
+    const first = view.dialogs['44'];
+    view.openers['44'].click(); await tick();
+    view.calls[0].resolve(state([], {deliveryId: MINTED, devices: [device('FAKE-device-a'), device('FAKE-device-b')]})); await tick(); await tick();
+    first.parts.device.value = 'FAKE-device-b'; first.parts.device.dispatch('change');
+    first.parts.check.click(); await tick();
+    view.calls[1].resolve(state([], {devices: [device('FAKE-device-a')]})); await tick();
+    assert.equal(first.parts.device.value, '');
+    first.parts.close.click();
+    // Nothing was sent, so no operation is kept for the document: only the lost choice carries over.
+    const {parts} = rebuild(view);
+    view.openers['44'].click(); await tick();
+    view.calls[2].resolve(state([], {deliveryId: delivery(501).deliveryId, devices: [device('FAKE-device-a')]})); await tick(); await tick();
+    assert.equal(parts.device.value, '', 'the rebuilt dialog does not choose device A for the clinician');
+    assert.equal(parts.send.disabled, true);
+    parts.device.value = 'FAKE-device-a'; parts.device.dispatch('change');
+    assert.equal(parts.send.disabled, false, 'the clinician chose a replacement');
+});
+
+test('a status check after a failed first read reads for an operation id first, so Send works without reopening', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    view.openers['44'].click(); await tick();
+    view.calls[0].resolve({ok: false, message: 'FAKE unavailable'}, 503); await tick(); await tick();
+    assert.equal(root.dataset.delivery, undefined);
+    // Still unavailable: the read fails again, and no status check follows it.
+    parts.check.click(); await tick();
+    assert.equal(new URL(view.calls[1].url).searchParams.get('method'), 'read');
+    view.calls[1].resolve({ok: false, message: 'FAKE unavailable'}, 503); await tick(); await tick();
+    assert.equal(view.calls.length, 2);
+    assert.equal(parts.message.textContent, 'FAKE unavailable');
+    // Available again: the read gives the operation id, then the status is checked.
+    parts.check.click(); await tick();
+    assert.equal(view.calls[2].options.method, 'GET');
+    view.calls[2].resolve(state([], {deliveryId: MINTED})); await tick(); await tick();
+    assert.equal(root.dataset.delivery, MINTED);
+    assert.equal(view.calls[3].options.method, 'POST');
+    assert.equal(new URLSearchParams(view.calls[3].options.body).get('method'), 'refresh');
+    view.calls[3].resolve(state([], {syncStatus: 'quarantined'})); await tick();
+    assert.equal(parts.message.textContent, 'sync', "the check's own message comes last");
+    assert.equal(parts.send.disabled, false, 'Send works without reopening');
+});
+
+test('a device choice the patient removed stays unmade across a read that offers no device, until one is picked', async () => {
+    const view = page();
+    const {parts} = view.dialogs['44'];
+    await openRead(view);
+    assert.equal(parts.device.value, 'FAKE-current-device', 'the first read offers the first device');
+    const refresh = async ids => {
+        parts.check.click(); await tick();
+        view.calls.at(-1).resolve(state([], {devices: ids.map(device)})); await tick();
+    };
+    await refresh([]);
+    assert.equal(parts.device.value, '');
+    for (const round of [1, 2]) {
+        await refresh(['FAKE-device-b']);
+        assert.equal(parts.device.value, '', `refresh ${round}: a device approved later is not chosen for the clinician`);
+        assert.equal(parts.send.disabled, true, `refresh ${round}: Send waits for a deliberate choice`);
+    }
+    parts.device.value = 'FAKE-device-b'; parts.device.dispatch('change');
+    assert.equal(parts.send.disabled, false, 'the clinician picked a replacement');
+    await refresh(['FAKE-device-b']);
+    assert.equal(parts.device.value, 'FAKE-device-b', 'the picked device stays chosen');
+    assert.equal(parts.send.disabled, false);
+});
+
+test('two documents on one inbox page each send their own document', async () => {
+    const view = page({documents: ['44', '45']});
+    await openRead(view, '44');
+    view.dialogs['44'].parts.close.click();
+    await openRead(view, '45', delivery(600).deliveryId);
+    view.dialogs['45'].parts.form.dispatch('submit'); await tick();
+    const sent = new URLSearchParams(view.calls.at(-1).options.body);
+    assert.equal(sent.get('documentId'), '45');
+    assert.equal(sent.get('deliveryId'), delivery(600).deliveryId);
+    assert.equal(view.dialogs['44'].root.open, false);
+});
+
+test('loaded twice, as the inbox can, it still opens once on one click', async () => {
+    const view = page({scripts: [...SCRIPTS, ...SCRIPTS]});
+    assert.equal(view.document.clickHandlers.length, 1);
+    view.openers['44'].click(); await tick();
+    assert.equal(view.calls.length, 1);
+});
+
+test('a context that is not a plain path is refused, and nothing is fetched', async () => {
+    const view = page({context: '\\/carlos'});
+    const {parts} = view.dialogs['44'];
+    view.openers['44'].click(); await tick(); await tick();
+    assert.equal(view.calls.length, 0);
+    assert.equal(parts.message.textContent, 'error');
+});
+
+test('a link with no dialog on the page is left to open the standalone page', () => {
+    const view = page();
+    const stray = new Element(view.document, 'a');
+    stray.dataset.mycarlosDialog = 'mycarlos-send-dialog-missing';
+    assert.equal(stray.click().defaultPrevented, false);
+    assert.equal(view.calls.length, 0);
+});
+
+// The live-portal browser check (scripts/e2e/mycarlos/send-dialog-live-portal-check.js) sends real
+// deliveries. It is loaded as npm runs it, with runWorkflow replaced by a recorder of its options.
+function liveCheck(env) {
+    const module = {exports: {}};
+    let options;
+    const loader = name => {
+        if (name === '../../lib/playwright-harness') return h;
+        if (name === '../../lib/workflow-session') return {runWorkflow: (_name, _workflow, registered) => { options = registered; }};
+        throw new Error('the live check requires ' + name);
+    };
+    loader.main = module;
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, 'e2e/mycarlos/send-dialog-live-portal-check.js'), 'utf8'),
+        {require: loader, module, process: {env}});
+    return options;
+}
+
+test('the live-portal check skips an unconfigured run before the database or a browser is opened', () => {
+    for (const env of [{}, {MYCARLOS_PATIENT: '6001', MYCARLOS_DOCUMENTS: '44,45'}, {MYCARLOS_SEND_DIALOG_THROWAWAY: 'yes'},
+        // The same document twice would send it twice before the two-dialog check means anything.
+        {MYCARLOS_SEND_DIALOG_THROWAWAY: 'yes', MYCARLOS_PATIENT: '6001', MYCARLOS_DOCUMENTS: '44, 44'}]) {
+        const options = liveCheck(env);
+        assert.equal(typeof options.preflightConfig, 'function', 'the opt-in is checked before SQL setup');
+        assert.throws(() => options.preflightConfig({config: {}}), error => error instanceof h.SkipCheck, JSON.stringify(env));
+    }
+});
+
+test("the live-portal check starts only when both documents are the patient's own", () => {
+    const options = liveCheck({MYCARLOS_SEND_DIALOG_THROWAWAY: 'yes', MYCARLOS_PATIENT: '6001', MYCARLOS_DOCUMENTS: '44,45'});
+    assert.doesNotThrow(() => options.preflightConfig({config: {}}));
+    const asked = [];
+    const sql = owned => ({value: (query, parameters) => {
+        assert.match(query, /ctl_document/);
+        asked.push([...parameters]);
+        return owned.includes(parameters[1]) ? '1' : '0';
+    }});
+    options.preflight({sql: sql([44, 45])});
+    assert.deepEqual(asked, [[6001, 44], [6001, 45]], 'each document is checked against the patient');
+    assert.throws(() => options.preflight({sql: sql([44])}), /MYCARLOS_DOCUMENTS 45 /, 'a mistyped second document is refused');
+});

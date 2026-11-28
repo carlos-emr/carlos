@@ -12,5 +12,11 @@
 .mycarlos-send :focus-visible { outline: 3px solid #935d00; outline-offset: 3px; }
 .mycarlos-send table { width: 100%; border-collapse: collapse; }
 .mycarlos-send th, .mycarlos-send td { padding: .75rem .5rem; text-align: left; border-bottom: 1px solid #d2dce3; }
-#delivery-message:not(:empty), .delivery-warning { padding: .8rem; margin: 1rem 0; border-left: 4px solid #9b6400; background: #fff5de; }
-@media (max-width: 40rem) { .mycarlos-send { margin: .5rem; padding: 1rem; } }
+#delivery-message:not(:empty), .mycarlos-send .delivery-message:not(:empty), .delivery-warning { padding: .8rem; margin: 1rem 0; border-left: 4px solid #9b6400; background: #fff5de; }
+/* The dialog on the document page (mycarlosSendDialog.jspf). */
+.mycarlos-send-dialog { width: min(56rem, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); overflow: auto; margin: auto; border: 1px solid #9fb3c2; border-radius: .5rem; box-shadow: 0 .5rem 2rem rgb(0 0 0 / 25%); }
+.mycarlos-send-dialog::backdrop { background: rgb(16 32 48 / 45%); }
+.mycarlos-send-dialog h2 { font-size: 1.4rem; margin: 0 0 .5rem; }
+.mycarlos-send-dialog h3 { font-size: 1.1rem; margin-top: 1.5rem; }
+.mycarlos-send .delivery-dialog-actions { display: flex; justify-content: flex-end; margin-top: 1.25rem; }
+@media (max-width: 40rem) { .mycarlos-send:not(dialog) { margin: .5rem; } .mycarlos-send { padding: 1rem; } }
