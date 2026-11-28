@@ -5,15 +5,22 @@
 # make-documents-tar.sh — generate the O19 OscarDocument fixture tree and tar
 # it. No binary fixtures are committed to the repo: this script produces
 # deterministic placeholder files (minimal valid PDF / PNG bytes) in the
-# layout an OSCAR 19 server tars up for migration (see manifest.json for
-# what each file exercises in the documents-phase reconciliation).
+# OscarDocument layout. The full rehearsal builder supplies the stock editor
+# from the same OSCAR checkout as its database inputs.
 #
-# Usage: make-documents-tar.sh <output-dir>
+# Usage: make-documents-tar.sh <output-dir> [<oscar-editControl.js>]
+#   with only an output directory, generate the original placeholder archive
 #   writes <output-dir>/o19-documents.tar.gz containing oscar_mcmaster/…
 
 set -euo pipefail
-OUT="${1:?usage: make-documents-tar.sh <output-dir>}"
+OUT="${1:?usage: make-documents-tar.sh <output-dir> [<oscar-editControl.js>]}"
+EDITOR_ASSET="${2-}"
 CTX="oscar_mcmaster"
+
+if (( $# >= 2 )) && [[ ! -f "$EDITOR_ASSET" || ! -r "$EDITOR_ASSET" || ! -s "$EDITOR_ASSET" ]]; then
+  echo "ERROR: expected a readable, non-empty OSCAR editor at $EDITOR_ASSET" >&2
+  exit 1
+fi
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -35,6 +42,11 @@ make_pdf "$work/$CTX/document/demo_lab_scan.pdf"
 make_pdf "$work/$CTX/document/demo_orphan_upload.pdf"   # no DB row: orphan
 make_pdf "$work/$CTX/incomingdocs/queue1/demo_incoming_fax.pdf"
 make_png "$work/$CTX/eform/images/demo_clinic_logo.png"
+if [[ -n "$EDITOR_ASSET" ]]; then
+  install -m 0644 -- "$EDITOR_ASSET" "$work/$CTX/eform/images/editControl.js"
+else
+  echo "Generating the placeholder archive. Use build-o19-fixture.sh for the full rehearsal with the stock editor." >&2
+fi
 # NOTE: demo_missing_scan.pdf is deliberately NOT generated — its document
 # row (fixture-document-rows.sql) must trip the reconciliation gate.
 

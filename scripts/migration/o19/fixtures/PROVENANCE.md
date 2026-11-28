@@ -1,7 +1,7 @@
 # Provenance of vendored OSCAR 19 fixtures
 
-Vendored verbatim from the upstream OSCAR EMR repository for reproducible
-migration rehearsals (no Bitbucket checkout needed to run the fixture flow):
+The source for the vendored fixtures and for the editor asset copied
+during rehearsal fixture generation is the upstream OSCAR EMR repository.
 
 - Source repository: `https://bitbucket.org/oscaremr/oscar.git`
 - Branch/commit: `master` @ `a7900d569d3faf741993e5e1da8c14021bbefede`
@@ -72,9 +72,11 @@ content (clearly-fake values only — no real clinic or patient data):
   INSERT names its columns, so a patch-level difference in column order
   cannot shift a value into the wrong field. It is a CARLOS file and is
   loaded after the vendored one, which stays verbatim.
-- `documents/` — manifest + generator for a deterministic placeholder
-  OscarDocument tree (no binaries committed), plus the matching fixture
-  database rows.
+- `documents/` contains the manifest and generator for a deterministic
+  OscarDocument tree and the matching fixture database rows. The generator
+  copies `src/main/webapp/share/javascript/eforms/editControl.js` from the
+  selected checkout during a full rehearsal. At the upstream revision above
+  its SHA-256 is `1222ba3f900b6a16a3d9f0a5cca10bd721e5279f9f1cdd2ffa6b9a351c1b1847`.
 
 `demo-data/demo.sql` and `properties/oscar_mcmaster.properties` carry no
 CARLOS header on purpose: they are upstream files, kept as close to verbatim

@@ -65,7 +65,48 @@ async function workflow(s) {
     h.assert(Number.isSafeInteger(original.rowVersion),'The requested original version was omitted');
     const csrf=await first.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     const url=`${config.baseUrl}/ws/rs/rx/update?demographicNo=${patient}&includeRowVersion=true`;
-    const post=form=>s.context.request.post(url,{data:{...original,form},headers:{Accept:'application/json','CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'}});
+    const headers={Accept:'application/json','CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'};
+    const xmlHeaders={...headers,Accept:'application/xml','Content-Type':'application/xml'};
+    const xmlReplacement=(id,prnElement)=>`<drug>
+      <drugId>${id}</drugId><demographicNo>${patient}</demographicNo><customName>${marker} version</customName>
+      <rxDate>2026-01-12T12:00:00Z</rxDate><endDate>2026-01-19T12:00:00Z</endDate>
+      <form>Gel</form><noSubstitutions>false</noSubstitutions><archived>false</archived>${prnElement}
+    </drug>`;
+    const readXml=async response=>{
+      h.assert(/^application\/xml\b/i.test(response.headers()['content-type'] || ''),
+        'The medication endpoint did not return application/xml');
+      return first.evaluate(body=>{
+        const doc=new DOMParser().parseFromString(body,'application/xml');
+        const root=doc.documentElement;
+        if (root.localName!=='drugResponse') throw new Error('Expected the medication XML response envelope');
+        return {
+          success:root.querySelector(':scope > success')?.textContent,
+          message:root.querySelector(':scope > message')?.textContent,
+          drugId:root.querySelector(':scope > drug > drugId')?.textContent,
+          prn:root.querySelector(':scope > drug > prn')?.textContent,
+        };
+      },await response.text());
+    };
+    const patientDrugCount=()=>Number(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`));
+    const initialCount=patientDrugCount();
+    const invalidJson=await s.context.request.post(url,{
+      data:{...original,archived:undefined,prn:undefined},headers});
+    h.assert(invalidJson.status()===400,'The installed REST endpoint accepted missing JSON flags');
+    const jsonError=await invalidJson.json();
+    h.assert(jsonError.success===false&&jsonError.message==='Missing required boolean fields: archived, prn',
+      'The JSON response did not identify both missing flags');
+
+    const invalidXml=await s.context.request.post(url,{data:xmlReplacement(drug,''),headers:xmlHeaders});
+    h.assert(invalidXml.status()===400,'The installed REST endpoint accepted a missing XML flag');
+    const xmlError=await readXml(invalidXml);
+    h.assert(xmlError.success==='false' && xmlError.message==='Missing required boolean fields: prn' && !xmlError.drugId,
+      'The XML response did not identify the missing flag');
+    h.assert(sql.value(`SELECT archived FROM drugs WHERE drugid=${drug}`)==='0',
+      'A rejected replacement archived the original medication');
+    h.assert(patientDrugCount()===initialCount,
+      'A rejected request created a replacement medication');
+
+    const post=form=>s.context.request.post(url,{data:{...original,form},headers});
     const saved=await post('Cream');
     const ack=await saved.json();
     h.assert(saved.status()===200&&ack.success===true&&ack.drug.drugId!==original.drugId&&Number.isSafeInteger(ack.drug.rowVersion),'The version-aware update did not return the replacement identity and version');
@@ -85,6 +126,16 @@ async function workflow(s) {
       'A versionless legacy update changed its response contract');
     h.assert(sql.value(`SELECT drug_form FROM drugs WHERE drugid=${legacyAck.drug.drugId} AND demographic_no=${patient}`)==='Ointment',
       'The legacy replacement was not saved');
+    const xmlSaved=await s.context.request.post(url,{
+      data:xmlReplacement(legacyAck.drug.drugId,'<prn>true</prn>'),headers:xmlHeaders});
+    h.assert(xmlSaved.status()===200,'The installed endpoint rejected an XML replacement with both flags');
+    const xmlAck=await readXml(xmlSaved);
+    const xmlId=Number(xmlAck.drugId);
+    h.assert(xmlAck.success==='true' && xmlAck.prn==='true' && Number.isSafeInteger(xmlId)
+      && xmlId>0 && xmlId!==legacyAck.drug.drugId,'The XML replacement did not return the saved medication');
+    h.assert(sql.value(`SELECT CONCAT(archived,':',prn,':',drug_form) FROM drugs WHERE drugid=${xmlId} AND demographic_no=${patient}`)==='0:1:Gel'
+      && sql.value(`SELECT archived FROM drugs WHERE drugid=${legacyAck.drug.drugId}`)==='1'
+      && patientDrugCount()===initialCount+3,'The XML replacement did not persist exactly once with its explicit flags');
   });
 }
 if(require.main===module)runWorkflow('rx-original-version',workflow,{openPatient:true});

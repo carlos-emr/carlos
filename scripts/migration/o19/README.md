@@ -296,11 +296,28 @@ with accented text in both the correctly-encoded and the deliberately
 double-encoded form so the charset scan, the per-row repair and the
 `charset-repair` sign-off are actually exercised, plus the province's own
 `demo-data/clinical-<province>.sql`) and emits the
-three turnkey inputs:
-`o19-fixture.sql.gz`, `o19-documents.tar.gz` (generated placeholder tree —
-includes one deliberate missing-file row and one orphan file so the
-documents-phase reconciliation gate is exercised), and `oscar.properties`
-(the synthetic clinic-example file covering every props disposition).
+three turnkey inputs. The dump is `o19-fixture.sql.gz`, the documents
+archive is `o19-documents.tar.gz`, and the synthetic clinic example is
+`oscar.properties`. The documents archive carries the stock letter
+eForm's `eform/images/editControl.js` from the same OSCAR 19 checkout.
+The standalone `fixtures/documents/make-documents-tar.sh <output-dir>`
+command generates the five original synthetic document and image files.
+To include the stock editor when running the helper directly, pass
+`<oscar-src>/src/main/webapp/share/javascript/eforms/editControl.js`
+as the second argument.
+The fixture still includes an orphan file and a chart row for
+`demo_missing_scan.pdf` whose attachment is deliberately absent.
+
+On a disposable CARLOS install for the fixture's province, pack the
+inputs with [make-o19-bundle.sh](fixtures/documents/make-o19-bundle.sh)
+after dropping the LDAP settings from the copy of `oscar.properties`
+being packed. Run `carlos-ctl o19-preflight --bundle` with the bundle and
+its SHA-256. In `/var/lib/carlos-emr/o19-import/preflight.json`, check
+that `required_accepts` includes `missing-source-documents` and the
+findings have neither `B5-ldap` nor `source-document-problems`. The
+private `preflight-documents-details.txt` should list
+`demo_missing_scan.pdf` as the single attachment needing a decision.
+
 `--with-olis` additionally loads `olis/olisinit.sql` to exercise the
 OLIS-dropped path. `--with-updates` applies the O19 `updates/*.sql` patch
 history best-effort before the demo data (real dumps carry ~280 privilege

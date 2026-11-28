@@ -65,6 +65,7 @@ class RxRestPrescriptionRollbackIntegrationTest extends CarlosUnitTestBase {
     }
     private static Drug drug(String name) {
         var drug=new Drug(); drug.setProviderNo("999998"); drug.setDemographicId(1007); drug.setBrandName(name);
+        drug.setPosition(1);
         drug.setSpecial("1 tab PO OD"); drug.setRxDate(java.sql.Date.valueOf("2026-01-01")); drug.setEndDate(java.sql.Date.valueOf("2026-02-01"));
         return drug;
     }

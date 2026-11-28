@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "f812078981b83d6a584f5d29f9f9622fc11adee6",
+  "comparisonSha256": "92ab3d317c26ab3e27dbd37ef413a8f15252dbe1f7170f99a884aeeda3b0ac18",
+  "baselineCommit": "95cce76b5e80b0d216b00f02c2a5a1698eec21b1",
+  "baselineSourceTree": "f812078981b83d6a584f5d29f9f9622fc11adee6",
+  "baselineReportSha256": "08a179aadb5030e4392b05dc4b69c4f956a069da2bccaf527d01677e619f4766",
+  "baselineLane": "Java 25 medication service, lookup, conversion, response and published XML contract tests for the PR #6435 session JAXB fix.",
+  "baselineTestCounts": {
+    "tests": 126,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineReportHeaderCollisions": 1,
+  "baselineTestReportsSha256": "bbd0febd428d10a126fa46c2254dbc42f75eacd7605a9c2d97e9a328ed186f52",
+  "baselineTestReportsHashFormat": "SHA-256 of sorted compact name-to-SHA-256 JSON with a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/util/DrugXmlContextResolver.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "7ea1cd55a8d3e4c4f83f3a57e5c248636e7cd4d2"
+    }
+  }
+}

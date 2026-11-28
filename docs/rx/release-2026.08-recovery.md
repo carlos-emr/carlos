@@ -70,6 +70,11 @@ Notes requests carry a SHA-256 digest of the UTF-8 original display, avoiding a 
 
 **Legacy REST limitation:** clients that omit `rowVersion` retain their existing request contract and response shape. Current clients request the declared `includeRowVersion=true` query parameter (case-insensitive true/false; other values receive 400 before writes) to receive the token, then echo it on updates; absent tokens are omitted from both XML and JSON. JPA detects overlapping transaction writes, but the server cannot infer what version an old client originally read before sending its update. REST `/rx/update` retains its replacement behaviour: create a new drug and archive the source. Clients use the returned replacement ID and its version on subsequent edits. Complete stale-read detection for versionless clients requires them to echo `rowVersion` or a deliberately breaking requirement to supply it. Do not describe this compatibility mode as complete protection for versionless legacy clients, or close #139 on that basis alone. Reopen older prescribing windows after upgrading so they obtain source versions. Unknown positive medication IDs are refused; zero/nonpositive placeholders retain new-drug semantics. Batch write/audit rollback returns the existing JSON `success:false` response. Stale source and optimistic-lock failures return 409 `RX_SOURCE_CHANGED` at RX mutation boundaries only; unrelated REST services retain their prior exception mapping.
 
+Supply Boolean values for both `archived` and `prn` in JSON and XML
+requests to `/rx/update`. Each may be `false` or `true`. The endpoint
+returns HTTP 400 with `success=false` and a message naming any missing
+or null flag before creating a replacement or archiving the source.
+
 ## Renal guidance policy
 
 The existing dosing table is expressed in creatinine-clearance categories. This change retains its Cockcroft–Gault calculation; it does not substitute indexed CKD-EPI eGFR into those thresholds. The displayed factor is 1.25, matching the retained division by 0.8. Switching the equation/table requires a separate clinical validation decision. The integer clearance used by the existing table is floored rather than rounded upward, keeping fractional values below restrictive thresholds and avoiding gaps between adjoining integer bands.

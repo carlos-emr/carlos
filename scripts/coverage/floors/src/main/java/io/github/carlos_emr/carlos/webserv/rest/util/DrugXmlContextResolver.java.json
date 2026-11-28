@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/util/DrugXmlContextResolver.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "7ea1cd55a8d3e4c4f83f3a57e5c248636e7cd4d2"
+  },
+  "evidenceSha256": "a1d113c64461704087389d436dd22f593f920486b40459a1fb03e4fb7e693e48"
+}
