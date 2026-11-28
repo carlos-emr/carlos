@@ -2,7 +2,12 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const {DatabaseSync}=require('node:sqlite');
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (error) {
+  if (error.code !== 'ERR_UNKNOWN_BUILTIN_MODULE') throw error;
+}
 const root=process.env.APPOINTMENT_TEXT_SOURCE_ROOT||path.resolve(__dirname,'..');
 const repo=process.env.APPOINTMENT_TEXT_REPO_ROOT||root;
 const bounds=require(path.join(root,'src/main/webapp/js/appointmentTextBounds.js'));
@@ -132,11 +137,11 @@ function metadataPlan(table,metadata={},extraRows=[]){
   return db.prepare('SELECT '+assignments[0][1]+' AS ddl').get().ddl;
  }finally{db.close();}
 }
-const limits=Object.fromEntries(Object.entries(baselineLimits).map(([table,columns])=>{const ddl=metadataPlan(table);const width=ddl.match(new RegExp('ALTER TABLE '+table+' MODIFY COLUMN name VARCHAR\\((\\d+)\\)'))?.[1];assert(width);return[table,{...columns,name:Number(width)}];}));
-test('historical schemas remain unchanged and the actual migration metadata SELECT derives effective255 name capacity',()=>{
+const limits=DatabaseSync && Object.fromEntries(Object.entries(baselineLimits).map(([table,columns])=>{const ddl=metadataPlan(table);const width=ddl.match(new RegExp('ALTER TABLE '+table+' MODIFY COLUMN name VARCHAR\\((\\d+)\\)'))?.[1];assert(width);return[table,{...columns,name:Number(width)}];}));
+test('historical schemas remain unchanged and the actual migration metadata SELECT derives effective255 name capacity',{ skip: !DatabaseSync }, ()=>{
  for(const table of ['appointment','appointmentArchive']){assert.deepEqual(baselineLimits[table],{name:50,reason:80,notes:255,resources:255});assert.deepEqual(limits[table],{name:255,reason:80,notes:255,resources:255});}
 });
-test('schema-derived SQL proves raw browser CRLF overflows while complete logical LF fits with the last character intact',()=>{
+test('schema-derived SQL proves raw browser CRLF overflows while complete logical LF fits with the last character intact',{ skip: !DatabaseSync }, ()=>{
  const db=new DatabaseSync(':memory:');try{
   db.exec('CREATE TABLE booking(reason TEXT CHECK(length(reason)<=80),notes TEXT CHECK(length(notes)<=255))');
   for(const [field,max] of [['reason',80],['notes',255]]){const posted='X'.repeat(max-2)+'\r\nZ';const insert=db.prepare(`INSERT INTO booking(${field}) VALUES(?)`);
@@ -145,7 +150,7 @@ test('schema-derived SQL proves raw browser CRLF overflows while complete logica
   }
  }finally{db.close();}
 });
-test('schema-derived SQL stores full supplementary-character boundaries and refuses rather than truncating each next codepoint',()=>{
+test('schema-derived SQL stores full supplementary-character boundaries and refuses rather than truncating each next codepoint',{ skip: !DatabaseSync }, ()=>{
  const db=new DatabaseSync(':memory:');try{
   for(const [field,max] of Object.entries(limits.appointment)){db.exec(`CREATE TABLE ${field}(value TEXT CHECK(length(value)<=${max}))`);const insert=db.prepare(`INSERT INTO ${field} VALUES(?)`);const text='😀'.repeat(max);insert.run(text);assert.equal(db.prepare(`SELECT hex(value) value FROM ${field}`).get().value,Buffer.from(text).toString('hex').toUpperCase());assert.throws(()=>insert.run(text+'Z'),/CHECK constraint failed/);}
  }finally{db.close();}
@@ -174,7 +179,7 @@ test('native retry duplicate policy excludes only this appointment and retains e
  assert(jsp.includes('final Appointment retriedAppointment = apptFromRequest;'));
 });
 
-test('migration metadata query preserves every requested MariaDB attribute and raw quoted default expression',()=>{
+test('migration metadata query preserves every requested MariaDB attribute and raw quoted default expression',{ skip: !DatabaseSync }, ()=>{
  for(const table of ['appointment','appointmentArchive'])for(const [defaultValue,nullable,comment,extra] of [["'NULL'",'NO',"O'Brien \u4e2d\u6587",''],["'quote\\\" value'",'YES','legacy comment','INVISIBLE'],[null,'NO','no default',''],['NULL','YES','nullable default','']]){
   const ddl=metadataPlan(table,{character_set_name:'utf8mb4',collation_name:'utf8mb4_bin',column_default:defaultValue,is_nullable:nullable,column_comment:comment,extra});
   assert(ddl.startsWith(`ALTER TABLE ${table} MODIFY COLUMN name VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin`));
@@ -182,11 +187,11 @@ test('migration metadata query preserves every requested MariaDB attribute and r
   assert(ddl.includes(' COMMENT '));if(extra)assert(ddl.endsWith(' '+extra));assert(ddl.includes(comment.replaceAll("'","\\'")));
  }
 });
-test('wider adopted columns and a partially committed widening are unchanged on the next execution',()=>{
+test('wider adopted columns and a partially committed widening are unchanged on the next execution',{ skip: !DatabaseSync }, ()=>{
  for(const table of ['appointment','appointmentArchive'])for(const [width,type] of [[255,'varchar'],[400,'varchar'],[65535,'text']])assert.equal(metadataPlan(table,{character_maximum_length:width,data_type:type}),'SELECT 1');
  const first=metadataPlan('appointment');assert(first.includes('VARCHAR(255)'));assert.equal(metadataPlan('appointment',{character_maximum_length:255}),'SELECT 1');assert(metadataPlan('appointmentArchive').includes('VARCHAR(255)'));
 });
-test('unsupported narrow generated/type columns fail explicitly and exact metadata predicates preserve foreign controls',()=>{
+test('unsupported narrow generated/type columns fail explicitly and exact metadata predicates preserve foreign controls',{ skip: !DatabaseSync }, ()=>{
  for(const table of ['appointment','appointmentArchive']){for(const metadata of [{data_type:'char'},{generation_expression:'concat(first,last)'}])assert.match(metadataPlan(table,metadata),/^SIGNAL SQLSTATE '45000'/);
   const ddl=metadataPlan(table,{},[{table_schema:'foreign_schema',character_maximum_length:900},{table_name:'foreign_table',character_maximum_length:900},{column_name:'foreign_column',character_maximum_length:900}]);assert(ddl.startsWith('ALTER TABLE '+table+' '));
  }
@@ -202,7 +207,7 @@ test('full baseline61-character linked legal names fit the widened native UI wit
  for(const mode of ['ADDAPPT','EDITAPPT']){const name='L'.repeat(30)+','+'F'.repeat(30),f=form(mode,{keyword:name});assert.equal(f.validate(),true);assert.equal(f.controls.keyword.value.length,61);}
 });
 
-test('the actual SQL COALESCE expression explicitly refuses a missing live or archive name column',()=>{
+test('the actual SQL COALESCE expression explicitly refuses a missing live or archive name column',{ skip: !DatabaseSync }, ()=>{
  for(const table of ['appointment','appointmentArchive'])assert.equal(metadataPlan(table,{missing:true}),"SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Missing "+table+".name column'");
 });
 

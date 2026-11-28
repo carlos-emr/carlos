@@ -28,8 +28,8 @@
         "scripts/server-table-page-playwright-checks.js"
       ],
       "source": "scripts/server-table-page-playwright-checks.js",
-      "sourceSha256": "0e9044cb73540afafd5275a2f9e54fc6b39d4d89e7a7f2c7e2255003e7a92abb",
-      "minimumAssertions": 52
+      "sourceSha256": "c5a5b6535272a4ed5f19bdbbe78f0494434a256d086006a7de3c68e48c34767f",
+      "minimumAssertions": 64
     },
     {
       "id": "navigation-cancellation-browser-checks",
@@ -89,6 +89,16 @@
       "source": "scripts/eform-toolbar-browser-check.js",
       "sourceSha256": "85a7d84d9b9c1f2ef0a7ac447a2c821336161a5065b96cc1592245266f2e5890",
       "minimumAssertions": 1383
+    },
+    {
+      "id": "eform-select-prefill-fixture-check",
+      "command": [
+        "node",
+        "scripts/eform-select-prefill-fixture-check.js"
+      ],
+      "source": "scripts/eform-select-prefill-fixture-check.js",
+      "sourceSha256": "7b9f3bfc93b433dee03972e3f2180850960330762877e7b3bc50c3aca6ac03f8",
+      "minimumAssertions": 83
     },
     {
       "id": "dashboard-tickler-picker-browser-check",
@@ -237,5 +247,5 @@
       ]
     }
   ],
-  "workflowSha256": "91d4a98b47249de035fbef34a86cca4af52a82489b12a47dc17f275224da17d0"
+  "workflowSha256": "5de48066ef32976dd3af499cdc28806604f37c03a715ef5e800d4c330d198f20"
 }

@@ -3733,7 +3733,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Creates and removes an owned FAKE-PW patient plus its flowsheet_customization and measurements rows; local disposable database only."
+      "fixtures": "Creates and removes an owned FAKE-PW patient plus its flowsheet_customization and measurements rows; local disposable database only.",
+      "notes": "Steps include: a customized measurement renders as a tracker card with an entry field; a saved value is not doubled when the same observation is submitted again; a refused value writes nothing, in the browser or on the server; and the delete path's CSRF token is present and deleting an observation removes it. The delete step also reads the confirmation's #deleteObsDate line, which must be \"<entered by> — Date: <observed>\" with a real em dash (U+2014, matched by code point) and neither U+FFFD nor the windows-1252 reading; #6305 writes that dash as a JavaScript escape in HealthTrackerPage.jspf, a dynamic include Jasper reads as ISO-8859-1. That em-dash assertion has not yet run against a package."
     },
     {
       "name": "measurement-history",
@@ -5153,12 +5154,16 @@
       ],
       "timeoutSec": 300,
       "assertsDatabase": true,
+      "mutates": [
+        "property:schedule.week_view_weekends"
+      ],
       "env": [
         "TEST_PASSWORD",
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owned synthetic patient plus one appointment row (marker in name) at a free slot inside the provider's schedule hours today; on weekend runs the schedule.week_view_weekends property is snapshotted, enabled and restored."
+      "fixtures": "Owned synthetic patient plus one appointment row (marker in name) at a free slot inside the provider's schedule hours today; on weekend runs the schedule.week_view_weekends property is snapshotted, enabled and restored. On those runs this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "One seeded appointment through the day, week, month, Flip View and zoom views, the W+ multiplier, Alt+T and the 2W, 4W, 3M and 6M buttons. A step on today's day view, before Flip View opens, reads the visually hidden label of the provider's Flip View radio (appointmentprovideradminday.jsp:1743): it must be the schedule.scheduleflipview.title message, \" — \" (U+2014) and the provider name the column's zoom link prints, with no mojibake and no literal &#8212; (#6305 writes the dash as that entity, which a page Jasper reads as ISO-8859-1 keeps). That step has not yet run against a package."
     },
     {
       "name": "schedule-month-week-links",
@@ -5480,8 +5485,8 @@
       ],
       "timeoutSec": 360,
       "env": [],
-      "notes": "#5813: a lone empty text parameter survives native upload, edit, reopen, run and export while the other template stays unchanged. #5725: two template schemas (text and list parameters) and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed.",
-      "fixtures": "Two natively uploaded marker-owned templates and two owned synthetic patients. Native middle-click opens report instances from the Administration library. Clinical rows remain unchanged; exact owned templates/patient and scratch-download cleanup are verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5813: a lone empty text parameter survives native upload, edit, reopen, run and export while the other template stays unchanged. #5725: two template schemas (text and list parameters) and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed. A last step (#6236, reportByTemplateLayout.css) uploads a third owned template whose query returns a 400-character unbroken value: on the result page the report region scrolls the wide cell itself (overflow-x auto, no row gutter) while the page does not scroll horizontally and the action row wraps, and in print emulation the region is not clipped and the .noprint bars are hidden; on View Template XML the template text wraps (pre-wrap, overflow-wrap anywhere) without widening its box or the page, the body keeps its 1rem screen gutter, and print hides the navigation bar and the template actions. That step has not yet run against a package; the third template is deleted with the other two.",
+      "fixtures": "Three natively uploaded marker-owned templates (the third, uploaded by the last step, returns the wide value) and two owned synthetic patients. Native middle-click opens report instances from the Administration library. Clinical rows remain unchanged; exact owned templates/patient and scratch-download cleanup are verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
         "reportTemplates"
       ]
@@ -5597,13 +5602,17 @@
         "core"
       ],
       "assertsDatabase": true,
+      "mutates": [
+        "eform_groups",
+        "eform"
+      ],
       "provinces": [
         "all"
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "The group mutators answer POST/redirect/GET since #4130 (findings 69 and 74: the panel lost its CSRF token, and a success result forwarded the POST to a GET-only gate that answered 405). submitInPanel follows the chain the panel's POST starts: the POST answers 200 or a redirect, every hop stays on the origin and is a GET, and the page it ends on answers 200. Passes all eight steps on an installed release/2026.08 package. The Add eForm list also throws a TypeError on unload (unguarded window.opener, finding 77), which does not fail the check.",
-      "fixtures": "Two marker eForm templates, one saved instance of each for the owned patient, a seeded PW<hex> group and a PV<hex> group created by the panel (eform_groups.group_name is varchar(20)); only these rows are removed."
+      "notes": "The group mutators answer POST/redirect/GET since #4130 (findings 69 and 74: the panel lost its CSRF token, and a success result forwarded the POST to a GET-only gate that answered 405). submitInPanel follows the chain the panel's POST starts: the POST answers 200 or a redirect, every hop stays on the origin and is a GET, and the page it ends on answers 200. Passed all eight steps it then had on an installed release/2026.08 package. A ninth step, after the duplicate-name one (#5842), holds the panel's Add Group POST with page.route, changes the name to the seeded group's while it is out and answers it HTTP 500 without reaching the server: the shell's notice must appear above the form and the page must check the name again, keeping Add Group disabled; it has not yet run against a package. The Add eForm list also throws a TypeError on unload (unguarded window.opener, finding 77), which does not fail the check.",
+      "fixtures": "Two marker eForm templates, one saved instance of each for the owned patient, a seeded PW<hex> group and a PV<hex> group created by the panel, and the PF<hex> name the failed Add Group request carries, which never reaches the server (eform_groups.group_name is varchar(20)); only these rows are removed. The eForm library and group list are clinic-wide, so this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "measurement-type-group-admin",
@@ -9427,7 +9436,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Patients whose surname starts with the run tag, created through Search > Create Demographic; cleanup removes every row of those patients (relabels to the marker, then removeMarkedPatients) and asserts none remain. The append-only audit log is not touched.",
-      "notes": "Checks Add and Edit field limits against the database, preserving fifty-character Unicode names and visibly rejecting overflow without saving or truncating names. Pronoun and gender (25) are limited in both forms and validated before persistence (#5638). Name Used is checked against the alias (70), not pref_name: it must be stored whole in the alias, with pref_name holding its first 30 characters by design (#5128, which needs #5127; before both, a Name Used over 30 characters fails the save under a strict sql_mode and is cut under an empty one)."
+      "notes": "Checks Add and Edit field limits against the database, preserving fifty-character Unicode names and visibly rejecting overflow without saving or truncating names. Pronoun and gender (25) are limited in both forms and validated before persistence (#5638). Name Used is checked against the alias (70), not pref_name: it must be stored whole in the alias, with pref_name holding its first 30 characters by design (#5128, which needs #5127; before both, a Name Used over 30 characters fails the save under a strict sql_mode and is cut under an empty one). Two steps after the Add-form limits (#5869) check the patient alert (cust3 on the Add form, alert on the Edit form) and the waiting-list note against their columns in Unicode code points, each alert line break counted as the CR LF the browser submits: an alert at the limit is saved whole and redisplayed whole by the Edit form, and one more character is refused in both forms without being cut or sent. The Edit-form step needs DEMOGRAPHIC_WAITING_LIST=true, the packaged default (the devcontainer sets it false): edit-form-clinical.jsp draws the waiting-list note only then, and the step fails when the box is missing. These two steps have not yet run against a package."
     },
     {
       "name": "boundary-demographic-search",
@@ -17251,6 +17260,24 @@
       "notes": "Issue #3552: a drawn canvas signature and jSignature strokes save through the toolbar as carlos-data-uri references, eform_values and the reopened form hold the signatures themselves, an SVG carried value is refused with 400 before storage and the same rendering then saves once, and through the packaged front door data:text/html or an uncarried signature in an ordinary field gets the WAF's 403 (WAF rule 1040 is per-argument)."
     },
     {
+      "name": "eform-select-prefill",
+      "script": "scripts/eform-select-prefill-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Owned synthetic patient and owned eForm template inserted by unique name; all revisions, values, template, and patient are deleted and asserted gone. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "PR #6284: eForm <select> prefill from oscarDB=patient_alias (prefix sibling, entity-encoded value, template default after stored value, unquoted value before selected and slash), dependent oscarDB=e$count lookup binding the browser-submitted value (ignoring inert template select and disabled duplicate select), untouched toolbar save and reopen, and no-break space text-only option restoration."
+    },
+    {
       "name": "demographic-add-relation",
       "script": "scripts/demographic-add-relation-playwright-checks.js",
       "tiers": [
@@ -19924,6 +19951,26 @@
       ],
       "fixtures": "Owned patient, PDF documents, invalid document and routing rows. Deliberately renames HRMDocument briefly and restores it before cleanup; requires a disposable installation and must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Every owned row/file is removed.",
       "notes": "Visible incomplete-list notice with later valid rows, no fake clinical row, and a real HRM count SQL failure returning HTTP 500 without totals. Verifies recovery after restoring the table. Requires explicit CARLOS_DISPOSABLE_VM=true and EXCLUSIVE=1; never runs from a tier."
+    },
+    {
+      "name": "lab-measurement-filing",
+      "script": "scripts/lab-measurement-filing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "mutates": [
+        "providerLabRoutingLock"
+      ],
+      "fixtures": "Owned FAKE- patient and two per-run multi-OBX CML accessions uploaded through the native HL7 uploader (original, correction, late older delivery, and an unmatched lab matched concurrently via PatientMatch). Cleanup removes all owned lab, routing, unshared providerLabRoutingLock, active/archived measurement, measurementsExt, fileUploadCheck, and archived upload files and asserts zero residue. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#6391: end-to-end verification of atomic after-commit measurement filing, correction archival to measurementsDeleted without stale active rows, late older delivery protection, and serialized duplicate-free concurrent/repeated PatientMatch filing."
     }
   ]
 }

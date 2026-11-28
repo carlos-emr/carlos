@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "2321ae0d887ec171249f160ae763c1de94003715",
+  "comparisonSha256": "36ed138503244957b5202690ca8edbed7a2d4fb1f6927355e7b6ed108f591788",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoChainLockDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "dcca53d6938708c99f7af3ce9cb6bb1f6454e27f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/FiledMeasurementDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "37ced271235e024d8529f16231c82ea506890d20"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "865f44cc4dd938a4e535c1967eece1b19bd629f8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/LabMeasurementFilingService.java": {
+      "lines": 99.15254237288136,
+      "instructions": 99.80952380952381,
+      "branches": 100.0,
+      "sourceBlob": "dcaace50aca23b2e5e88fdfdf6a64bd1a3c6a69b"
+    }
+  },
+  "baselineCommit": "cbc6411dcbf57e91a9d9f760b877da7210b73ee0",
+  "baselineSourceTree": "2321ae0d887ec171249f160ae763c1de94003715",
+  "baselineReportSha256": "35b2b0b2528fd3de74b37cdbe6fac52ba011c92ff83aa8462da417bb88bda8ab",
+  "baselineLane": "PR #6422 (#6391) FOCUSED run (Maven, JDK 25.0.5, JaCoCo 0.8.16, H2, Checkstyle enabled) of the lab filing, version filing, lab unlink, CML, chain-lock DAO, legacy upload, PathNet, inbox/rematch, and JSP rendering unit and integration tests on commit cbc6411dcbf57e91a9d9f760b877da7210b73ee0. Measured with check-coverage-floors.py measure() from target/site/jacoco/jacoco.xml for Hl7TextInfoChainLockDaoImpl, FiledMeasurementDto, Hl7textResultsData, and LabMeasurementFilingService; qualifies only these selected sources.",
+  "baselineTestCounts": {
+    "tests": 347,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "267f322d5d1e2588978899be9135accd56068691a244a275d03c5b53806a1f97",
+  "baselineTestReportsHashFormat": "SHA-256 of compact, key-sorted JSON mapping each Surefire XML filename to the SHA-256 of its unchanged bytes",
+  "exclusions": {},
+  "exclusionSourceBlobs": {},
+  "zeroCoverageWaivers": {}
+}
