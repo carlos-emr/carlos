@@ -34,8 +34,8 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const {
-  SkipCheck, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner, insertId,
-  launchBrowser, login, newContext, readConfig, runCheck, wireStrictPage,
+  SkipCheck, appUrl, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner,
+  insertId, launchBrowser, login, newContext, readConfig, runCheck, wireStrictPage,
 } = require('./lib/playwright-harness');
 const { oauthHeader, pct } = require('./lib/oauth1-signing');
 
@@ -131,6 +131,7 @@ async function cleanup(state) {
   const recordCleanupError = (error) => {
     cleanupErrors.push(error);
   };
+  let labRowsCleaned = false;
   // A browser that fails to close must not skip the database cleanup, and its error must still
   // reach the caller (a `return` inside `finally` used to swallow it when there was no SQL runner).
   try {
@@ -305,6 +306,7 @@ async function cleanup(state) {
                 ) === '0',
                 'The owned synthetic HL7 lab rows were not removed',
               );
+              labRowsCleaned = true;
             }
           } catch (error) {
             recordCleanupError(error);
@@ -402,17 +404,24 @@ async function cleanup(state) {
         } catch (error) {
           recordCleanupError(error);
         } finally {
-          sql.dispose();
+          try {
+            sql.dispose();
+          } catch (error) {
+            recordCleanupError(error);
+          }
         }
       }
     }
   }
-  // Remove the archived lab upload in its own try/catch after all DB deletes, so an EACCES/EROFS
-  // on the document store never skips synthetic patient, eForm or OAuth row cleanup.
-  try {
-    removeOwnedLabFile(state);
-  } catch (error) {
-    recordCleanupError(error);
+  // Remove the archived lab upload only after confirming this upload has no remaining database
+  // references, and in its own try/catch after all DB deletes, so an EACCES/EROFS never skips DB
+  // cleanup while a failed lab-row cleanup retains the archive so remaining rows do not dangle.
+  if (labRowsCleaned) {
+    try {
+      removeOwnedLabFile(state);
+    } catch (error) {
+      recordCleanupError(error);
+    }
   }
   if (cleanupErrors.length === 1) throw cleanupErrors[0];
   if (cleanupErrors.length > 1) {
@@ -458,21 +467,53 @@ function createEndpointRecorder(endpointResults) {
  * signed-in provider's browser session.
  */
 function createAuthorizer({
-  state, app, anon, sessionContext, recorder, consumerKey, consumerSecret, recordEndpoint,
+  state, app, anon, sessionContext, recorder, consumerKey, consumerSecret,
+  endpointResults, endpointRecords, recordEndpoint,
 }) {
   return async function authorize(scopes) {
     if (state.throwIfCancelled) state.throwIfCancelled();
     // Cooperative cancellation: checked before each step, so a step already sent finishes and the
     // next one is not started once SIGINT/SIGTERM is recorded.
     const checkCancelled = () => { if (state.throwIfCancelled) state.throwIfCancelled(); };
+    // Open a PENDING row before every handshake request so non-200 responses and transport errors
+    // report their actual endpoint and HTTP status instead of a generic RUN failure.
+    const sendHandshake = async (method, endpointPath, label, operation) => {
+      const result = {
+        outcome: 'PENDING',
+        method,
+        path: endpointPath,
+        status: 'n/a',
+        verification: 'request sent; response assertions pending',
+      };
+      endpointResults.push(result);
+      try {
+        const response = await operation();
+        if (response) {
+          result.status = response.status();
+          endpointRecords.set(response, result);
+        }
+        return response;
+      } catch (error) {
+        const failure = requestFailure(label, error);
+        result.outcome = 'FAIL';
+        result.verification = failure.message;
+        failure.endpointRecord = result;
+        throw failure;
+      }
+    };
+
     const initiateUrl = app(`/ws/oauth/initiate?scope=${pct(scopes)}`);
-    let response = await handshakeStep('OAuth request-token initiation', () => anon.post(initiateUrl, {
-      headers: {
-        Authorization: oauthHeader({
-          method: 'POST', url: initiateUrl, consumerKey, consumerSecret, extra: { oauth_callback: 'oob' },
-        }),
-      },
-    }));
+    let response = await sendHandshake(
+      'POST', '/ws/oauth/initiate', 'OAuth request-token initiation',
+      () => anon.post(initiateUrl, {
+        maxRedirects: 0,
+        headers: {
+          Authorization: oauthHeader({
+            method: 'POST', url: initiateUrl, consumerKey, consumerSecret, extra: { oauth_callback: 'oob' },
+          }),
+        },
+      }),
+    );
     await expectStatus(response, 200, 'OAuth request-token initiation');
     const requestToken = formFields(await response.text());
     assert(requestToken.oauth_token && requestToken.oauth_token_secret
@@ -483,23 +524,33 @@ function createAuthorizer({
     checkCancelled();
     const consent = await sessionContext.newPage();
     wireStrictPage(consent, 'oauth-clinical-api-consent', recorder);
-    const pageResponse = await handshakeStep('OAuth consent page', () => consent.goto(
-      app(`/ws/oauth/authorize?oauth_token=${pct(requestToken.oauth_token)}`), { waitUntil: 'load' }));
+    const pageResponse = await sendHandshake(
+      'GET', '/ws/oauth/authorize', 'OAuth consent page',
+      () => consent.goto(
+        app(`/ws/oauth/authorize?oauth_token=${pct(requestToken.oauth_token)}`), { waitUntil: 'load' },
+      ),
+    );
     assert(pageResponse && pageResponse.status() === 200, 'The OAuth consent page did not load successfully');
     await assertNotErrorPage(consent, 'OAuth clinical API consent page');
-    recordEndpoint('GET', '/ws/oauth/authorize', pageResponse, `consent page loaded (${scopes})`);
     const consentText = await consent.locator('body').innerText();
     for (const scope of scopes.split(' ')) {
       assert(consentText.includes(scope), `The OAuth consent page omitted requested scope ${scope}`);
     }
     assert(await consent.locator('#legacyRestrictedWarning, #fullAccessWarning').count() === 0,
       'The test server is not using OAuth scoped mode; use a separate disposable scoped installation');
+    recordEndpoint('GET', '/ws/oauth/authorize', pageResponse, `consent page loaded (${scopes})`);
     checkCancelled();
-    const [approval] = await handshakeStep('OAuth consent approval', () => Promise.all([
-      consent.waitForResponse((item) => item.request().method() === 'POST'
-        && new URL(item.url()).pathname.endsWith('/ws/oauth/authorize'), { timeout: 30000 }),
-      consent.locator('#scopeForm button[type="submit"]').click(),
-    ]));
+    const approval = await sendHandshake(
+      'POST', '/ws/oauth/authorize', 'OAuth consent approval',
+      async () => {
+        const [approvalResponse] = await Promise.all([
+          consent.waitForResponse((item) => item.request().method() === 'POST'
+            && new URL(item.url()).pathname.endsWith('/ws/oauth/authorize'), { timeout: 30000 }),
+          consent.locator('#scopeForm button[type="submit"]').click(),
+        ]);
+        return approvalResponse;
+      },
+    );
     await expectStatus(approval, 200, 'OAuth consent approval');
     const verifier = formFields(await approval.text()).oauth_verifier;
     assert(verifier, 'OAuth consent did not issue a verifier');
@@ -508,15 +559,19 @@ function createAuthorizer({
 
     checkCancelled();
     const tokenUrl = app('/ws/oauth/token');
-    response = await handshakeStep('OAuth access-token exchange', () => anon.post(tokenUrl, {
-      headers: {
-        Authorization: oauthHeader({
-          method: 'POST', url: tokenUrl, consumerKey, consumerSecret,
-          token: requestToken.oauth_token, tokenSecret: requestToken.oauth_token_secret,
-          extra: { oauth_verifier: verifier },
-        }),
-      },
-    }));
+    response = await sendHandshake(
+      'POST', '/ws/oauth/token', 'OAuth access-token exchange',
+      () => anon.post(tokenUrl, {
+        maxRedirects: 0,
+        headers: {
+          Authorization: oauthHeader({
+            method: 'POST', url: tokenUrl, consumerKey, consumerSecret,
+            token: requestToken.oauth_token, tokenSecret: requestToken.oauth_token_secret,
+            extra: { oauth_verifier: verifier },
+          }),
+        },
+      }),
+    );
     await expectStatus(response, 200, 'OAuth access-token exchange');
     const accessToken = formFields(await response.text());
     assert(accessToken.oauth_token && accessToken.oauth_token_secret,
@@ -542,15 +597,6 @@ function requestFailure(label, error) {
   return new Error(`${label}: ${category}`);
 }
 
-/** Runs one network step of the OAuth handshake, replacing a raw failure with requestFailure's. */
-async function handshakeStep(label, operation) {
-  try {
-    return await operation();
-  } catch (error) {
-    throw requestFailure(label, error);
-  }
-}
-
 /** Returns signedRequest(method, path, token, body), which records a row for every request it sends. */
 function createSignedRequest({
   state, app, anon, consumerKey, consumerSecret, endpointResults, endpointRecords,
@@ -567,7 +613,8 @@ function createSignedRequest({
         token: token.oauth_token, tokenSecret: token.oauth_token_secret,
       }),
     };
-    const options = { method, headers };
+    // Do not follow redirects automatically so status checks validate the signed endpoint itself.
+    const options = { method, headers, maxRedirects: 0 };
     if (body !== undefined) {
       headers['Content-Type'] = 'application/json';
       options.data = JSON.stringify(body);
@@ -620,7 +667,7 @@ async function setUpRun(state) {
   const config = readConfig();
   const sql = createSqlRunner(config.mysql);
   state.sql = sql;
-  const app = (appPath) => `${config.baseUrl}${appPath}`;
+  const app = (appPath) => appUrl(config.baseUrl, appPath);
   const runMarker = crypto.randomUUID().replace(/-/g, '');
   // Prefix with FAKE-PW so scripts/lib/residue-audit.js catches any leaked patient row by marker.
   const marker = `FAKE-PW${runMarker.slice(0, 12)}`;
@@ -665,7 +712,8 @@ async function setUpRun(state) {
   await login(sessionContext, config, recorder, { label: 'oauth-clinical-api-login' });
 
   const authorize = createAuthorizer({
-    state, app, anon, sessionContext, recorder, consumerKey, consumerSecret, recordEndpoint,
+    state, app, anon, sessionContext, recorder, consumerKey, consumerSecret,
+    endpointResults, endpointRecords, recordEndpoint,
   });
   const fullToken = await authorize(REQUIRED_SCOPES);
   const limitedToken = await authorize(LIMITED_SCOPES);
@@ -894,17 +942,48 @@ async function checkMeasurementRead({
     'limited token (demographic.read measurement.read) accepted for the measurement read');
 }
 
+/**
+ * Chooses a valid, unambiguous configured BP measuring instruction so disposable installations with
+ * several BP instructions (e.g. sitting and standing) do not fail before sending any request.
+ * Operators may override the choice with OAUTH_CLINICAL_API_BP_INSTRUCTION.
+ */
+function selectBpInstruction(sql, requestedInstruction = process.env.OAUTH_CLINICAL_API_BP_INSTRUCTION) {
+  const rows = sql.rows(
+    `SELECT measuringInstruction, validation FROM measurementType
+      WHERE type = ? ORDER BY measuringInstruction, id`,
+    ['BP'],
+  );
+  assert(rows.length >= 1, 'Expected at least one configured BP measurement instruction');
+  const rulesByInstruction = new Map();
+  for (const [rawInstruction, rawValidation] of rows) {
+    const instruction = rawInstruction ?? '';
+    const key = instruction.toLowerCase();
+    const validation = (rawValidation ?? '').trim();
+    if (!rulesByInstruction.has(key)) {
+      rulesByInstruction.set(key, { instruction, validations: new Set() });
+    }
+    rulesByInstruction.get(key).validations.add(validation);
+  }
+  const unambiguous = [...rulesByInstruction.values()]
+    .filter((entry) => entry.validations.size === 1)
+    .map((entry) => entry.instruction);
+  assert(unambiguous.length >= 1, 'Expected at least one unambiguous configured BP measurement instruction');
+  if (requestedInstruction !== undefined && requestedInstruction !== '') {
+    const match = unambiguous.find((instruction) => instruction.toLowerCase() === requestedInstruction.toLowerCase());
+    assert(match !== undefined,
+      `OAUTH_CLINICAL_API_BP_INSTRUCTION=${JSON.stringify(requestedInstruction)} is not an unambiguous configured BP instruction `
+        + `(configured: ${unambiguous.map((value) => JSON.stringify(value)).join(', ')})`);
+    return match;
+  }
+  const sitting = unambiguous.find((instruction) => instruction.toLowerCase() === 'sitting position');
+  return sitting !== undefined ? sitting : unambiguous[0];
+}
+
 async function checkMeasurementWrite({
   sql, signedRequest, fullToken, limitedToken, recordEndpoint, runMarker, patientNo,
   measurementComment, measurementId,
 }) {
-  const bpTypes = sql.rows(
-    'SELECT DISTINCT measuringInstruction FROM measurementType WHERE type = ?',
-    ['BP'],
-  );
-  assert(bpTypes.length === 1,
-    `Expected exactly one configured BP measurement instruction, got ${bpTypes.length}`);
-  const bpInstruction = bpTypes[0][0] ?? '';
+  const bpInstruction = selectBpInstruction(sql);
   const observedAt = Date.now();
   const expectedObservedAt = Math.floor(observedAt / 1000) * 1000;
   const newMeasurementComment = `OAuth clinical API new measurement ${runMarker}`;
@@ -920,8 +999,16 @@ async function checkMeasurementWrite({
   );
   await expectInsufficientScope(limitedMeasurementCreate,
     'OAuth new measurement without measurement.write');
+  assert(
+    sql.value('SELECT COUNT(*) FROM measurements WHERE demographicNo=? AND type=?', [patientNo, 'BP']) === '1'
+      && sql.value(
+        'SELECT COUNT(*) FROM measurements WHERE demographicNo=? AND type=? AND comments=?',
+        [patientNo, 'BP', newMeasurementComment],
+      ) === '0',
+    'The scope-refused measurement write still persisted a row',
+  );
   recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', limitedMeasurementCreate,
-    'missing measurement.write refused with insufficient_scope');
+    'missing measurement.write refused with insufficient_scope and nothing stored');
 
   const newMeasurementResponse = await signedRequest(
     'POST', `/ws/services/measurements/${patientNo}/new`, fullToken, newMeasurementPayload,
@@ -1553,4 +1640,5 @@ if (require.main === module) {
 
 module.exports = {
   main, cleanup, setUpRun, removeOwnedLabFile, requestFailure, shouldRun,
+  createAuthorizer, createEndpointRecorder, createSignedRequest, selectBpInstruction, checkMeasurementWrite,
 };

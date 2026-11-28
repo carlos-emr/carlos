@@ -7,10 +7,11 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
-const { SkipCheck } = require('./lib/playwright-harness');
+const { SkipCheck, appUrl } = require('./lib/playwright-harness');
 const oauth1 = require('./lib/oauth1-signing');
 const {
   cleanup, removeOwnedLabFile, requestFailure, setUpRun, shouldRun,
+  createAuthorizer, createEndpointRecorder, createSignedRequest, selectBpInstruction, checkMeasurementWrite,
 } = require('./oauth-clinical-api-playwright-checks');
 
 test('shouldRegisterOAuthClinicalApiCheck_inManifestAndPackageJson', () => {
@@ -99,7 +100,7 @@ test('shouldDeleteOnlyIntroducedRoutingLocks_andRunDbDeletesEvenWhenLabFileRemov
   const executed = [];
   let disposed = false;
   const fakeSql = {
-    rows(query, params = []) {
+    rows(query) {
       if (query.includes('FROM fileUploadCheck')) return [['101']];
       if (query.includes('FROM hl7TextMessage')) return [['55'], ['77']];
       if (query.includes('FROM hl7TextInfo WHERE accessionNum')) return [['55'], ['77']];
@@ -132,7 +133,7 @@ test('shouldDeleteOnlyIntroducedRoutingLocks_andRunDbDeletesEvenWhenLabFileRemov
     formName: 'FAKE-PW OAuth clinical API run1',
     consumerKey: 'ck-test',
     labRunMarker: 'abcdef1234',
-    labAccession: 'FAKE-PW-abcdef1234',
+    labAccession: 'FAKEPW-abcdef1234',
     labFilePrefix: 'LabUpload.oauth-clinical-abcdef1234.xml.',
     initialLabLocks: new Set(['55']),
     documentStore: path.join(os.tmpdir(), 'carlos-nonexistent-docstore-for-test-99999'),
@@ -150,6 +151,80 @@ test('shouldDeleteOnlyIntroducedRoutingLocks_andRunDbDeletesEvenWhenLabFileRemov
   const lockDeletes = executed.filter((e) => e.query.includes('DELETE FROM providerLabRoutingLock'));
   assert.equal(lockDeletes.length, 1);
   assert.deepEqual(lockDeletes[0].params, ['77']);
+});
+
+test('shouldRetainLabArchive_whenLabRowDbCleanupFails', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-lab-retain-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const owned = 'LabUpload.oauth-clinical-abcd1234.xml.1700000000';
+  fs.writeFileSync(path.join(dir, owned), 'synthetic');
+
+  const fakeSql = {
+    rows(query) {
+      if (query.includes('FROM fileUploadCheck')) throw new Error('database unavailable');
+      return [];
+    },
+    value(query) {
+      if (query.includes('FROM demographic WHERE demographic_no=?') && query.includes('last_name=?')) return '1';
+      return '0';
+    },
+    execute() {},
+    dispose() {},
+  };
+
+  const state = {
+    sql: fakeSql,
+    marker: 'FAKE-PW0123456789ab',
+    providerNo: '999998',
+    patientNo: '42',
+    labRunMarker: 'abcd1234',
+    labAccession: 'FAKEPW-abcd1234',
+    labFilePrefix: 'LabUpload.oauth-clinical-abcd1234.xml.',
+    documentStore: dir,
+  };
+
+  await assert.rejects(() => cleanup(state), /database unavailable/);
+  assert.equal(fs.existsSync(path.join(dir, owned)), true,
+    'Archive file must be retained when lab DB cleanup failed');
+});
+
+test('shouldCollectSqlDisposeError_andStillRemoveArchiveWhenLabRowsWereCleaned', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-lab-dispose-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const owned = 'LabUpload.oauth-clinical-abcd1234.xml.1700000000';
+  fs.writeFileSync(path.join(dir, owned), 'synthetic');
+
+  const fakeSql = {
+    rows() { return []; },
+    value(query) {
+      if (query.includes('FROM demographic WHERE demographic_no=?') && query.includes('last_name=?')) return '1';
+      return '0';
+    },
+    execute() {},
+    dispose() { throw new Error('mysql client dispose failed'); },
+  };
+
+  const state = {
+    browser: { close: async () => { throw new Error('browser close failed'); } },
+    sql: fakeSql,
+    marker: 'FAKE-PW0123456789ab',
+    providerNo: '999998',
+    patientNo: '42',
+    labRunMarker: 'abcd1234',
+    labAccession: 'FAKEPW-abcd1234',
+    labFilePrefix: 'LabUpload.oauth-clinical-abcd1234.xml.',
+    documentStore: dir,
+  };
+
+  await assert.rejects(() => cleanup(state), (err) => {
+    assert.ok(err instanceof AggregateError);
+    assert.equal(err.errors.length, 2);
+    assert.match(err.message, /browser close failed/);
+    assert.match(err.message, /mysql client dispose failed/);
+    return true;
+  });
+  assert.equal(fs.existsSync(path.join(dir, owned)), false,
+    'Archive file must still be removed after lab DB rows were cleaned even if sql.dispose() throws');
 });
 
 test('shouldRefusePatientDependentDeletes_whenDemographicIdNoLongerMatchesRunMarker', async () => {
@@ -192,6 +267,145 @@ test('shouldRemoveOnlyOwnedLabFiles_inDocumentStore', (t) => {
 
   assert.equal(fs.existsSync(path.join(dir, owned)), false);
   assert.equal(fs.existsSync(path.join(dir, unrelated)), true);
+});
+
+test('shouldRecordFailedOAuthHandshakeStatus_andDisableRedirects', async () => {
+  const endpointResults = [];
+  const { endpointRecords, recordEndpoint } = createEndpointRecorder(endpointResults);
+  const postedCalls = [];
+  const anon = {
+    async post(url, options) {
+      postedCalls.push({ url, options });
+      return {
+        status: () => 401,
+        text: async () => 'oauth_problem=consumer_key_unknown',
+      };
+    },
+  };
+  const rootBase = new URL('http://127.0.0.1:8080/');
+  const authorize = createAuthorizer({
+    state: {},
+    app: (appPath) => appUrl(rootBase, appPath),
+    anon,
+    sessionContext: {},
+    recorder: {},
+    consumerKey: 'ck-test',
+    consumerSecret: 'cs-test',
+    endpointResults,
+    endpointRecords,
+    recordEndpoint,
+  });
+
+  await assert.rejects(() => authorize('measurement.read'), /expected HTTP 200, got 401/);
+
+  assert.equal(postedCalls.length, 1);
+  assert.equal(postedCalls[0].url, 'http://127.0.0.1:8080/ws/oauth/initiate?scope=measurement.read');
+  assert.equal(postedCalls[0].options.maxRedirects, 0);
+  assert.equal(endpointResults.length, 1);
+  assert.equal(endpointResults[0].method, 'POST');
+  assert.equal(endpointResults[0].path, '/ws/oauth/initiate');
+  assert.equal(endpointResults[0].status, 401);
+  assert.equal(endpointResults[0].outcome, 'PENDING');
+});
+
+test('shouldDisableRedirects_andJoinRootUrlCleanlyInSignedRequest', async () => {
+  const endpointResults = [];
+  const { endpointRecords } = createEndpointRecorder(endpointResults);
+  const fetched = [];
+  const anon = {
+    async fetch(url, options) {
+      fetched.push({ url, options });
+      return { status: () => 200 };
+    },
+  };
+  const rootBase = new URL('http://127.0.0.1:8080/');
+  const signedRequest = createSignedRequest({
+    state: {},
+    app: (appPath) => appUrl(rootBase, appPath),
+    anon,
+    consumerKey: 'ck-test',
+    consumerSecret: 'cs-test',
+    endpointResults,
+    endpointRecords,
+  });
+
+  const response = await signedRequest(
+    'GET', '/ws/services/schedule/statuses',
+    { oauth_token: 'tok', oauth_token_secret: 'sec' },
+  );
+  assert.equal(response.status(), 200);
+  assert.equal(fetched.length, 1);
+  assert.equal(fetched[0].url, 'http://127.0.0.1:8080/ws/services/schedule/statuses');
+  assert.equal(fetched[0].options.maxRedirects, 0);
+  assert.equal(endpointResults[0].path, '/ws/services/schedule/statuses');
+  assert.equal(endpointResults[0].status, 200);
+});
+
+test('shouldSelectValidBpInstruction_whenMultipleInstructionsAreConfigured', () => {
+  const multiSql = {
+    rows() {
+      return [
+        ['lying position', '6'],
+        ['sitting position', '6'],
+        ['standing position', '6'],
+      ];
+    },
+  };
+  assert.equal(selectBpInstruction(multiSql, ''), 'sitting position');
+  assert.equal(selectBpInstruction(multiSql, 'STANDING POSITION'), 'standing position');
+  assert.throws(() => selectBpInstruction(multiSql, 'unknown position'), /not an unambiguous configured BP instruction/);
+
+  const customOnlySql = {
+    rows() {
+      return [
+        ['ambiguous', '6'],
+        ['ambiguous', '11'],
+        ['left arm', '6'],
+        ['right arm', '6'],
+      ];
+    },
+  };
+  assert.equal(selectBpInstruction(customOnlySql, ''), 'left arm');
+  assert.throws(() => selectBpInstruction(customOnlySql, 'ambiguous'), /not an unambiguous configured BP instruction/);
+});
+
+test('shouldFailImmediately_whenScopeRefusedMeasurementCreateStillWritesToDatabase', async () => {
+  const requests = [];
+  const sql = {
+    rows() {
+      return [['sitting position', '6']];
+    },
+    value(query) {
+      // Simulate a regression where the refused 403 POST still inserted a second BP row.
+      if (query.includes('COUNT(*)') && query.includes('comments=?')) return '1';
+      if (query.includes('COUNT(*)')) return '2';
+      return '0';
+    },
+  };
+  const signedRequest = async (method, requestPath) => {
+    requests.push({ method, requestPath });
+    return {
+      status: () => 403,
+      text: async () => 'insufficient_scope',
+    };
+  };
+
+  await assert.rejects(
+    () => checkMeasurementWrite({
+      sql,
+      signedRequest,
+      fullToken: { oauth_token: 'full', oauth_token_secret: 'fsec' },
+      limitedToken: { oauth_token: 'lim', oauth_token_secret: 'lsec' },
+      recordEndpoint: () => {},
+      runMarker: 'abc123',
+      patientNo: '42',
+      measurementComment: 'fixture comment',
+      measurementId: '100',
+    }),
+    /scope-refused measurement write still persisted a row/,
+  );
+  // Must stop right after the limited request, never sending the authorized request.
+  assert.equal(requests.length, 1);
 });
 
 test('shouldSignOAuth1RequestsIndependently_viaLibOAuth1Signing', () => {

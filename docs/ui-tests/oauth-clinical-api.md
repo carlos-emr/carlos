@@ -117,10 +117,14 @@ OAUTH_CLINICAL_API_ONLY=eforms.templates EXCLUSIVE=1 CARLOS_DISPOSABLE_HOST=true
 `all` or an unset selector runs the full check. `measurements` runs both the
 read and new-measurement write checks. The `.read` and `.write` selectors run only
 that operation group; the write group also verifies that a token without
-`measurement.write` is refused, reads the saved result back (including
+`measurement.write` is refused without writing a row, reads the saved result back (including
 `measuringInstruction` and `dateObserved`), verifies dated-request retry
 idempotency, checks the patient-scoped audit entry, verifies invalid BP
 rejection (`400 VALUE_REJECTED`), and probes the unrouted `PUT` update endpoint.
+When multiple `BP` measuring instructions are configured, the write check selects
+`sitting position` if present (or the first unambiguous configured instruction),
+and supports selecting a specific configured instruction with
+`OAUTH_CLINICAL_API_BP_INSTRUCTION`.
 `eforms` and `eforms.templates` both run the eForm template checks (note: when
 running behind the packaged nginx/ModSecurity front door, raw HTML in JSON sent
 to `POST /ws/services/eform/json` is blocked by OWASP CRS; point `BASE_URL` at
