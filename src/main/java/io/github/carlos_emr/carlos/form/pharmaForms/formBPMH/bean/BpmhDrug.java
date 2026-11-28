@@ -85,43 +85,94 @@ public class BpmhDrug implements java.io.Serializable {
     private String how;
     private String why;
     private String instruction;
+    /** Patient-reported medication use recorded during BPMH review, supplementing rather than replacing chart directions. */
     private String patientReportedUse;
+
+    /** Medication description entered directly on the BPMH form for a patient-reported item with no chart {@code Drug} row. */
     private String reportedMedication;
+
+    /** Opaque digest of the chart medication row version and rendered BPMH summary that the clinician reviewed. */
     private String reviewedVersion;
+
+    /** Display flag indicating the underlying chart row changed during review; does not replace {@link #reviewedVersion}. */
     private boolean reviewChanged;
 
+    /**
+     * Returns the patient-reported medication use recorded during BPMH reconciliation.
+     *
+     * <p>This value supplements the chart directions displayed in {@link #getHow()} and does not replace them.</p>
+     *
+     * @return String the patient-reported use text, or {@code null} when none was entered
+     */
     @jakarta.xml.bind.annotation.XmlTransient
     public String getPatientReportedUse() {
         return patientReportedUse;
     }
 
+    /**
+     * Sets the patient-reported medication use recorded during BPMH reconciliation.
+     *
+     * @param patientReportedUse String the patient-reported use text supplementing chart directions, or {@code null}
+     */
     public void setPatientReportedUse(String patientReportedUse) {
         this.patientReportedUse = patientReportedUse;
     }
 
+    /**
+     * Returns the free-text medication name/strength entered for a patient-reported row that has no chart {@code Drug} record.
+     *
+     * @return String the patient-reported medication description, or {@code null} for chart-backed rows
+     */
     @jakarta.xml.bind.annotation.XmlTransient
     public String getReportedMedication() {
         return reportedMedication;
     }
 
+    /**
+     * Sets the free-text medication name/strength for a patient-reported row that has no chart {@code Drug} record.
+     *
+     * @param reportedMedication String the patient-reported medication description, or {@code null}
+     */
     public void setReportedMedication(String reportedMedication) {
         this.reportedMedication = reportedMedication;
     }
 
+    /**
+     * Returns the version digest of the chart medication row that the clinician reviewed when the BPMH form was loaded.
+     *
+     * @return String the reviewed chart row version digest, or {@code null} for patient-reported or historical rows
+     */
     @jakarta.xml.bind.annotation.XmlTransient
     public String getReviewedVersion() {
         return reviewedVersion;
     }
 
+    /**
+     * Sets the version digest of the chart medication row that the clinician reviewed.
+     *
+     * @param reviewedVersion String the reviewed chart row version digest, or {@code null}
+     */
     public void setReviewedVersion(String reviewedVersion) {
         this.reviewedVersion = reviewedVersion;
     }
 
+    /**
+     * Returns whether this row should be highlighted as new or changed since the clinician began reviewing the form.
+     *
+     * <p>This is a UI display flag only and does not replace {@link #getReviewedVersion()}.</p>
+     *
+     * @return boolean {@code true} if the chart row changed after review began
+     */
     @jakarta.xml.bind.annotation.XmlTransient
     public boolean isReviewChanged() {
         return reviewChanged;
     }
 
+    /**
+     * Sets whether this row should be highlighted as new or changed since the clinician began reviewing the form.
+     *
+     * @param reviewChanged boolean {@code true} to mark the row as changed for display without replacing {@link #getReviewedVersion()}
+     */
     public void setReviewChanged(boolean reviewChanged) {
         this.reviewChanged = reviewChanged;
     }
@@ -224,8 +275,8 @@ public class BpmhDrug implements java.io.Serializable {
     /**
      * Populates {@code how} from a CDS-recorded dose string when authored directions were blank.
      *
-     * <p>Appends {@code doseUnit} only when {@code doseUnit} is non-blank and {@code dose} contains no letters
-     * (meaning it does not already carry its own unit). Always replaces {@code how}.</p>
+     * <p>Appends {@code doseUnit} only when {@code doseUnit} is non-blank and {@code dose} contains no letters or
+     * percent unit symbol (meaning it does not already carry its own unit). Always replaces {@code how}.</p>
      *
      * @param dose String recorded CDS dose text (must be non-null)
      * @param doseUnit String verified administered dose unit to append when {@code dose} is unitless, or {@code null}
@@ -243,7 +294,8 @@ public class BpmhDrug implements java.io.Serializable {
      * @param prn boolean {@code true} if the source prescription is marked PRN (as needed)
      */
     public void useRecordedDoseText(String dose, String doseUnit, boolean prn) {
-        String recorded = StringUtils.isNotBlank(doseUnit) && dose.codePoints().noneMatch(Character::isLetter)
+        String recorded = StringUtils.isNotBlank(doseUnit)
+                && dose.codePoints().noneMatch(ch -> Character.isLetter(ch) || ch == '%')
                 ? dose + " " + doseUnit : dose;
         setStructuredDirections(recorded, prn);
     }
@@ -302,22 +354,28 @@ public class BpmhDrug implements java.io.Serializable {
     private static boolean isDispenseUnitTrailer(String unit) {
         if (!Character.isLetter(unit.codePointAt(0))) return false;
         int depth = 0;
+        int parenStart = -1;
+        boolean closedParen = false;
         int wordsOutsideParens = 0;
         boolean inWord = false;
         for (int index = 0; index < unit.length();) {
             int ch = unit.codePointAt(index);
-            index += Character.charCount(ch);
+            int nextIndex = index + Character.charCount(ch);
             if (ch == '(') {
-                depth++;
+                if (depth > 0 || closedParen) return false;
+                depth = 1;
+                parenStart = nextIndex;
                 inWord = false;
             } else if (ch == ')') {
-                if (--depth < 0) return false;
+                if (depth != 1 || !isPackageQualifier(unit.substring(parenStart, index))) return false;
+                depth = 0;
+                closedParen = true;
                 inWord = false;
             } else if (depth == 0) {
                 if (Character.isWhitespace(ch)) {
                     inWord = false;
                 } else {
-                    if (!Character.isLetter(ch) && ch != '/' && ch != '-') return false;
+                    if (closedParen || (!Character.isLetter(ch) && ch != '/' && ch != '-')) return false;
                     if (!inWord) {
                         wordsOutsideParens++;
                         if (wordsOutsideParens > 2) return false;
@@ -325,8 +383,23 @@ public class BpmhDrug implements java.io.Serializable {
                     }
                 }
             }
+            index = nextIndex;
         }
         return depth == 0;
+    }
+
+    private static boolean isPackageQualifier(String content) {
+        String trimmed = content.strip();
+        int numberEnd = plainDecimalEnd(trimmed);
+        if (numberEnd == 0 || numberEnd == trimmed.length()) return false;
+        String measureUnit = trimmed.substring(numberEnd).stripLeading();
+        if (measureUnit.isEmpty()) return false;
+        for (int index = 0; index < measureUnit.length();) {
+            int ch = measureUnit.codePointAt(index);
+            index += Character.charCount(ch);
+            if (!Character.isLetter(ch) && ch != '%' && ch != '/' && ch != '-') return false;
+        }
+        return true;
     }
 
     private static int plainDecimalEnd(String value) {

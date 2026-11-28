@@ -278,15 +278,31 @@ test('an accepted inline dose edit supersedes a pending quantity calculation', (
 
 test('an inline dose edit still reconciles when the prior calculation finishes before updateProperty succeeds', () => {
   const s = cardFields();
-  const card = s.element('set_5', { _rxCalculationPending: true });
+  const card = s.element('set_5', { _rxCalculationPending: true, dataset: { calculationSequence: '1' } });
+  const ack = s.element('calculationAck_5', { value: '1' });
   const qty = s.element('quantity_5', { value: '30' });
   const max = s.element('maximum_5', { textContent: '2', removeAttribute() {} });
   const recalculated = [];
-  s.context.updateQty = el => recalculated.push(el);
+  s.context.updateQty = el => recalculated.push({ el, seq: card._rxSequence });
   s.context.updateProperty(max.id);
   // Prior calculation finishes before updateProperty completes
   card._rxCalculationPending = false;
-  s.requests[0].options.onSuccess({ status: 200 });
+  s.requests[0].options.onSuccess({ status: 200, responseJSON: { calculationSequence: 4 } });
   assert.equal(card._rxNeedsReconciliation, false);
-  assert.deepEqual(recalculated, [qty]);
+  assert.equal(card._rxSequence, 4);
+  assert.equal(card.dataset.calculationSequence, '4');
+  assert.equal(ack.value, '1', 'acknowledgement waits for the reconciling updateQty response');
+  assert.deepEqual(recalculated, [{ el: qty, seq: 4 }]);
+});
+
+test('an idle inline clinical edit advances card._rxSequence and calculationAck from the server sequence', () => {
+  const s = cardFields();
+  const card = s.element('set_5', { _rxSequence: 2, _rxCalculationPending: false, dataset: { calculationSequence: '2' } });
+  const ack = s.element('calculationAck_5', { value: '2' });
+  const freq = s.element('frequency_5', { textContent: 'BID', removeAttribute() {} });
+  s.context.updateProperty(freq.id);
+  s.requests[0].options.onSuccess({ status: 200, responseText: '{"calculationSequence":3}' });
+  assert.equal(card._rxSequence, 3);
+  assert.equal(card.dataset.calculationSequence, '3');
+  assert.equal(ack.value, '3');
 });

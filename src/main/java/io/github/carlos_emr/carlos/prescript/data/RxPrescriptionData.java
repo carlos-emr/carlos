@@ -198,6 +198,7 @@ public class RxPrescriptionData {
         prescription.setCustomInstr(drug.isCustomInstructions());
         prescription.setDosage(drug.getDosage());
         prescription.setMedicationComponents(drug.getMedicationComponents());
+        prescription.recordStoredMedicationText(drug.getQuantity(), drug.getUnitName(), drug.getDosage());
         prescription.setLongTerm(drug.getLongTerm());
         prescription.setShortTerm(drug.getShortTerm());
         prescription.setCustomNote(drug.isCustomNote());
@@ -623,7 +624,7 @@ public class RxPrescriptionData {
     private Favorite toFavorite(io.github.carlos_emr.carlos.commn.model.Favorite f) {
         Favorite favorite = new Favorite(f.getId(), f.getProviderNo(), f.getName(), f.getBn(), f.getGcnSeqno(), f.getCustomName(), f.getTakeMin(), f.getTakeMax(), f.getFrequencyCode(), f.getDuration(), f.getDurationUnit(), f.getQuantity(), f.getRepeat(), f.isNosubs(), f.isPrn(), f.getSpecial(), f.getGn(), f.getAtc(), f.getRegionalIdentifier(), f.getUnit(), f.getUnitName(), f.getMethod(), f.getRoute(), f.getDrugForm(), f.isCustomInstructions(), f.getDosage());
         favorite.setDispenseInternal(f.isDispenseInternal());
-        favorite.setMedicationComponents(f.getMedicationComponents());
+        favorite.medicationComponents = f.getMedicationComponents();
         return favorite;
     }
 
@@ -740,6 +741,15 @@ public class RxPrescriptionData {
             return calculationSequence;
         }
 
+        /**
+         * Advances and returns the card's calculation/clinical-field sequence while holding the workspace lock.
+         *
+         * @return int the incremented sequence recorded on this card
+         */
+        public int advanceCalculationSequence() {
+            return ++calculationSequence;
+        }
+
         /** The parser replaces scalar fields and creates a fresh policy result. */
         public Prescription copyForCalculation() {
             try {
@@ -751,7 +761,15 @@ public class RxPrescriptionData {
             }
         }
 
-        /** Publish the calculated fields only after preparing the response. */
+        /**
+         * Publishes the calculated fields only after preparing the response.
+         *
+         * <p>Callers must hold the workspace ({@code RxSessionBean}) lock. This method does not validate
+         * {@code sequence}; it records {@code sequence} directly as {@link #getCalculationSequence()}.</p>
+         *
+         * @param calculated Prescription the cloned working copy containing the newly calculated dosing fields
+         * @param sequence int the calculation sequence to record on this card
+         */
         public void applyCalculation(Prescription calculated, int sequence) {
             special = calculated.special;
             route = calculated.route;
@@ -761,12 +779,24 @@ public class RxPrescriptionData {
             duration = calculated.duration;
             durationUnit = calculated.durationUnit;
             durationSpecifiedByUser = calculated.durationSpecifiedByUser;
+            durationFromMitte = calculated.durationFromMitte;
             frequencyCode = calculated.frequencyCode;
             prn = calculated.prn;
             quantity = calculated.quantity;
             unitName = calculated.unitName;
+            preserveStoredQuantity = calculated.preserveStoredQuantity;
+            preserveStoredUnitName = calculated.preserveStoredUnitName;
             policyViolations = calculated.policyViolations;
             calculationSequence = sequence;
+        }
+
+        void recordStoredMedicationText(String quantityText, String dispenseUnit, String dosageText) {
+            this.storedQuantity = quantityText;
+            this.preserveStoredQuantity = true;
+            this.storedUnitName = dispenseUnit;
+            this.preserveStoredUnitName = true;
+            this.storedDosage = dosageText;
+            this.preserveStoredDosage = true;
         }
 
         java.util.Date rxCreatedDate = null;
@@ -814,6 +844,12 @@ public class RxPrescriptionData {
         String route = null;
         String drugForm = null;
         String dosage = null;
+        private String storedQuantity;
+        private boolean preserveStoredQuantity;
+        private String storedUnitName;
+        private boolean preserveStoredUnitName;
+        private String storedDosage;
+        private boolean preserveStoredDosage;
         private String medicationComponents;
 
         public String getMedicationComponents() { return medicationComponents; }
@@ -829,6 +865,7 @@ public class RxPrescriptionData {
         private boolean discontinuedLatest = false;
         String special_instruction = null;
         private boolean durationSpecifiedByUser = false;
+        private boolean durationFromMitte = false;
         private boolean customNote = false;
         boolean nonAuthoritative = false;
         String eTreatmentType = null;
@@ -1020,6 +1057,15 @@ public class RxPrescriptionData {
 
         public void setDurationSpecifiedByUser(boolean b) {
             this.durationSpecifiedByUser = b;
+            this.durationFromMitte = false;
+        }
+
+        public boolean isDurationFromMitte() {
+            return durationFromMitte;
+        }
+
+        public void setDurationFromMitte(boolean fromMitte) {
+            this.durationFromMitte = fromMitte;
         }
 
         public String getSpecialInstruction() {
@@ -1437,6 +1483,7 @@ public class RxPrescriptionData {
             } else {
                 this.quantity = RHS;
             }
+            this.preserveStoredQuantity = false;
         }
 
         public int getRepeat() {
@@ -1947,6 +1994,13 @@ public class RxPrescriptionData {
             drug.setDosage(getDosage());
             drug.setMedicationComponents(getMedicationComponents());
             drug.setUnitName(getUnitName());
+            if (preserveStoredQuantity || preserveStoredUnitName || preserveStoredDosage) {
+                drug.setExactMedicationDetails(
+                        preserveStoredQuantity ? storedQuantity : drug.getQuantity(),
+                        preserveStoredUnitName ? storedUnitName : drug.getUnitName(),
+                        preserveStoredDosage ? storedDosage : drug.getDosage(),
+                        getMedicationComponents());
+            }
             drug.setLongTerm(getLongTerm());
             drug.setShortTerm(getShortTerm());
             drug.setCustomNote(isCustomNote());
@@ -2087,6 +2141,7 @@ public class RxPrescriptionData {
          */
         public void setUnitName(java.lang.String unitName) {
             this.unitName = unitName;
+            this.preserveStoredUnitName = false;
         }
 
         /**
@@ -2162,6 +2217,7 @@ public class RxPrescriptionData {
          */
         public void setDosage(java.lang.String dosage) {
             this.dosage = dosage;
+            this.preserveStoredDosage = false;
         }
 
         public Integer getRefillDuration() {
@@ -2447,9 +2503,14 @@ public class RxPrescriptionData {
         }
 
         private String medicationComponents;
+        private boolean medicationComponentsModified;
 
         public String getMedicationComponents() { return medicationComponents; }
-        public void setMedicationComponents(String value) { medicationComponents = value; }
+
+        public void setMedicationComponents(String value) {
+            medicationComponents = value;
+            medicationComponentsModified = true;
+        }
 
         public boolean Save() {
 
@@ -2502,7 +2563,7 @@ public class RxPrescriptionData {
             f.setDrugForm(this.getDrugForm());
             if (f.isCustomInstructions() != this.getCustomInstr()) f.setCustomInstructions(this.getCustomInstr());
             f.setDosage(this.getDosage());
-            if (medicationComponents != null) f.setMedicationComponents(medicationComponents);
+            if (medicationComponentsModified) f.setMedicationComponents(medicationComponents);
             f.setDispenseInternal(Boolean.TRUE.equals(this.getDispenseInternal()));
             return f;
         }

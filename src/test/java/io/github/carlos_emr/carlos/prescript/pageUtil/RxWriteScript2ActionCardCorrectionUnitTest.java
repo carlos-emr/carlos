@@ -471,6 +471,64 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldClearMitteDurationOverride_whenCountReplacesMitteAndIgnoreDecimalDays() {
+        card.setDurationSpecifiedByUser(false);
+        card.setTakeMax(1f);
+        card.setFrequencyCode("OD");
+
+        action.calculateStagedQuantity(card, "7 days");
+        assertThat(card.getDuration()).isEqualTo("7");
+        assertThat(card.getDurationUnit()).isEqualTo("D");
+        assertThat(card.isDurationSpecifiedByUser()).isTrue();
+
+        action.calculateStagedQuantity(card, "30");
+        assertThat(card.getDuration()).isEqualTo("30");
+        assertThat(card.getDurationUnit()).isEqualTo("D");
+        assertThat(card.isDurationSpecifiedByUser()).isFalse();
+
+        action.calculateStagedQuantity(card, "1.5 days");
+        assertThat(card.getDuration()).isNull();
+        assertThat(card.getDurationUnit()).isNull();
+    }
+
+    @Test
+    void shouldInvalidateOlderWindowSaveAcknowledgement_whenAnotherWindowUpdatesDurationInline() throws Exception {
+        var calculated = card.copyForCalculation();
+        calculated.setDuration("7");
+        calculated.setDurationUnit("D");
+        card.applyCalculation(calculated, 1);
+
+        request.setParameter("elementId", "duration_1");
+        request.setParameter("propertyValue", "14");
+        assertThat(action.updateProperty()).isNull();
+        var inlineJson = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(inlineJson.path("calculationSequence").asInt()).isEqualTo(2);
+        assertThat(card.getCalculationSequence()).isEqualTo(2);
+
+        // Window A posts its stale calculationAck=1 and must be refused with 409 STALE_RX_STASH.
+        request = new MockHttpServletRequest("POST", "/rx/WriteScript");
+        response = new MockHttpServletResponse();
+        RxSessionBeanResolver.register(request.getSession(), bean);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("draftRevision_1", card.getDraftRevision());
+        request.setParameter("calculationAck_1", "1");
+        request.setParameter("drugName_1", card.getBrandName());
+        request.setParameter("instructions_1", "1 tab PO OD");
+
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("STALE_RX_STASH");
+
+        // Window B posts the updated calculationAck=2 returned by updateProperty and passes stash validation.
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setParameter("calculationAck_1", "2");
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).validateRenderedStash(bean)).isTrue();
+    }
+
+    @Test
     void shouldRestoreCalculationSequence_whenSavedIdentityIsRestoredAfterRollback() {
         String originalRevision = card.getDraftRevision();
         var calculated = card.copyForCalculation();
@@ -559,6 +617,49 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(card.getTakeMax()).isEqualTo(1.5f);
+        }
+
+        @Test
+        @DisplayName("should advance calculationSequence for each inline clinical field but not repeats")
+        void shouldAdvanceCalculationSequence_whenServerOwnedInlineFieldsAreUpdated() throws Exception {
+            int expectedSequence = 0;
+            for (String[] edit : new String[][] {
+                {"method_1", "Take"},
+                {"route_1", "PO"},
+                {"frequency_1", "BID"},
+                {"minimum_1", "0.5"},
+                {"durationUnit_1", "W"},
+                {"prnVal_1", "true"}
+            }) {
+                response = new MockHttpServletResponse();
+                servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+                action = new RxWriteScript2Action(mockSignatureStampService);
+                request.setParameter("elementId", edit[0]);
+                request.setParameter("propertyValue", edit[1]);
+
+                assertThat(action.updateProperty()).as(edit[0]).isNull();
+                expectedSequence++;
+                assertThat(card.getCalculationSequence()).as(edit[0]).isEqualTo(expectedSequence);
+                var json = new ObjectMapper().readTree(response.getContentAsString());
+                assertThat(json.path("calculationSequence").asInt()).as(edit[0]).isEqualTo(expectedSequence);
+            }
+            assertThat(card.getMethod()).isEqualTo("Take");
+            assertThat(card.getRoute()).isEqualTo("PO");
+            assertThat(card.getFrequencyCode()).isEqualTo("BID");
+            assertThat(card.getTakeMin()).isEqualTo(0.5f);
+            assertThat(card.getDurationUnit()).isEqualTo("W");
+            assertThat(card.getPrn()).isTrue();
+
+            // Repeats is posted as a form input on Save, so inline repeat edits do not advance calculationSequence.
+            response = new MockHttpServletResponse();
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+            action = new RxWriteScript2Action(mockSignatureStampService);
+            request.setParameter("elementId", "repeats_1");
+            request.setParameter("propertyValue", "3");
+            assertThat(action.updateProperty()).isNull();
+            assertThat(card.getRepeat()).isEqualTo(3);
+            assertThat(card.getCalculationSequence()).isEqualTo(expectedSequence);
+            assertThat(response.getContentAsString()).isEmpty();
         }
 
         @Test

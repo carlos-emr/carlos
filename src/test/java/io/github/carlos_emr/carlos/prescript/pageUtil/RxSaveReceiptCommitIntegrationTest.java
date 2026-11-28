@@ -507,6 +507,32 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test void shouldNotAcknowledgeReplayedCard_whenDurationUpdatedInlineAfterSave() throws Exception {
+        try (var saved = new SavedDraft()) {
+            saved.card.setDuration("7");
+            saved.card.setDurationUnit("D");
+            var inlineRequest = new MockHttpServletRequest("POST", "/rx/WriteScript");
+            inlineRequest.addParameter("demographicNo", "1001");
+            inlineRequest.addParameter("elementId", "duration_123");
+            inlineRequest.addParameter("propertyValue", "14");
+            var inlineResponse = new MockHttpServletResponse();
+            saved.servlet.when(ServletActionContext::getRequest).thenReturn(inlineRequest);
+            saved.servlet.when(ServletActionContext::getResponse).thenReturn(inlineResponse);
+            try (var access = mockStatic(io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess.class)) {
+                access.when(() -> io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess
+                        .resolveForWrite(any(), eq(inlineRequest), eq("_rx"), eq("w"))).thenReturn(saved.bean);
+                assertThat(new RxWriteScript2Action(mock(PrescriptionSignatureStampService.class)).updateProperty()).isNull();
+            }
+            assertThat(saved.card.getDuration()).isEqualTo("14");
+            assertThat(saved.card.getCalculationSequence()).isEqualTo(1);
+
+            var answer = saved.replay(saved.submission("1 tab PO OD"), saved.bean);
+
+            assertThat(answer.path("error").asText()).isEqualTo("RX_ALREADY_SAVED");
+            assertThat(answer.has("draftRevisions")).isFalse();
+        }
+    }
+
     @Test void shouldClearSavedCards_whenTheSaveOnlyReplayFindsThemStillStaged() throws Exception {
         try (var saved = new SavedDraft()) {
             var retry = saved.submission("1 tab PO OD"); retry.addParameter("clearSaved", "true");

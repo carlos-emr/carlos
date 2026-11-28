@@ -83,23 +83,72 @@
                 const rows = document.getElementById('bpmhMedicationRows');
                 const add = document.getElementById('bpmhAddReportedMedication');
                 if (add) {
-                    let index = rows.rows.length;
+                    const maxDrugIndex = 255;
+                    function usedDrugIndices() {
+                        const used = new Set();
+                        for (const field of rows.querySelectorAll('[name^="form.drugs["]')) {
+                            const match = /^form\.drugs\[(\d+)\]\./.exec(field.name);
+                            if (match) used.add(Number(match[1]));
+                        }
+                        return used;
+                    }
+                    function nextDrugIndex() {
+                        const used = usedDrugIndices();
+                        let candidate = 0;
+                        while (used.has(candidate)) candidate++;
+                        return candidate;
+                    }
+                    function clearRowLimitValidity() {
+                        for (const flagged of rows.querySelectorAll('[data-bpmh-limit-invalid]')) {
+                            if (typeof flagged.setCustomValidity === 'function') flagged.setCustomValidity('');
+                            flagged.removeAttribute('data-bpmh-limit-invalid');
+                        }
+                    }
+                    function syncAddAvailability() {
+                        clearRowLimitValidity();
+                        add.disabled = nextDrugIndex() > maxDrugIndex;
+                    }
                     rows.addEventListener('click', function (event) {
                         const remove = event.target.closest('[data-remove-reported-medication]');
                         if (remove) {
                             remove.closest('tr').remove();
+                            syncAddAvailability();
                         }
                     });
                     add.addEventListener('click', function () {
+                        const index = nextDrugIndex();
+                        if (index > maxDrugIndex) {
+                            syncAddAvailability();
+                            return;
+                        }
                         const row = document.getElementById('bpmhReportedMedicationTemplate').content.cloneNode(true);
                         for (const field of row.querySelectorAll('[data-medication-field]')) {
                             field.name = 'form.drugs[' + index + '].' + field.dataset.medicationField;
                         }
                         const name = row.querySelector('input');
                         rows.append(row);
-                        ++index;
+                        syncAddAvailability();
                         name.focus();
                     });
+                    const bpmhForm = rows.closest ? rows.closest('form') : null;
+                    if (bpmhForm) {
+                        bpmhForm.addEventListener('submit', function (event) {
+                            clearRowLimitValidity();
+                            for (const idx of usedDrugIndices()) {
+                                if (idx > maxDrugIndex) {
+                                    event.preventDefault();
+                                    const invalidField = rows.querySelector('[name^="form.drugs[' + idx + ']."]');
+                                    if (invalidField && typeof invalidField.setCustomValidity === 'function') {
+                                        invalidField.setAttribute('data-bpmh-limit-invalid', 'true');
+                                        invalidField.setCustomValidity('Medication row limit (256) exceeded; remove excess rows before saving.');
+                                        if (typeof invalidField.reportValidity === 'function') invalidField.reportValidity();
+                                    }
+                                    return;
+                                }
+                            }
+                        });
+                    }
+                    syncAddAvailability();
                 }
                 $("#editFamilyDr").click(function () {
                     var familyDrContactId = $("#familyDrContactId").val();

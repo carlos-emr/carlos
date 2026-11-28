@@ -195,9 +195,12 @@ public class FavoriteDaoImpl extends AbstractDaoImpl<Favorite> implements Favori
             if (value != null) query.setParameter(field, value);
         });
         for (Favorite existing : query.getResultList()) {
+            boolean sameDosage = candidate.isExactMedicationDetails()
+                    ? Objects.equals(existing.getDosage(), candidate.getDosage())
+                    : DrugStrength.sameIdentityText(existing.getDosage(), candidate.getDosage());
             if (Objects.equals(existing.getSpecial(), candidate.getSpecial())
                     && DrugStrength.sameIdentityText(existing.getGn(), candidate.getGn())
-                    && DrugStrength.sameIdentityText(existing.getDosage(), candidate.getDosage())
+                    && sameDosage
                     && ((!candidate.isExactMedicationDetails() && candidate.getMedicationComponents() == null)
                         || Objects.equals(existing.getMedicationComponents(), candidate.getMedicationComponents()))) {
                 return existing;

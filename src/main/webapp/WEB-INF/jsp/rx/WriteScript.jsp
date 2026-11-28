@@ -264,16 +264,17 @@
                 return dur;
             }
 
-            function ceilDispenseQuantity(dose, daily, days, frequency) {
+            function ceilDispenseQuantity(dose, daily, duration, frequency, durationUnit) {
                 // Weekly/monthly counts are stored as floating-point reciprocals in freqMax/Min.
                 var intervals = {Q1WEEK: 7n, Q2WEEK: 14n, Q1MONTH: 30n, Q3MONTH: 90n};
+                var durationScale = {D: 1n, W: 7n, M: 30n}[String(durationUnit || 'D').toUpperCase()] || 1n;
                 var interval = intervals[String(frequency).toUpperCase()];
                 if (!Number.isFinite(daily)) {
                     return undefined;
                 }
-                var numerator = 1n;
+                var numerator = durationScale;
                 var denominator = interval || 1n;
-                for (var value of [dose, interval ? 1 : daily, days]) {
+                for (var value of [dose, interval ? 1 : daily, duration]) {
                     var text = String(value).trim() || "0";
                     if (text.length > 64 || !/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(text)) {
                         return undefined;
@@ -288,9 +289,8 @@
             }
 
             function calcQuantity() {
-                var days = calculateDuration(frm.durationUnit.value, frm.duration.value);
                 return ceilDispenseQuantity(frm.takeMax.value, freqMax[frm.frequencyCode.selectedIndex],
-                    days, frm.frequencyCode.value);
+                    frm.duration.value, frm.frequencyCode.value, frm.durationUnit.value);
             }
 
             function calcQty() {
@@ -299,7 +299,6 @@
                 var freqId = frm.frequencyCode.selectedIndex;
                 var dailyMin = freqMin[freqId];
                 var dailyMax = freqMax[freqId];
-                var dur = 1;
 
                 if (frm.cmbDuration.value == 'Other') {
                     frm.txtDuration.style.display = '';
@@ -310,12 +309,9 @@
 
                 frm.duration.value = frm.txtDuration.value;
 
-                // calculate duration units
-                dur = calculateDuration(frm.durationUnit.value, frm.duration.value);
-
                 // calculate quantity
-                var minQty = ceilDispenseQuantity(takeMin, dailyMin, dur, frm.frequencyCode.value);
-                var maxQty = ceilDispenseQuantity(takeMax, dailyMax, dur, frm.frequencyCode.value);
+                var minQty = ceilDispenseQuantity(takeMin, dailyMin, frm.duration.value, frm.frequencyCode.value, frm.durationUnit.value);
+                var maxQty = ceilDispenseQuantity(takeMax, dailyMax, frm.duration.value, frm.frequencyCode.value, frm.durationUnit.value);
 
                 if (!Number.isFinite(minQty) || !Number.isFinite(maxQty)) {
                     alert('The value entered is invalid.');
@@ -510,6 +506,32 @@
             function replaceQuantityAndRepeats(tail) {
                 // Replace the labeled lines or single-line trailer. A package description can contain
                 // further numbers, none of which are the repeat count.
+                function matchQuantitySpan(qtyRest) {
+                    const numMatch = /^[ \t]*(?:\d+(?:\.\d+)?|\.\d+)/.exec(qtyRest);
+                    if (!numMatch) return null;
+                    let spanEnd = numMatch[0].length;
+                    const afterNumber = qtyRest.slice(spanEnd);
+                    const knownUnit = (frm.unitName?.defaultValue || frm.unitName?.value || '').trim();
+                    if (knownUnit) {
+                        const ws = /^[ \t]+/.exec(afterNumber);
+                        if (ws && afterNumber.slice(ws[0].length).startsWith(knownUnit)) {
+                            const candidateEnd = spanEnd + ws[0].length + knownUnit.length;
+                            const remainder = qtyRest.slice(candidateEnd);
+                            if (!remainder.trim() || /^[ \t]*[;,]/.test(remainder)) {
+                                return candidateEnd;
+                            }
+                        }
+                    }
+                    const unitMatch = /^(?:[ \t]+[A-Za-z\u00C0-\u024F/%-]+){0,2}(?:[ \t]*\(\d+(?:\.\d+)?[ \t]*[A-Za-z\u00C0-\u024F/%-]+\))?/.exec(afterNumber);
+                    if (unitMatch) {
+                        spanEnd += unitMatch[0].length;
+                    }
+                    const remainder = qtyRest.slice(spanEnd);
+                    if (!remainder.trim() || /^[ \t]*[;,]/.test(remainder)) {
+                        return spanEnd;
+                    }
+                    return null;
+                }
                 const lines = tail.split('\n');
                 const quantityLabels = ['Qty', 'Mitte', 'Qty/Mitte', frm.dataset?.qtyLabel];
                 const repeatLabels = ['Repeats', frm.dataset?.repeatsLabel];
@@ -524,8 +546,13 @@
                     const rest = qtyLine.slice(qtyPrefix.length);
                     const inlineRepeat = findInlineRepeatClause(rest, repeatLabels);
                     if (!inlineRepeat) return null;
+                    const qtyRest = rest.slice(0, inlineRepeat.sepStart);
+                    const spanEnd = matchQuantitySpan(qtyRest);
+                    if (spanEnd === null) return null;
+                    const preservedQtyNote = qtyRest.slice(spanEnd);
+                    const qtyTrail = preservedQtyNote.trim() ? preservedQtyNote : '';
                     const suffix = rest.slice(inlineRepeat.sepStart + inlineRepeat.marker.length + inlineRepeat.digitsLen);
-                    lines[quantityIndex] = qtyPrefix + quantityText + inlineRepeat.marker
+                    lines[quantityIndex] = qtyPrefix + quantityText + qtyTrail + inlineRepeat.marker
                         + frm.txtRepeat.value + getNoSubs(tail) + suffix;
                     return lines.join('\n');
                 }
@@ -533,7 +560,14 @@
                 const repeatPrefix = oldRepeats.slice(0, oldRepeats.indexOf(':') + 1);
                 const repeatDetails = /^[ \t]*\d+/.exec(oldRepeats.slice(repeatPrefix.length));
                 if (!repeatDetails) return null;
-                lines[quantityIndex] = lines[quantityIndex].slice(0, lines[quantityIndex].indexOf(':') + 1) + quantityText;
+                const qtyLine = lines[quantityIndex];
+                const qtyPrefix = qtyLine.slice(0, qtyLine.indexOf(':') + 1);
+                const qtyRest = qtyLine.slice(qtyPrefix.length);
+                const spanEnd = matchQuantitySpan(qtyRest);
+                if (spanEnd === null) return null;
+                const preservedQtyNote = qtyRest.slice(spanEnd);
+                const qtyTrail = preservedQtyNote.trim() ? preservedQtyNote : '';
+                lines[quantityIndex] = qtyPrefix + quantityText + qtyTrail;
                 lines[repeatsIndex] = repeatPrefix + frm.txtRepeat.value + getNoSubs(tail)
                     + oldRepeats.slice(repeatPrefix.length + repeatDetails[0].length);
                 return lines.join('\n');
@@ -777,9 +811,8 @@
 
             function refreshSuggestedQuantity() {
                 var index = frm.frequencyCode.selectedIndex;
-                var duration = calculateDuration(frm.durationUnit.value, frm.duration.value);
-                var minimum = ceilDispenseQuantity(frm.takeMin.value, freqMin[index], duration, frm.frequencyCode.value);
-                var maximum = ceilDispenseQuantity(frm.takeMax.value, freqMax[index], duration, frm.frequencyCode.value);
+                var minimum = ceilDispenseQuantity(frm.takeMin.value, freqMin[index], frm.duration.value, frm.frequencyCode.value, frm.durationUnit.value);
+                var maximum = ceilDispenseQuantity(frm.takeMax.value, freqMax[index], frm.duration.value, frm.frequencyCode.value, frm.durationUnit.value);
                 if (Number.isFinite(minimum) && Number.isFinite(maximum)) {
                     frm.sugQtyMin.value = minimum;
                     frm.sugQtyMax.value = maximum;

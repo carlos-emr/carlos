@@ -110,11 +110,13 @@ for (const responseText of ['<html>legacy result</html>', '{}', 'null', '{"scrip
 test('successful save refreshes only this window’s draft versions before Edit Rx', () => {
   const field = { value: 'old-version' };
   const acknowledgement = { value: '3' };
+  const card = { _rxSequence: 3, dataset: { calculationSequence: '3' } };
   const previews = [];
   vm.runInNewContext(`${savedPreviewSource}\nopenSavedPrescriptionPreview({ responseText });`, {
     responseText: JSON.stringify({ scriptId: '789', draftRevisions: { '123': 'new-version' } }),
     document: { getElementById: id => {
       if (id === 'calculationAck_123') return acknowledgement;
+      if (id === 'set_123') return card;
       assert.equal(id, 'drugForm');
       return { elements: { namedItem: name => {
         assert.equal(name, 'draftRevision_123');
@@ -126,5 +128,7 @@ test('successful save refreshes only this window’s draft versions before Edit 
   });
   assert.equal(field.value, 'new-version');
   assert.equal(acknowledgement.value, '0');
+  assert.equal(card._rxSequence, 0);
+  assert.equal(card.dataset.calculationSequence, '0');
   assert.deepEqual(previews, [['789', true]]);
 });

@@ -767,7 +767,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     private void rememberArchiveState() {
         if (archivedBeforeLifecycle == null) {
             archivedBeforeLifecycle = archived;
-            archivedDateBeforeLifecycle = archivedDate;
+            archivedDateBeforeLifecycle = archivedDate == null ? null : new Date(archivedDate.getTime());
             archivedReasonBeforeLifecycle = archivedReason;
         }
     }

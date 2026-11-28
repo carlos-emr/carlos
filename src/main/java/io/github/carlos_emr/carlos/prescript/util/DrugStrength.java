@@ -9,8 +9,6 @@ import io.github.carlos_emr.carlos.utility.DoseText;
 import org.apache.commons.lang3.Strings;
 
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * The single amount and unit that the legacy medication API can carry.
@@ -22,6 +20,9 @@ import java.util.regex.Pattern;
 public record DrugStrength(Float amount, String unit) {
     private static final List<String> STRENGTH_UNITS = List.of(
             "units", "unit", "mmol", "mcg", "meq", "mg", "kg", "µg", "μg", "ug", "ml", "iu", "g", "l", "%");
+    private static final List<String> CONCENTRATION_BASES = List.of(
+            "actuations", "actuation", "sprays", "spray", "drops", "drop", "doses", "dose",
+            "hours", "hour", "days", "day", "patch", "min", "ml", "dl", "hr", "l", "h", "d");
 
     /**
      * Normalizes strength tokens in {@code text} for comparison only; never rewrites stored medication names,
@@ -43,16 +44,18 @@ public record DrugStrength(Float amount, String unit) {
         int at = 0;
         while (at < value.length()) {
             int numberEnd = plainDecimalEnd(value, at);
-            if (numberEnd > at && isStrengthBoundaryBefore(value, at)) {
-                int unitStart = skipHorizontalSpace(value, numberEnd);
-                int unitEnd = matchStrengthUnit(value, unitStart);
-                if (unitEnd > unitStart) {
-                    if (result == null) result = new StringBuilder(value.length());
-                    String amount = DoseText.ofNumericText(value.substring(at, numberEnd));
-                    result.append(value, copied, at).append(amount).append(value, unitStart, unitEnd);
-                    copied = unitEnd;
-                    at = unitEnd;
-                    continue;
+            if (numberEnd > at) {
+                if (isStrengthBoundaryBefore(value, at)) {
+                    int unitStart = skipHorizontalSpace(value, numberEnd);
+                    int unitEnd = matchStrengthUnit(value, unitStart);
+                    if (unitEnd > unitStart) {
+                        if (result == null) result = new StringBuilder(value.length());
+                        String amount = DoseText.ofNumericText(value.substring(at, numberEnd));
+                        result.append(value, copied, at).append(amount).append(value, unitStart, unitEnd);
+                        copied = unitEnd;
+                        at = unitEnd;
+                        continue;
+                    }
                 }
                 at = numberEnd;
                 continue;
@@ -142,15 +145,14 @@ public record DrugStrength(Float amount, String unit) {
     }
 
     private static final DrugStrength UNKNOWN = new DrugStrength(null, null);
-    private static final Pattern UNIT_AFTER_NUMBER =
-            Pattern.compile("\\s*+([\\p{L}%]\\S*+)", Pattern.UNICODE_CHARACTER_CLASS);
 
     /**
      * Reads the leading strength from stored dosage text. For a combination it returns the first
-     * component, and for a concentration it keeps a compact unit such as {@code mg/5mL} intact.
-     * A leading number followed by another number before the unit is ambiguous, for example
-     * {@code 1,000 mg}, {@code 1½ mg}, or {@code 5-10 mg}. A unit with no amount is kept whole
-     * when it starts the text, as in {@code mg/5mL}.
+     * component, and for a concentration it keeps both compact ({@code mg/5mL}, {@code mg/mL}) and
+     * spaced ({@code mg / mL}, {@code mg/5 mL}) denominator units intact without merging separate
+     * ingredient strengths. A leading number followed by another number before the unit is ambiguous,
+     * for example {@code 1,000 mg}, {@code 1½ mg}, or {@code 5-10 mg}. A unit with no amount is kept
+     * whole when it starts the text, as in {@code mg/5mL}.
      *
      * @param dosage String stored dosage or strength text, or {@code null}
      * @return DrugStrength the extracted leading amount and unit, or a {@code (null, null)} instance when unstructured
@@ -162,7 +164,7 @@ public record DrugStrength(Float amount, String unit) {
         String text = dosage.strip();
         int end = DoseText.numberEnd(text, 0);
         if (end == 0) {
-            return UNIT_AFTER_NUMBER.matcher(text).lookingAt() ? new DrugStrength(null, text) : UNKNOWN;
+            return startsWithUnitChar(text, 0) ? new DrugStrength(null, text) : UNKNOWN;
         }
         if (anotherNumberFollows(text, end)) {
             return UNKNOWN;
@@ -171,16 +173,58 @@ public record DrugStrength(Float amount, String unit) {
         if (!Float.isFinite(strength)) {
             return UNKNOWN;
         }
-        Matcher unitMatch = UNIT_AFTER_NUMBER.matcher(text).region(end, text.length());
-        if (!unitMatch.lookingAt()) {
+        int unitStart = skipHorizontalSpace(text, end);
+        if (!startsWithUnitChar(text, unitStart)) {
             return new DrugStrength(strength, null);
         }
-        int unitEnd = unitMatch.end(1);
-        // A separator before a later ingredient can be attached to the first unit.
-        while ("/,;".indexOf(text.charAt(unitEnd - 1)) >= 0) {
-            unitEnd--;
+        int unitEnd = scanUnitToken(text, unitStart);
+        int slashIndex = skipHorizontalSpace(text, unitEnd);
+        if (slashIndex < text.length() && text.charAt(slashIndex) == '/') {
+            int denomStart = skipHorizontalSpace(text, slashIndex + 1);
+            if (startsWithUnitChar(text, denomStart)) {
+                unitEnd = scanUnitToken(text, denomStart);
+            } else {
+                int denomNumberEnd = DoseText.numberEnd(text, denomStart);
+                if (denomNumberEnd > denomStart && !anotherNumberFollows(text, denomNumberEnd)) {
+                    int denomUnitStart = skipHorizontalSpace(text, denomNumberEnd);
+                    if (startsWithUnitChar(text, denomUnitStart)) {
+                        int denomUnitEnd = scanUnitToken(text, denomUnitStart);
+                        if (isConcentrationBase(text.substring(denomUnitStart, denomUnitEnd))) {
+                            unitEnd = denomUnitEnd;
+                        }
+                    }
+                }
+            }
         }
-        return new DrugStrength(strength, text.substring(unitMatch.start(1), unitEnd));
+        return new DrugStrength(strength, text.substring(unitStart, unitEnd));
+    }
+
+    private static boolean startsWithUnitChar(String text, int index) {
+        if (index >= text.length()) return false;
+        int codePoint = text.codePointAt(index);
+        return Character.isLetter(codePoint) || codePoint == '%';
+    }
+
+    private static int scanUnitToken(String text, int start) {
+        int index = start;
+        while (index < text.length()) {
+            int codePoint = text.codePointAt(index);
+            if (Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint)
+                    || "/,;+".indexOf(codePoint) >= 0) {
+                break;
+            }
+            index += Character.charCount(codePoint);
+        }
+        return index;
+    }
+
+    private static boolean isConcentrationBase(String unitToken) {
+        for (String base : CONCENTRATION_BASES) {
+            if (Strings.CI.equals(unitToken, base)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean anotherNumberFollows(String text, int end) {

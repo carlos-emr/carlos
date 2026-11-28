@@ -1497,9 +1497,30 @@ function renderRxStage() {
              data = data + "&rand="+Math.floor(Math.random()*10001);
              // Finish the card update before a Save click can submit the previous staged dose.
              CarlosAjax.request(url, {method: 'post',parameters:data,synchronous:true,
-                 onSuccess: function () {
+                 onSuccess: function (transport) {
                      // A corrected value was accepted: the field is no longer invalid.
                      if (el.carlosPropertyVersion === version) el.removeAttribute('aria-invalid');
+                     var serverSequence = null;
+                     if (transport && transport.responseJSON && Number.isInteger(transport.responseJSON.calculationSequence)) {
+                         serverSequence = transport.responseJSON.calculationSequence;
+                     } else if (transport && typeof transport.responseText === 'string' && transport.responseText.trim()) {
+                         try {
+                             var parsed = JSON.parse(transport.responseText);
+                             if (parsed && Number.isInteger(parsed.calculationSequence)) {
+                                 serverSequence = parsed.calculationSequence;
+                             }
+                         } catch (ignore) {}
+                     }
+                     if (serverSequence !== null) {
+                         if (card) {
+                             card._rxSequence = Math.max(card._rxSequence ?? Number(card.dataset?.calculationSequence || 0), serverSequence);
+                             if (card.dataset) card.dataset.calculationSequence = String(card._rxSequence);
+                         }
+                         if (!card || (!card._rxCalculationPending && !card._rxNeedsReconciliation)) {
+                             var acknowledgement = document.getElementById('calculationAck_' + randomId);
+                             if (acknowledgement) acknowledgement.value = String(serverSequence);
+                         }
+                     }
                      // If an async calculation was already in flight, supersede it so its stale
                      // response cannot overwrite this newer edit and dependent fields stay aligned.
                      if (affectsCalculation && card && (card._rxCalculationPending || card._rxNeedsReconciliation)) {
@@ -2018,6 +2039,11 @@ function openSavedPrescriptionPreview(transport) {
             if (field) field.value = saved.draftRevisions[key];
             var acknowledgement = document.getElementById('calculationAck_' + key);
             if (acknowledgement) acknowledgement.value = '0';
+            var card = document.getElementById('set_' + key);
+            if (card) {
+                card._rxSequence = 0;
+                if (card.dataset) card.dataset.calculationSequence = '0';
+            }
         });
     }
     popForm2(saved.scriptId, true);

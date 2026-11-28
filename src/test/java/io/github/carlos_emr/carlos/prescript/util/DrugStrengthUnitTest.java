@@ -62,12 +62,30 @@ class DrugStrengthUnitTest {
     }
 
     @Test
-    @DisplayName("should parse single numeric dosage and leave ambiguous leading numbers unstructured")
+    @DisplayName("should parse single numeric dosage, preserve spaced concentration units, and leave ambiguous leading numbers unstructured")
     void shouldParseSingleDosage_andLeaveAmbiguousLeadingNumbersUnstructured() {
         DrugStrength single = DrugStrength.fromDosage("250.0 mg");
         assertThat(single.amount()).isEqualTo(250f);
         assertThat(single.unit()).isEqualTo("mg");
         assertThat(single.dosageText()).isEqualTo("250 mg");
+
+        DrugStrength compactConcentration = DrugStrength.fromDosage("10 mg/mL");
+        assertThat(compactConcentration).isEqualTo(new DrugStrength(10f, "mg/mL"));
+
+        DrugStrength spacedConcentration = DrugStrength.fromDosage("10 mg / mL");
+        assertThat(spacedConcentration).isEqualTo(new DrugStrength(10f, "mg / mL"));
+
+        DrugStrength suspensionConcentration = DrugStrength.fromDosage("250 mg/5 mL");
+        assertThat(suspensionConcentration).isEqualTo(new DrugStrength(250f, "mg/5 mL"));
+
+        DrugStrength comboSuspension = DrugStrength.fromDosage("250.0 mg/5 mL + 31.25 mg/5 mL");
+        assertThat(comboSuspension).isEqualTo(new DrugStrength(250f, "mg/5 mL"));
+
+        DrugStrength spacedCombination = DrugStrength.fromDosage("500 mg / 125 mg");
+        assertThat(spacedCombination).isEqualTo(new DrugStrength(500f, "mg"));
+
+        DrugStrength compactCombination = DrugStrength.fromDosage("500mg/125mg");
+        assertThat(compactCombination).isEqualTo(new DrugStrength(500f, "mg"));
 
         DrugStrength range = DrugStrength.fromDosage("5-10 mg");
         assertThat(range.amount()).isNull();
@@ -83,6 +101,8 @@ class DrugStrengthUnitTest {
     void shouldNormalizeLongInputInLinearTime_withoutBacktracking() {
         String repeated = "1".repeat(20_000) + "mg";
         assertThat(DrugStrength.sameIdentityText(repeated, repeated)).isTrue();
+        String prefixedDigits = "x" + "1".repeat(20_000) + "mg";
+        assertThat(DrugStrength.sameIdentityText(prefixedDigits, prefixedDigits)).isTrue();
         String spaced = " ".repeat(20_000) + "250.0mg";
         assertThat(DrugStrength.sameIdentityText(spaced, "250mg")).isTrue();
     }

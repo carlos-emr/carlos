@@ -220,6 +220,8 @@ test('legacy dispense calculation rounds an exact decimal course once', () => {
   assert.equal(context.ceilDispenseQuantity('0.2', 3, 10, 'TID'), 6);
   assert.equal(context.ceilDispenseQuantity('0.20000000001', 3, 10, 'TID'), 7);
   assert.equal(context.ceilDispenseQuantity('.5', 1 / 7, 28, 'Q1Week'), 2);
+  assert.equal(context.ceilDispenseQuantity('10', 1, '0.1', 'OD', 'W'), 7);
+  assert.equal(context.ceilDispenseQuantity('10', 1, '0.1', 'OD', 'M'), 30);
   assert.equal(context.ceilDispenseQuantity('1/2', 3, 10, 'TID'), undefined);
 });
 
@@ -241,6 +243,15 @@ test('legacy redraw keeps the package description and reads repeats from its own
   const localizedSingleLine = ' Days\nQté/Mitte:1 bottle (120 mL) Répétitions:0\nSupplementary text';
   assert.equal(context.replaceQuantityAndRepeats(localizedSingleLine),
     ' Days\nQté/Mitte:2 bottle (120 mL) Répétitions:3\nSupplementary text');
+
+  frm.quantity.value = '14';
+  frm.unitName = {value: 'tabs', defaultValue: 'tabs'};
+  frm.txtRepeat.value = '2';
+  assert.equal(context.replaceQuantityAndRepeats(' Days\nQty:7 tabs; dispense weekly\nRepeats:0'),
+    ' Days\nQty:14 tabs; dispense weekly\nRepeats:2');
+  assert.equal(context.replaceQuantityAndRepeats(' Days\nQty:7 tabs; dispense weekly Repeats:0'),
+    ' Days\nQty:14 tabs; dispense weekly Repeats:2');
+  assert.equal(context.replaceQuantityAndRepeats(' Days\nQty:7 tabs dispense weekly\nRepeats:0'), null);
 });
 
 test('submitForm preserves unchanged stored non-decimal quantities and alerts on invalid edits', () => {

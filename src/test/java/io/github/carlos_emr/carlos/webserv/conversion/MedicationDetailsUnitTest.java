@@ -146,6 +146,92 @@ class MedicationDetailsUnitTest {
         assertThat(updatedExact.getUnit()).isEqualTo("mg");
     }
 
+    @Test
+    void shouldPreserveArchiveSnapshotDateExactLongTermTextAndReloadedFavoriteComponents_whenLifecycleOrRenameRuns() throws Exception {
+        var activeWithPriorDate = new io.github.carlos_emr.carlos.commn.model.Drug();
+        java.util.Date initialDate = new java.util.Date(1_700_000_000_000L);
+        activeWithPriorDate.setArchivedDate(initialDate);
+        activeWithPriorDate.archive();
+        activeWithPriorDate.getArchivedDate().setTime(1_800_000_000_000L);
+        var snapshotField = io.github.carlos_emr.carlos.commn.model.Drug.class.getDeclaredField("archivedDateBeforeLifecycle");
+        snapshotField.setAccessible(true);
+        assertThat(snapshotField.get(activeWithPriorDate)).isEqualTo(new java.util.Date(1_700_000_000_000L));
+
+        var drugDao = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class);
+        var favoriteDao = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.FavoriteDao.class);
+        var originalBeans = new java.util.HashMap<Class<?>, Object>();
+        try (var springUtils = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.utility.SpringUtils.class)) {
+            originalBeans.put(io.github.carlos_emr.carlos.commn.dao.DrugDao.class, drugDao);
+            originalBeans.put(io.github.carlos_emr.carlos.commn.dao.FavoriteDao.class, favoriteDao);
+            springUtils.when(() -> io.github.carlos_emr.carlos.utility.SpringUtils.getBean(org.mockito.ArgumentMatchers.any(Class.class)))
+                    .thenAnswer(inv -> originalBeans.get(inv.getArgument(0)));
+
+            var exactSource = new io.github.carlos_emr.carlos.commn.model.Drug();
+            try {
+                var idField = io.github.carlos_emr.carlos.commn.model.Drug.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(exactSource, 91);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+            exactSource.setProviderNo("999998");
+            exactSource.setDemographicId(1001);
+            exactSource.setBrandName("Synthetic Suspension");
+            exactSource.setSpecial("Take as directed");
+            exactSource.setExactMedicationDetails(null, "  mL  ", " 250 mg ", "[{\"name\":\"Amoxicillin\",\"strength\":\"250\",\"unit\":\"mg\"}]");
+            org.mockito.Mockito.when(drugDao.find(91)).thenReturn(exactSource);
+            org.mockito.Mockito.when(drugDao.getMaxPosition(1001)).thenReturn(1);
+            var persistedHolder = new java.util.concurrent.atomic.AtomicReference<io.github.carlos_emr.carlos.commn.model.Drug>();
+            org.mockito.Mockito.doAnswer(inv -> {
+                io.github.carlos_emr.carlos.commn.model.Drug persisted = inv.getArgument(0);
+                persisted.setId(92);
+                persistedHolder.set(persisted);
+                return null;
+            }).when(drugDao).persist(org.mockito.ArgumentMatchers.any(io.github.carlos_emr.carlos.commn.model.Drug.class));
+
+            var rxData = new io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData();
+            var loadedRx = rxData.getPrescriptionIfPresent(91);
+            loadedRx.setLongTerm(true);
+            loadedRx.setShortTerm(false);
+            assertThat(loadedRx.Save(loadedRx.getScript_no())).isTrue();
+
+            var replacement = persistedHolder.get();
+            assertThat(replacement.getLongTerm()).isTrue();
+            assertThat(replacement.getQuantity()).isNull();
+            assertThat(replacement.getUnitName()).isEqualTo("  mL  ");
+            assertThat(replacement.getDosage()).isEqualTo(" 250 mg ");
+            assertThat(replacement.getMedicationComponents()).contains("Amoxicillin");
+
+            var staleRow = new io.github.carlos_emr.carlos.commn.model.Favorite();
+            staleRow.setId(42);
+            staleRow.setProviderNo("999998");
+            staleRow.setName("Old Name");
+            staleRow.setMedicationComponents("[{\"name\":\"Old\",\"strength\":\"10\",\"unit\":\"mg\"}]");
+            var freshRow = new io.github.carlos_emr.carlos.commn.model.Favorite();
+            freshRow.setId(42);
+            freshRow.setProviderNo("999998");
+            freshRow.setName("Old Name");
+            freshRow.setMedicationComponents("[{\"name\":\"Updated\",\"strength\":\"20\",\"unit\":\"mg\"}]");
+
+            org.mockito.Mockito.when(favoriteDao.find(42)).thenReturn(staleRow, freshRow);
+            var favDto = rxData.getFavorite(42);
+            favDto.setFavoriteName("Renamed Favorite");
+            assertThat(favDto.Save()).isTrue();
+            assertThat(freshRow.getName()).isEqualTo("Renamed Favorite");
+            assertThat(freshRow.getMedicationComponents()).contains("Updated");
+
+            org.mockito.Mockito.when(favoriteDao.createOrFind(org.mockito.ArgumentMatchers.any()))
+                    .thenAnswer(inv -> {
+                        io.github.carlos_emr.carlos.commn.model.Favorite created = inv.getArgument(0);
+                        created.setId(43);
+                        return created;
+                    });
+            assertThat(io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.addToFavorites("999998", "From Rx", exactSource)).isTrue();
+            org.mockito.Mockito.verify(favoriteDao).createOrFind(org.mockito.ArgumentMatchers.argThat(
+                    created -> created.getMedicationComponents() != null && created.getMedicationComponents().contains("Amoxicillin")));
+        }
+    }
+
     private static ObjectMapper restMapper() {
         ObjectMapper mapper = new ObjectMapper();
         return mapper.setAnnotationIntrospector(new AnnotationIntrospectorPair(new JacksonAnnotationIntrospector(),

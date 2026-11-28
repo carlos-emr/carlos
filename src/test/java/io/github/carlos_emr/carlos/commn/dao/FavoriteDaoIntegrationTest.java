@@ -398,5 +398,42 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
 
             assertThat(found).isNull();
         }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should compare dosage verbatim for exact candidates while normalizing legacy candidates in createOrFind")
+        void shouldCompareDosageVerbatim_whenCandidateUsesExactMedicationDetails() {
+            Favorite base = new Favorite();
+            base.setProviderNo("FAVFIX");
+            base.setName("BaseFav");
+            base.setBn("Amoxil");
+            base.setGn("Amoxicillin");
+            base.setSpecial("Take 1 cap TID");
+            base.setDosage("250mg");
+            Favorite createdBase = dao.createOrFind(base);
+            hibernateTemplate.flush();
+
+            Favorite legacyEquivalent = new Favorite();
+            legacyEquivalent.setProviderNo("FAVFIX");
+            legacyEquivalent.setName("BaseFav");
+            legacyEquivalent.setBn("Amoxil");
+            legacyEquivalent.setGn("Amoxicillin");
+            legacyEquivalent.setSpecial("Take 1 cap TID");
+            legacyEquivalent.setDosage("250.0mg");
+            assertThat(dao.createOrFind(legacyEquivalent).getId()).isEqualTo(createdBase.getId());
+
+            Favorite exactSpaced = new Favorite();
+            exactSpaced.setProviderNo("FAVFIX");
+            exactSpaced.setName("BaseFav");
+            exactSpaced.setBn("Amoxil");
+            exactSpaced.setGn("Amoxicillin");
+            exactSpaced.setSpecial("Take 1 cap TID");
+            exactSpaced.setDosage(" 250mg ");
+            exactSpaced.setExactMedicationDetails(true);
+            Favorite createdExact = dao.createOrFind(exactSpaced);
+            hibernateTemplate.flush();
+            assertThat(createdExact.getId()).isNotEqualTo(createdBase.getId());
+            assertThat(createdExact.getDosage()).isEqualTo(" 250mg ");
+        }
     }
 }

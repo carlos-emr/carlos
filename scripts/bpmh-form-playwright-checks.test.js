@@ -228,3 +228,72 @@ test('artifact retention failure cannot replace the original missing-instruction
   const work = vm.runInNewContext(`(async () => { ${source.slice(start, end)} })()`, sandbox);
   await assert.rejects(work, error => error.errors?.[0].message.includes('saved drug instruction') && error.errors[1] === artifactFailure);
 });
+
+test('formBPMH reuses freed draft indices <= 255 and blocks submit when Struts collection limit is exceeded', () => {
+  const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/form/pharmaForms/formBPMH.jsp'), 'utf8');
+  const start = jsp.indexOf("const rows = document.getElementById('bpmhMedicationRows');");
+  const end = jsp.indexOf('$("#editFamilyDr").click(', start);
+  assert.ok(start > 0 && end > start);
+
+  const rowEntries = [];
+  for (let i = 0; i <= 255; i++) {
+    rowEntries.push({
+      fields: [{ name: `form.drugs[${i}].what`, validity: '', attrs: {},
+        setAttribute(k, v) { this.attrs[k] = v; }, removeAttribute(k) { delete this.attrs[k]; },
+        setCustomValidity(m) { this.validity = m; }, reportValidity() { this.reported = true; }, focus() {} }],
+    });
+  }
+  const listeners = {};
+  const formListeners = {};
+  const add = { disabled: false, addEventListener(ev, fn) { listeners[`add:${ev}`] = fn; } };
+  const bpmhForm = { addEventListener(ev, fn) { formListeners[ev] = fn; } };
+  const rows = {
+    closest: sel => (sel === 'form' ? bpmhForm : null),
+    addEventListener(ev, fn) { listeners[`rows:${ev}`] = fn; },
+    append(fragment) { rowEntries.push(fragment); },
+    querySelectorAll(sel) {
+      const allFields = rowEntries.flatMap(r => r.fields);
+      if (sel === '[name^="form.drugs["]') return allFields.filter(f => f.name.startsWith('form.drugs['));
+      if (sel === '[data-bpmh-limit-invalid]') return allFields.filter(f => f.attrs['data-bpmh-limit-invalid']);
+      return [];
+    },
+    querySelector(sel) {
+      const m = /^\[name\^="form\.drugs\[(\d+)\]\."\]$/.exec(sel);
+      if (!m) return null;
+      return rowEntries.flatMap(r => r.fields).find(f => f.name.startsWith(`form.drugs[${m[1]}].`)) || null;
+    },
+  };
+  const template = {
+    content: {
+      cloneNode() {
+        const input = { name: '', dataset: { medicationField: 'what' }, validity: '', attrs: {},
+          setAttribute(k, v) { this.attrs[k] = v; }, removeAttribute(k) { delete this.attrs[k]; },
+          setCustomValidity(m) { this.validity = m; }, reportValidity() {}, focus() { this.focused = true; } };
+        return { fields: [input], querySelectorAll: () => [input], querySelector: () => input };
+      },
+    },
+  };
+  vm.runInNewContext(jsp.slice(start, end), {
+    document: { getElementById: id => ({ bpmhMedicationRows: rows, bpmhAddReportedMedication: add, bpmhReportedMedicationTemplate: template }[id]) },
+  });
+
+  assert.equal(add.disabled, true, 'all 256 slots 0..255 are full');
+  // Remove slot 42 and confirm the next added row reuses index 42 instead of overflowing to 256
+  const removed = rowEntries[42];
+  listeners['rows:click']({ target: { closest: sel => (sel === '[data-remove-reported-medication]' ? { closest: () => ({ remove() { rowEntries.splice(rowEntries.indexOf(removed), 1); } }) } : null) } });
+  assert.equal(add.disabled, false);
+  listeners['add:click']();
+  assert.equal(rowEntries.at(-1).fields[0].name, 'form.drugs[42].what');
+  assert.equal(add.disabled, true);
+
+  // Server-loaded row > 255 blocks submit and preserves typed input via reportValidity
+  const overflowField = { name: 'form.drugs[256].what', validity: '', attrs: {},
+    setAttribute(k, v) { this.attrs[k] = v; }, removeAttribute(k) { delete this.attrs[k]; },
+    setCustomValidity(m) { this.validity = m; }, reportValidity() { this.reported = true; } };
+  rowEntries.push({ fields: [overflowField] });
+  let prevented = false;
+  formListeners.submit({ preventDefault() { prevented = true; } });
+  assert.equal(prevented, true);
+  assert.match(overflowField.validity, /256/);
+  assert.equal(overflowField.reported, true);
+});

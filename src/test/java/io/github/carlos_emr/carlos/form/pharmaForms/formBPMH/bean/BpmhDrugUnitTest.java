@@ -231,6 +231,10 @@ class BpmhDrugUnitTest {
         drug.setHow(null);
         drug.setSpecial("Synthetic\nQty:abc Repeats:1");
         assertThat(drug.getHow()).isEqualTo("Qty:abc Repeats:1");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 tablets (then stop) Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 tablets (then stop) Repeats:0");
     }
 
     @Test
@@ -330,8 +334,8 @@ class BpmhDrugUnitTest {
         }
 
         @Test
-        @DisplayName("should prefer reportedMedication in getWhat, honor 2-arg useRecordedDoseText, and serialize inside BpmhForm2Bean")
-        void shouldSupportReportedMedicationRecordedDoseAndBeanSerialization() throws Exception {
+        @DisplayName("should prefer reportedMedication in getWhat and avoid duplicating symbolic percent unit in useRecordedDoseText")
+        void shouldPreferReportedMedication_whenComposingWhatAndRecordedDose() {
             drug.setReportedMedication("OTC Ibuprofen 200 mg");
             drug.setMethod("Take");
             drug.setFreqCode("TID");
@@ -341,6 +345,24 @@ class BpmhDrugUnitTest {
 
             assertThat(drug.getWhat()).isEqualTo("OTC Ibuprofen 200 mg");
             assertThat(drug.getHow()).isEqualTo("Take 1-2 tabs TID PO PRN");
+
+            drug.setMethod("Apply");
+            drug.setFreqCode("BID");
+            drug.setRoute("TOP");
+            drug.useRecordedDoseText("5%", "%", false);
+            assertThat(drug.getHow()).isEqualTo("Apply 5% BID TOP");
+
+            drug.useRecordedDoseText("5", "%", false);
+            assertThat(drug.getHow()).isEqualTo("Apply 5 % BID TOP");
+        }
+
+        @Test
+        @DisplayName("should preserve review state when BpmhForm2Bean is serialized")
+        void shouldPreserveReviewState_whenFormBeanIsSerialized() throws Exception {
+            drug.setReportedMedication("OTC Ibuprofen 200 mg");
+            drug.setPatientReportedUse("Takes 1 tablet at night");
+            drug.setReviewedVersion("ver-42");
+            drug.setReviewChanged(true);
 
             BpmhForm2Bean bean = new BpmhForm2Bean();
             bean.setFormId("0");
@@ -360,7 +382,12 @@ class BpmhDrugUnitTest {
 
             assertThat(roundTripped.getReviewToken()).isEqualTo("tok-1");
             assertThat(roundTripped.getDrugs()).hasSize(1);
-            assertThat(roundTripped.getDrugs().get(0).getWhat()).isEqualTo("OTC Ibuprofen 200 mg");
+            BpmhDrug restored = roundTripped.getDrugs().get(0);
+            assertThat(restored.getReportedMedication()).isEqualTo("OTC Ibuprofen 200 mg");
+            assertThat(restored.getWhat()).isEqualTo("OTC Ibuprofen 200 mg");
+            assertThat(restored.getPatientReportedUse()).isEqualTo("Takes 1 tablet at night");
+            assertThat(restored.getReviewedVersion()).isEqualTo("ver-42");
+            assertThat(restored.isReviewChanged()).isTrue();
             assertThat(roundTripped.getRemovedReviewRows()).hasSize(1);
         }
     }

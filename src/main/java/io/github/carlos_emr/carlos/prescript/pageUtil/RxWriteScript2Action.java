@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.commons.lang3.Strings;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
@@ -1209,7 +1210,11 @@ public final class RxWriteScript2Action extends ActionSupport {
             rx.setDuration(RxUtil.getDurationFromQuantityText(normalizedQuantity));
             rx.setDurationUnit(RxUtil.getDurationUnitFromQuantityText(normalizedQuantity));
             rx.setDurationSpecifiedByUser(true);
+            rx.setDurationFromMitte(true);
             return;
+        }
+        if (rx.isDurationFromMitte()) {
+            rx.setDurationSpecifiedByUser(false);
         }
         if (!rx.isDurationSpecifiedByUser()) {
             deriveDurationFromQuantity(rx, rx.getQuantity(), rx.getUnitName());
@@ -1219,11 +1224,12 @@ public final class RxWriteScript2Action extends ActionSupport {
     private static void deriveDurationFromQuantity(RxPrescriptionData.Prescription rx, String quantityAmount, String unitName) {
         boolean hasUnit = unitName != null && !unitName.isBlank()
                 && !org.apache.commons.lang3.Strings.CI.equals("null", unitName.strip());
-        if (hasUnit && rx.isMitte()) {
-            String mitteText = quantityAmount + " " + unitName;
+        String mitteText = hasUnit ? quantityAmount + " " + unitName : "";
+        if (hasUnit && RxUtil.isMitte(mitteText)) {
             rx.setDuration(RxUtil.getDurationFromQuantityText(mitteText));
             rx.setDurationUnit(RxUtil.getDurationUnitFromQuantityText(mitteText));
             rx.setDurationSpecifiedByUser(true);
+            rx.setDurationFromMitte(true);
             return;
         }
         String resolvedDurationUnit = rx.getDurationUnit();
@@ -1377,31 +1383,47 @@ public final class RxWriteScript2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
             }
+            boolean clinicalFieldUpdated = false;
             if (elem.equals("method_" + num)) {
-                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setMethod(val);
+                if (!val.equals("") && !Strings.CI.equals(val, "null")) {
+                    rx.setMethod(val);
+                    clinicalFieldUpdated = true;
+                }
             } else if (elem.equals("route_" + num)) {
-                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setRoute(val);
+                if (!val.equals("") && !Strings.CI.equals(val, "null")) {
+                    rx.setRoute(val);
+                    clinicalFieldUpdated = true;
+                }
             } else if (elem.equals("frequency_" + num)) {
-                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setFrequencyCode(val);
+                if (!val.equals("") && !Strings.CI.equals(val, "null")) {
+                    rx.setFrequencyCode(val);
+                    clinicalFieldUpdated = true;
+                }
             } else if (elem.equals("minimum_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) {
                     Float dose = parseDoseAmount(val);
                     if (dose == null) return reportInvalidDose();
                     rx.setTakeMin(dose);
+                    clinicalFieldUpdated = true;
                 }
             } else if (elem.equals("maximum_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) {
                     Float dose = parseDoseAmount(val);
                     if (dose == null) return reportInvalidDose();
                     rx.setTakeMax(dose);
+                    clinicalFieldUpdated = true;
                 }
             } else if (elem.equals("duration_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) {
                     rx.setDuration(val);
                     rx.setDurationSpecifiedByUser(true);
+                    clinicalFieldUpdated = true;
                 }
             } else if (elem.equals("durationUnit_" + num)) {
-                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setDurationUnit(val);
+                if (!val.equals("") && !Strings.CI.equals(val, "null")) {
+                    rx.setDurationUnit(val);
+                    clinicalFieldUpdated = true;
+                }
             } else if (elem.equals("repeats_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) {
                     if (!val.matches(UP_TO_NINE_DIGITS)) return reportInvalidRepeats();
@@ -1412,6 +1434,13 @@ public final class RxWriteScript2Action extends ActionSupport {
                     if (val.equalsIgnoreCase("true")) rx.setPrn(true);
                     else rx.setPrn(false);
                 } else rx.setPrn(false);
+                clinicalFieldUpdated = true;
+            }
+            if (clinicalFieldUpdated) {
+                int sequence = rx.advanceCalculationSequence();
+                byte[] body = objectMapper.writeValueAsBytes(Map.of("calculationSequence", sequence));
+                response.setContentType("application/json");
+                response.getOutputStream().write(body);
             }
         }
         return null;
