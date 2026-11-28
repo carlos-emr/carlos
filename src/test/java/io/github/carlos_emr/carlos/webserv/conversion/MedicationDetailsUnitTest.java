@@ -120,9 +120,25 @@ class MedicationDetailsUnitTest {
 
         convertedOptIn.setId(42);
         convertedOptIn.setDuration("10");
+        convertedOptIn.setNosubs(true);
         var back = converter.getAsTransferObject(loggedInInfo, convertedOptIn);
         assertThat(back.getDuration()).isEqualTo(10);
         assertThat(back.getQuantity()).isNull();
+        assertThat(back.getStrength()).isEqualTo(250f);
+        assertThat(back.getStrengthUnit()).isEqualTo("mg/5 mL");
+        assertThat(back.getNoSubstitutions()).isTrue();
+
+        var legacyNoSubs = new FavoriteTo1();
+        legacyNoSubs.setFavoriteName("Legacy NoSubs");
+        legacyNoSubs.setTakeMin(1f);
+        legacyNoSubs.setTakeMax(1f);
+        legacyNoSubs.setPrn(false);
+        legacyNoSubs.setNoSubstitutions(true);
+        legacyNoSubs.setStrength(500f);
+        legacyNoSubs.setStrengthUnit("mg");
+        var convertedNoSubs = converter.getAsDomainObject(loggedInInfo, legacyNoSubs);
+        assertThat(convertedNoSubs.isNosubs()).isTrue();
+        assertThat(convertedNoSubs.getDosage()).isEqualTo("500 mg");
 
         var omittedPrnAndName = new FavoriteTo1();
         omittedPrnAndName.setProviderNo(12345);
@@ -132,18 +148,68 @@ class MedicationDetailsUnitTest {
         assertThat(convertedSparse.getProviderNo()).isEqualTo("999998");
         assertThat(convertedSparse.getName()).isEmpty();
         assertThat(convertedSparse.isPrn()).isFalse();
+        assertThat(convertedSparse.isNosubs()).isFalse();
 
         var originalDrug = new io.github.carlos_emr.carlos.commn.model.Drug();
         originalDrug.setGenericName("Amoxicillin");
         originalDrug.setBrandName("Amoxil");
-        originalDrug.setDosage("250 mg/5 mL");
+        originalDrug.setDrugForm("TAB");
+        originalDrug.setDosage("500 mg");
         originalDrug.setUnit("mg");
-        var updatedExact = new io.github.carlos_emr.carlos.commn.model.Drug();
-        updatedExact.setGenericName("Amoxicillin");
-        updatedExact.setBrandName("Amoxil");
-        updatedExact.setExactMedicationDetails("7.5", "mL", "250 mg/5 mL", null);
-        updatedExact.preserveUnchangedMedicationValues(originalDrug);
-        assertThat(updatedExact.getUnit()).isEqualTo("mg");
+        var updatedSameDosage = new io.github.carlos_emr.carlos.commn.model.Drug();
+        updatedSameDosage.setGenericName("Amoxicillin");
+        updatedSameDosage.setBrandName("Amoxil");
+        updatedSameDosage.setDrugForm("TAB");
+        updatedSameDosage.setExactMedicationDetails("7.5", "mL", "500 mg", null);
+        updatedSameDosage.preserveUnchangedMedicationValues(originalDrug);
+        assertThat(updatedSameDosage.getUnit()).isEqualTo("mg");
+
+        // Clearing dosageText must NOT carry a product strength unit ("mg") forward as an administered dose unit.
+        var clearedDosage = new io.github.carlos_emr.carlos.commn.model.Drug();
+        clearedDosage.setGenericName("Amoxicillin");
+        clearedDosage.setBrandName("Amoxil");
+        clearedDosage.setDrugForm("TAB");
+        clearedDosage.setExactMedicationDetails("30", "tabs", null, null);
+        clearedDosage.preserveUnchangedMedicationValues(originalDrug);
+        assertThat(clearedDosage.getDosage()).isNull();
+        assertThat(clearedDosage.getUnit()).isNull();
+        assertThat(io.github.carlos_emr.carlos.prescript.util.RxUtil.recordedDoseUnit(
+                clearedDosage.getUnit(), clearedDosage.getDrugForm(), clearedDosage.getDosage(), clearedDosage.getCdsDoseText()))
+                .isNull();
+
+        // Changing dosageText derives the new strength unit instead of keeping the stale one.
+        var changedDosage = new io.github.carlos_emr.carlos.commn.model.Drug();
+        changedDosage.setGenericName("Amoxicillin");
+        changedDosage.setBrandName("Amoxil");
+        changedDosage.setDrugForm("TAB");
+        changedDosage.setExactMedicationDetails("30", "tabs", "250 mcg", null);
+        changedDosage.preserveUnchangedMedicationValues(originalDrug);
+        assertThat(changedDosage.getUnit()).isEqualTo("mcg");
+
+        // Explicit unit on changed dosageText is retained as supplied.
+        var explicitUnitChangedDosage = new io.github.carlos_emr.carlos.commn.model.Drug();
+        explicitUnitChangedDosage.setGenericName("Amoxicillin");
+        explicitUnitChangedDosage.setBrandName("Amoxil");
+        explicitUnitChangedDosage.setDrugForm("TAB");
+        explicitUnitChangedDosage.setUnit("TAB");
+        explicitUnitChangedDosage.setExactMedicationDetails("30", "tabs", "250 mcg", null);
+        explicitUnitChangedDosage.preserveUnchangedMedicationValues(originalDrug);
+        assertThat(explicitUnitChangedDosage.getUnit()).isEqualTo("TAB");
+
+        // A verified administered dose unit ("TAB" matching drugForm) is preserved across dosageText clearing.
+        var verifiedUnitOriginal = new io.github.carlos_emr.carlos.commn.model.Drug();
+        verifiedUnitOriginal.setGenericName("Amoxicillin");
+        verifiedUnitOriginal.setBrandName("Amoxil");
+        verifiedUnitOriginal.setDrugForm("TAB");
+        verifiedUnitOriginal.setDosage("500 mg");
+        verifiedUnitOriginal.setUnit("TAB");
+        var clearedWithVerifiedUnit = new io.github.carlos_emr.carlos.commn.model.Drug();
+        clearedWithVerifiedUnit.setGenericName("Amoxicillin");
+        clearedWithVerifiedUnit.setBrandName("Amoxil");
+        clearedWithVerifiedUnit.setDrugForm("TAB");
+        clearedWithVerifiedUnit.setExactMedicationDetails("30", "tabs", null, null);
+        clearedWithVerifiedUnit.preserveUnchangedMedicationValues(verifiedUnitOriginal);
+        assertThat(clearedWithVerifiedUnit.getUnit()).isEqualTo("TAB");
     }
 
     @Test
@@ -171,6 +237,12 @@ class MedicationDetailsUnitTest {
                 var idField = io.github.carlos_emr.carlos.commn.model.Drug.class.getDeclaredField("id");
                 idField.setAccessible(true);
                 idField.set(exactSource, 91);
+                for (String nullableField : List.of("takeMin", "takeMax", "repeat", "customInstructions",
+                        "shortTerm", "customNote", "hideFromCpp", "startDateUnknown", "dispenseInternal")) {
+                    var field = io.github.carlos_emr.carlos.commn.model.Drug.class.getDeclaredField(nullableField);
+                    field.setAccessible(true);
+                    field.set(exactSource, null);
+                }
             } catch (ReflectiveOperationException e) {
                 throw new AssertionError(e);
             }
@@ -201,6 +273,65 @@ class MedicationDetailsUnitTest {
             assertThat(replacement.getUnitName()).isEqualTo("  mL  ");
             assertThat(replacement.getDosage()).isEqualTo(" 250 mg ");
             assertThat(replacement.getMedicationComponents()).contains("Amoxicillin");
+            for (String nullableField : List.of("takeMin", "takeMax", "repeat", "customInstructions",
+                    "shortTerm", "customNote", "hideFromCpp", "startDateUnknown", "dispenseInternal")) {
+                var field = io.github.carlos_emr.carlos.commn.model.Drug.class.getDeclaredField(nullableField);
+                field.setAccessible(true);
+                assertThat(field.get(replacement)).as(nullableField).isNull();
+            }
+
+            // Explicit non-default values on loaded drugs (including hideFromCpp=true) must also survive Save().
+            var explicitSource = new io.github.carlos_emr.carlos.commn.model.Drug();
+            explicitSource.setId(95);
+            explicitSource.setProviderNo("999998");
+            explicitSource.setDemographicId(1001);
+            explicitSource.setBrandName("Synthetic Hidden");
+            explicitSource.setSpecial("Take 1 tab daily");
+            explicitSource.setTakeMin(1f);
+            explicitSource.setTakeMax(2f);
+            explicitSource.setRepeat(3);
+            explicitSource.setCustomInstructions(true);
+            explicitSource.setShortTerm(true);
+            explicitSource.setCustomNote(true);
+            explicitSource.setHideFromCpp(true);
+            explicitSource.setStartDateUnknown(true);
+            explicitSource.setDispenseInternal(true);
+            org.mockito.Mockito.when(drugDao.find(95)).thenReturn(explicitSource);
+            var loadedExplicit = rxData.getPrescriptionIfPresent(95);
+            loadedExplicit.setLongTerm(true);
+            assertThat(loadedExplicit.Save(loadedExplicit.getScript_no())).isTrue();
+            var explicitReplacement = persistedHolder.get();
+            assertThat(explicitReplacement.getHideFromCpp()).isTrue();
+            assertThat(explicitReplacement.getTakeMin()).isEqualTo(1f);
+            assertThat(explicitReplacement.getTakeMax()).isEqualTo(2f);
+            assertThat(explicitReplacement.getRepeat()).isEqualTo(3);
+            assertThat(explicitReplacement.isCustomInstructions()).isTrue();
+            assertThat(explicitReplacement.getShortTerm()).isTrue();
+            assertThat(explicitReplacement.isCustomNote()).isTrue();
+            assertThat(explicitReplacement.getStartDateUnknown()).isTrue();
+            assertThat(explicitReplacement.getDispenseInternal()).isTrue();
+
+            // Non-default overrides on a row that previously had SQL NULL columns must not revert to NULL.
+            var modifiedFromNulls = new io.github.carlos_emr.carlos.commn.model.Drug();
+            modifiedFromNulls.setTakeMin(1f);
+            modifiedFromNulls.setTakeMax(1f);
+            modifiedFromNulls.setRepeat(1);
+            modifiedFromNulls.setCustomInstructions(true);
+            modifiedFromNulls.setShortTerm(true);
+            modifiedFromNulls.setCustomNote(true);
+            modifiedFromNulls.setHideFromCpp(true);
+            modifiedFromNulls.setStartDateUnknown(true);
+            modifiedFromNulls.setDispenseInternal(true);
+            modifiedFromNulls.restoreNullDefaultColumns(exactSource.nullDefaultColumnsMask());
+            assertThat(modifiedFromNulls.getTakeMin()).isEqualTo(1f);
+            assertThat(modifiedFromNulls.getTakeMax()).isEqualTo(1f);
+            assertThat(modifiedFromNulls.getRepeat()).isEqualTo(1);
+            assertThat(modifiedFromNulls.isCustomInstructions()).isTrue();
+            assertThat(modifiedFromNulls.getShortTerm()).isTrue();
+            assertThat(modifiedFromNulls.isCustomNote()).isTrue();
+            assertThat(modifiedFromNulls.getHideFromCpp()).isTrue();
+            assertThat(modifiedFromNulls.getStartDateUnknown()).isTrue();
+            assertThat(modifiedFromNulls.getDispenseInternal()).isTrue();
 
             var staleRow = new io.github.carlos_emr.carlos.commn.model.Favorite();
             staleRow.setId(42);

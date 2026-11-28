@@ -352,3 +352,24 @@ test('a stale inline edit sends its observed revision and acknowledgement and re
   s.context.updateProperty(route.id);
   assert.equal(s.requests.length, 1, 'further edits cannot acknowledge a conflicted card');
 });
+
+test('a resumed inline dose validation refusal clears reconciliation without overwriting aria-invalid', () => {
+  const s = cardFields();
+  const card = s.element('set_5', { _rxCalculationPending: true, _rxCalculationErrors: {} });
+  const qty = s.element('quantity_5', { value: '30' });
+  const max = s.element('maximum_5', { textContent: '2', removeAttribute() {} });
+  const recalculated = [];
+  s.context.updateQty = el => recalculated.push(el);
+  s.context.updateProperty(max.id);
+  assert.equal(card._rxNeedsReconciliation, true);
+  card._rxCalculationPending = false;
+  const resume = card._rxPendingPropertyEdits[max.id];
+  card._rxPendingPropertyEdits = {};
+  resume();
+  s.requests[0].options.onFailure({ status: 400, responseJSON: { error: 'INVALID_RX_DOSE' } });
+  assert.equal(card._rxNeedsReconciliation, false);
+  assert.equal(max.attributes['aria-invalid'], 'true');
+  assert.deepEqual(recalculated, []);
+  assert.equal(qty.value, '30');
+});
+

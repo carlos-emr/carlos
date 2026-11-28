@@ -95,4 +95,54 @@ class OmpO09MedicationUnitTest {
         assertThat(cdsRxo.getProviderSPharmacyTreatmentInstructions(1).getText().getValue())
                 .isEqualTo("Dose as recorded:  2.50 ");
     }
+
+    @Test
+    void shouldOmitLiteralNullUnitName_fromStructuredDispenseUnits() throws Exception {
+        Drug drug = new Drug();
+        drug.setQuantity("30");
+        drug.setUnitName("null");
+        var rxo = new OMP_O09().getORDER().getRXO();
+        OmpO09Builder.fillRxo(rxo, drug);
+        assertThat(rxo.getRequestedDispenseAmount().getValue()).isEqualTo("30");
+        assertThat(rxo.getRequestedDispenseUnits().getText().getValue()).isNull();
+    }
+
+    @Test
+    void shouldHandleInvalidDinDoseBoundsUnstructuredQuantitySuffixAndNonNumericDuration_withoutInventingFields() throws Exception {
+        // Non-8-digit DIN, non-numeric cdsDoseText with doseUnit, unstructured quantity already ending with unitName, non-numeric duration.
+        Drug nonNumericDose = new Drug();
+        nonNumericDose.setRegionalIdentifier("1234");
+        nonNumericDose.setUnit("tab");
+        nonNumericDose.setDrugForm("tab");
+        nonNumericDose.setCdsDoseText("one tab");
+        nonNumericDose.setQuantity("2 tubes");
+        nonNumericDose.setUnitName("tubes");
+        nonNumericDose.setDuration("1 month");
+        nonNumericDose.setDurUnit("M");
+        OMP_O09 msg = new OMP_O09();
+        msg.initQuickstart("OMP", "O09", "P");
+        OmpO09Builder.fillRxo(msg.getORDER().getRXO(), nonNumericDose);
+        OmpO09Builder.fillTq1(msg.getORDER(), nonNumericDose);
+        assertThat(msg.getORDER().getRXO().getRequestedGiveCode().getIdentifier().getValue()).isNull();
+        assertThat(msg.getORDER().getRXO().getRequestedGiveAmountMinimum().getValue()).isNull();
+        assertThat(msg.getORDER().getRXO().getProviderSPharmacyTreatmentInstructions(2).getText().getValue())
+                .isEqualTo("Quantity as recorded: 2 tubes");
+        assertThat(msg.getORDER().getTIMING(0).getTQ1().getServiceDuration().getQuantity().getValue()).isNull();
+
+        // Trailing-space unstructured quantity appends unit without doubling spaces; invalid dose bounds emit no RXO-2/3.
+        for (float[] bounds : new float[][]{{0f, 1f}, {2f, 1f}, {Float.NaN, 1f}, {1f, Float.POSITIVE_INFINITY}}) {
+            Drug bounded = new Drug();
+            bounded.setUnit("tab");
+            bounded.setDrugForm("tab");
+            bounded.setTakeMin(bounds[0]);
+            bounded.setTakeMax(bounds[1]);
+            bounded.setQuantity("1/2 ");
+            bounded.setUnitName("bottle");
+            var rxo = new OMP_O09().getORDER().getRXO();
+            OmpO09Builder.fillRxo(rxo, bounded);
+            assertThat(rxo.getRequestedGiveAmountMinimum().getValue()).isNull();
+            assertThat(rxo.getProviderSPharmacyTreatmentInstructions(1).getText().getValue())
+                    .isEqualTo("Quantity as recorded: 1/2 bottle");
+        }
+    }
 }

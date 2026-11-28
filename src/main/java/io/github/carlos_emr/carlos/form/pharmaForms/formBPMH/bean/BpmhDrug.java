@@ -261,12 +261,7 @@ public class BpmhDrug implements java.io.Serializable {
         if (hasHeading) {
             text = lineBreak < 0 ? "" : text.substring(lineBreak + 1);
         }
-        String withoutTrailingSpace = text.stripTrailing();
-        int lastBreak = withoutTrailingSpace.lastIndexOf('\n');
-        String last = withoutTrailingSpace.substring(lastBreak + 1);
-        if (isDispensingTrailer(last, dispenseUnit)) {
-            text = lastBreak < 0 ? "" : text.substring(0, lastBreak);
-        }
+        text = stripDispensingTrailer(text, dispenseUnit);
         if (hasHeading && StringUtils.isNotBlank(pharmacyInstruction)) {
             String pharmacy = pharmacyInstruction.replace("\r\n", "\n").replace('\r', '\n');
             text = text.equals(pharmacy) ? "" : StringUtils.removeEnd(text, "\n" + pharmacy);
@@ -343,13 +338,57 @@ public class BpmhDrug implements java.io.Serializable {
         return false;
     }
 
+    private static final java.util.List<String> QTY_LABELS = java.util.List.of(
+            "Qty:", "Mitte:", "Qty/Mitte:", "Qt\u00e9/Mitte:", "Cant/Mitte:", "Ilo\u015b\u0107/Mitte:", "Qtd/Mitte:");
+    private static final java.util.List<String> REPEAT_LABELS = java.util.List.of(
+            "Repeats:", "R\u00e9p\u00e9titions:", "Repite:", "ponownie:", "Repeti\u00e7\u00f5es:");
+
+    private static String stripDispensingTrailer(String text, String dispenseUnit) {
+        String withoutTrailingSpace = text.stripTrailing();
+        int lastBreak = withoutTrailingSpace.lastIndexOf('\n');
+        String last = withoutTrailingSpace.substring(lastBreak + 1);
+        if (isDispensingTrailer(last, dispenseUnit)) {
+            return lastBreak < 0 ? "" : text.substring(0, lastBreak);
+        }
+        int repeatPrefix = matchLabelPrefix(last, REPEAT_LABELS);
+        if (lastBreak >= 0 && repeatPrefix > 0 && isRepeatsClause(last.substring(repeatPrefix).strip())) {
+            int prevBreak = withoutTrailingSpace.lastIndexOf('\n', lastBreak - 1);
+            String prev = withoutTrailingSpace.substring(prevBreak + 1, lastBreak);
+            int qtyPrefix = matchLabelPrefix(prev, QTY_LABELS);
+            if (qtyPrefix > 0 && isQtyClause(prev.substring(qtyPrefix).strip(), dispenseUnit)) {
+                return prevBreak < 0 ? "" : text.substring(0, prevBreak);
+            }
+        }
+        return text;
+    }
+
+    private static int matchLabelPrefix(String line, java.util.List<String> labels) {
+        for (String label : labels) {
+            if (line.startsWith(label)) return label.length();
+        }
+        return 0;
+    }
+
     private static boolean isDispensingTrailer(String line, String dispenseUnit) {
-        if (!line.startsWith("Qty:")) return false;
-        int repeatsIndex = line.lastIndexOf(" Repeats:");
-        if (repeatsIndex < 4) return false;
-        String qtyPart = line.substring(4, repeatsIndex).strip();
-        String repeatsPart = line.substring(repeatsIndex + " Repeats:".length()).strip();
-        if (!isPlainInteger(repeatsPart)) return false;
+        int qtyPrefix = matchLabelPrefix(line, QTY_LABELS);
+        if (qtyPrefix == 0) return false;
+        for (String repeatLabel : REPEAT_LABELS) {
+            String token = " " + repeatLabel;
+            int repeatsIndex = line.lastIndexOf(token);
+            if (repeatsIndex < qtyPrefix) continue;
+            String qtyPart = line.substring(qtyPrefix, repeatsIndex).strip();
+            String repeatsPart = line.substring(repeatsIndex + token.length()).strip();
+            if (isRepeatsClause(repeatsPart) && isQtyClause(qtyPart, dispenseUnit)) return true;
+        }
+        return false;
+    }
+
+    private static boolean isRepeatsClause(String repeatsPart) {
+        String count = org.apache.commons.lang3.Strings.CI.removeEnd(repeatsPart, " No Subs").stripTrailing();
+        return isPlainInteger(count);
+    }
+
+    private static boolean isQtyClause(String qtyPart, String dispenseUnit) {
         int numberEnd = plainDecimalEnd(qtyPart);
         if (numberEnd == 0) return false;
         if (numberEnd == qtyPart.length()) return true;
@@ -394,7 +433,6 @@ public class BpmhDrug implements java.io.Serializable {
         int numberEnd = plainDecimalEnd(trimmed);
         if (numberEnd == 0 || numberEnd == trimmed.length()) return false;
         String measureUnit = trimmed.substring(numberEnd).stripLeading();
-        if (measureUnit.isEmpty()) return false;
         for (String known : DISPENSE_UNITS) {
             if (org.apache.commons.lang3.Strings.CI.equals(measureUnit, known)) return true;
         }

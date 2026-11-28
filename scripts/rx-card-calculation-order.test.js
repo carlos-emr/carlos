@@ -201,3 +201,86 @@ test('pending inline edits resume only after calculation fields and acknowledgem
   f.reply(f.requests[0], {duration: '90'});
   assert.deepEqual(resumed, [[1, '90']]);
 });
+
+test('overlapping calculations preserve queued inline edits instead of overwriting them before resume', () => {
+  const f = fixture();
+  const ack = {value: '0'};
+  f.elements.set('calculationAck_11', ack);
+  f.context.updateQty(f.field('quantity'));
+  f.field('maximum').textContent = '2';
+  f.field('set')._rxPropertyVersions = {maximum: 1};
+  f.field('set')._rxNeedsReconciliation = true;
+  const postedValues = [];
+  f.field('set')._rxPendingPropertyEdits = {maximum_11: () => postedValues.push(f.field('maximum').textContent)};
+  // Second calculation starts while the inline edit is still queued and unsent.
+  f.context.updateQty(f.field('quantity'));
+  f.reply(f.requests[1], {takeMax: 1, duration: '30'});
+  assert.equal(f.field('maximum').textContent, '2');
+  assert.deepEqual(postedValues, ['2']);
+});
+
+test('a calculation failure with a queued inline edit keeps Retry visible so reconciliation can recover', () => {
+  const f = fixture();
+  f.context.updateQty(f.field('quantity'));
+  f.field('maximum').textContent = '2';
+  f.field('set')._rxPropertyVersions = {maximum: 1};
+  f.field('set')._rxNeedsReconciliation = true;
+  const resumed = [];
+  f.field('set')._rxPendingPropertyEdits = {maximum_11: () => resumed.push(f.field('maximum').textContent)};
+  f.requests[0].options.onFailure({status: 500});
+  assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+  assert.equal(f.elements.get('rxCalculationRetry_11').hidden, false);
+  f.context.retryRxCalculation({closest: () => f.field('set')});
+  assert.equal(f.elements.get('rxCalculationRetry_11').hidden, true);
+  f.reply(f.requests[1], {takeMax: 1});
+  assert.equal(f.field('maximum').textContent, '2');
+  assert.deepEqual(resumed, ['2']);
+});
+
+test('server recalculation refreshes the ISMP dose-notation advisory when minimum and maximum change', () => {
+  const f = fixture();
+  const RxInputValidation = require('../src/main/webapp/share/javascript/rx-input-validation.js');
+  const status = {id: 'rxDoseNotation_11', textContent: '', dataset: {message: 'Use leading zero'}};
+  f.elements.set('rxDoseNotation_11', status);
+  // Real minimum_<rand> and maximum_<rand> fields are <a> elements without a .value property.
+  delete f.field('minimum').value;
+  delete f.field('maximum').value;
+  const fullContext = {
+    ...f.context,
+    RxInputValidation,
+    document: {getElementById: id => f.elements.get(id)},
+  };
+  vm.runInNewContext(source, fullContext);
+  f.field('minimum').textContent = '.5';
+  global.document = {getElementById: id => f.elements.get(id)};
+  try {
+    RxInputValidation.showDoseNotation(f.field('minimum'), 'rxDoseNotation_11');
+    assert.equal(status.textContent, 'Use leading zero');
+    fullContext.updateQty(f.field('quantity'));
+    f.reply(f.requests[0], {takeMin: 1, takeMax: 1});
+    assert.equal(f.field('minimum').textContent, '1');
+    assert.equal(status.textContent, '');
+  } finally {
+    delete global.document;
+  }
+});
+
+test('draining queued edits entry by entry preserves remaining edits if an earlier edit fails', () => {
+  const f = fixture();
+  const ack = {value: '0'};
+  f.elements.set('calculationAck_11', ack);
+  f.context.updateQty(f.field('quantity'));
+  const observed = [];
+  f.field('set')._rxNeedsReconciliation = true;
+  f.field('set')._rxPendingPropertyEdits = {
+    minimum_11: () => observed.push(['min', Object.keys(f.field('set')._rxPendingPropertyEdits)]),
+    maximum_11: () => observed.push(['max', Object.keys(f.field('set')._rxPendingPropertyEdits)]),
+  };
+  f.reply(f.requests[0], {takeMin: 1, takeMax: 1});
+  assert.deepEqual(observed, [
+    ['min', ['maximum_11']],
+    ['max', []],
+  ]);
+});
+
+

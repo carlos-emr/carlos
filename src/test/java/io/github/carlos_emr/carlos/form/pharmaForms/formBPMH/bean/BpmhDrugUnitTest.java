@@ -300,6 +300,91 @@ class BpmhDrugUnitTest {
         assertThat(drug.toString()).isEqualTo("BpmhDrug[protected]");
     }
 
+    @Test
+    void shouldStripMitteAndTwoLineWriteScriptDispensingTrailers_whileKeepingUnrecognizedProse() {
+        drug.setGenericName("Synthetic");
+        drug.setSpecial("Synthetic\nTake 1 tab OD\nMitte:30 tabs Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Take 1 tab OD");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nTake 1 tab OD\nQty/Mitte:30 Tabs\nRepeats:0");
+        assertThat(drug.getHow()).isEqualTo("Take 1 tab OD");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nTake 1 tab OD\nQt\u00e9/Mitte:1 bottle (120 mL)\nR\u00e9p\u00e9titions:2 No Subs");
+        assertThat(drug.getHow()).isEqualTo("Take 1 tab OD");
+
+        drug.setHow(null);
+        drug.setSpecial("Qty/Mitte:30 Tabs\nRepeats:1 No Subs");
+        assertThat(drug.getHow()).isEmpty();
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nSupply blister pack\nMitte:30 tabs Repeats:0");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null);
+        assertThat(drug.getHow()).isEmpty();
+
+        // Two-line trailer with unrecognized prose or missing Qty line stays intact.
+        drug.setHow(null);
+        drug.setSpecial("Take 1 tab daily\nQty/Mitte:7 dispense weekly\nRepeats:0");
+        assertThat(drug.getHow()).isEqualTo("Take 1 tab daily\nQty/Mitte:7 dispense weekly\nRepeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Take 1 tab daily\nRepeats:0");
+        assertThat(drug.getHow()).isEqualTo("Take 1 tab daily\nRepeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Take 1 tab daily\nQty/Mitte:30 Tabs\nRepeats:reassess");
+        assertThat(drug.getHow()).isEqualTo("Take 1 tab daily\nQty/Mitte:30 Tabs\nRepeats:reassess");
+
+        // Single-line trailing No Subs with valid integer repeat count is stripped; missing integer is not.
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nTake 1 tab OD\nQty:30 tabs Repeats:1 No Subs");
+        assertThat(drug.getHow()).isEqualTo("Take 1 tab OD");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 tabs Repeats: No Subs");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 tabs Repeats: No Subs");
+
+        // Edge cases for decimal, package qualifier, and mismatched recorded dispense unit.
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:1. Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:1. Repeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:1.x Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:1.x Repeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:1.25 tabs Repeats:0");
+        drug.usePrescriptionDirections(null, null, null, false, "vials");
+        assertThat(drug.getHow()).isEmpty();
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:2 boxes (10) Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:2 boxes (10) Repeats:0");
+
+        // Structured fallback edge cases: takeMax blank/zero, percent recorded dose, and PRN text flag.
+        BpmhDrug edge = new BpmhDrug();
+        edge.setMethod("Take");
+        edge.setTakeMin("1");
+        edge.setTakeMax("");
+        edge.setFreqCode("OD");
+        edge.usePrescriptionDirections(null, null, "TAB", false);
+        assertThat(edge.getHow()).isEqualTo("Take 1 TAB OD");
+
+        edge.setTakeMax("0");
+        edge.usePrescriptionDirections(null, null, "TAB", false);
+        assertThat(edge.getHow()).isEqualTo("Take 1 TAB OD");
+
+        edge.setPrn("PRN");
+        edge.useRecordedDoseText("1%", "g");
+        assertThat(edge.getHow()).isEqualTo("Take 1% OD PRN");
+
+        edge.setPrn("false");
+        edge.useRecordedDoseText("2", "");
+        assertThat(edge.getHow()).isEqualTo("Take 2 OD");
+    }
+
     @Nested
     @DisplayName("instruction property")
     class InstructionProperty {

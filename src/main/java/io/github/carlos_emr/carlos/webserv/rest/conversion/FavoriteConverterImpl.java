@@ -90,6 +90,7 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
             f.setRoute(t.getRoute());
             f.setFrequencyCode(t.getFrequency());
             f.setPrn(Boolean.TRUE.equals(t.getPrn()));
+            f.setNosubs(Boolean.TRUE.equals(t.getNoSubstitutions()));
 
             f.setDuration(java.util.Objects.toString(t.getDuration(), null));
             f.setDurationUnit(t.getDurationUnit());
@@ -158,6 +159,7 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
         t.setRoute(f.getRoute());
         t.setFrequency(f.getFrequencyCode());
         t.setPrn(f.isPrn());
+        t.setNoSubstitutions(f.isNosubs());
 
         // prescription fields
         String duration = f.getDuration();
@@ -166,6 +168,9 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
         t.setRepeats(f.getRepeat());
 
         t.setQuantity(MedicationDetails.wholeQuantity(f.getQuantity()));
+        DrugStrength strength = DrugStrength.fromDosage(f.getDosage());
+        t.setStrength(strength.amount());
+        t.setStrengthUnit(strength.unit());
 
         return t;
 

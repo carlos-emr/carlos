@@ -211,7 +211,14 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         if (java.util.Objects.equals(method, StringUtils.trimToNull(original.method))) method = original.method;
         if (java.util.Objects.equals(freqCode, StringUtils.trimToNull(original.freqCode))) freqCode = original.freqCode;
         if (exactMedicationDetails) {
-            if (unit == null || java.util.Objects.equals(dosage, original.dosage)) unit = original.unit;
+            if (java.util.Objects.equals(dosage, original.dosage)) {
+                unit = original.unit;
+            } else if (unit == null) {
+                unit = io.github.carlos_emr.carlos.prescript.util.RxUtil.recordedDoseUnit(
+                        original.unit, original.drugForm, original.dosage, original.cdsDoseText) != null
+                        ? original.unit
+                        : io.github.carlos_emr.carlos.prescript.util.DrugStrength.fromDosage(dosage).unit();
+            }
         } else {
             Integer projected = io.github.carlos_emr.carlos.webserv.rest.to.model.MedicationDetails.wholeQuantity(original.quantity);
             if (quantity == null || quantity.equals(java.util.Objects.toString(projected, null))) {
@@ -225,13 +232,46 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
                 medicationComponents = original.medicationComponents;
             }
         }
-        if (original.takeMin == null && getTakeMin() == 0f) takeMin = null;
-        if (original.takeMax == null && getTakeMax() == 0f) takeMax = null;
-        if (original.customInstructions == null && !isCustomInstructions()) customInstructions = null;
-        if (original.shortTerm == null && !getShortTerm()) shortTerm = null;
-        if (original.customNote == null && !isCustomNote()) customNote = null;
-        if (original.hideFromCpp == null && !getHideFromCpp()) hideFromCpp = null;
-        if (original.startDateUnknown == null && !getStartDateUnknown()) startDateUnknown = null;
+        restoreNullDefaultColumns(original.nullDefaultColumnsMask());
+    }
+
+    /**
+     * Captures which nullable default-valued columns on this {@code Drug} currently hold SQL {@code NULL},
+     * so replacement rows created through legacy prescription loaders retain those {@code NULL} markers
+     * when their effective values remain at their Java defaults.
+     *
+     * @return int bitmask of default-valued nullable columns that are {@code null} on this row
+     */
+    public int nullDefaultColumnsMask() {
+        int mask = 0;
+        if (takeMin == null) mask |= 1;
+        if (takeMax == null) mask |= 2;
+        if (repeat == null) mask |= 4;
+        if (customInstructions == null) mask |= 8;
+        if (shortTerm == null) mask |= 16;
+        if (customNote == null) mask |= 32;
+        if (hideFromCpp == null) mask |= 64;
+        if (startDateUnknown == null) mask |= 128;
+        if (dispenseInternal == null) mask |= 256;
+        return mask;
+    }
+
+    /**
+     * Restores SQL {@code NULL} on any column flagged in {@code nullMask} whose current value on this
+     * {@code Drug} is still its Java default ({@code 0}, {@code 0f}, or {@code false}).
+     *
+     * @param nullMask int bitmask returned by {@link #nullDefaultColumnsMask()}
+     */
+    public void restoreNullDefaultColumns(int nullMask) {
+        if ((nullMask & 1) != 0 && getTakeMin() == 0f) takeMin = null;
+        if ((nullMask & 2) != 0 && getTakeMax() == 0f) takeMax = null;
+        if ((nullMask & 4) != 0 && Integer.valueOf(0).equals(repeat)) repeat = null;
+        if ((nullMask & 8) != 0 && !isCustomInstructions()) customInstructions = null;
+        if ((nullMask & 16) != 0 && !getShortTerm()) shortTerm = null;
+        if ((nullMask & 32) != 0 && !isCustomNote()) customNote = null;
+        if ((nullMask & 64) != 0 && !getHideFromCpp()) hideFromCpp = null;
+        if ((nullMask & 128) != 0 && !getStartDateUnknown()) startDateUnknown = null;
+        if ((nullMask & 256) != 0 && !Boolean.TRUE.equals(dispenseInternal)) dispenseInternal = null;
     }
 
     @Column(name = "custom_instructions")

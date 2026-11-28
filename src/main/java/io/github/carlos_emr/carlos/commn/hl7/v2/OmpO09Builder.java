@@ -171,9 +171,15 @@ public final class OmpO09Builder {
             }
         }
         boolean structuredQuantity = RxUtil.isStringToNumber(drug.getQuantity());
+        String unitName = drug.getUnitName() == null ? "" : drug.getUnitName().trim();
+        if (org.apache.commons.lang3.Strings.CI.equals("null", unitName)) {
+            unitName = "";
+        }
         if (structuredQuantity) {
             rxo.getRequestedDispenseAmount().setValue(DoseText.of(new java.math.BigDecimal(drug.getQuantity().trim())));
-            rxo.getRequestedDispenseUnits().getText().setValue(drug.getUnitName());
+            if (!unitName.isEmpty()) {
+                rxo.getRequestedDispenseUnits().getText().setValue(unitName);
+            }
         }
 
         CWE dosageForm = rxo.getRequestedDosageForm();
@@ -188,9 +194,7 @@ public final class OmpO09Builder {
         }
         if (!structuredQuantity && StringUtils.isNotBlank(drug.getQuantity())) {
             String recordedQuantity = drug.getQuantity();
-            String unitName = drug.getUnitName() == null ? "" : drug.getUnitName().trim();
-            if (!unitName.isEmpty() && !org.apache.commons.lang3.Strings.CI.equals("null", unitName)
-                    && !recordedQuantity.stripTrailing().endsWith(unitName)) {
+            if (!unitName.isEmpty() && !recordedQuantity.stripTrailing().endsWith(unitName)) {
                 recordedQuantity = recordedQuantity + (recordedQuantity.endsWith(" ") ? "" : " ") + unitName;
             }
             rxo.getProviderSPharmacyTreatmentInstructions(instruction++).getText()

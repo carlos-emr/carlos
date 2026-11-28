@@ -1482,10 +1482,17 @@ function renderRxStage() {
                      card._rxNeedsReconciliation = true;
                  }
              }
+             var hasPendingCalculationEdit = function () {
+                 if (!card || !card._rxPendingPropertyEdits) return false;
+                 return Object.keys(card._rxPendingPropertyEdits).some(function (id) {
+                     return /^(method|route|frequency|minimum|maximum|duration|durationUnit|prnVal)_/.test(id);
+                 });
+             };
              // A Min/Max that is not a number is refused here, on the field, and the card keeps
              // its staged dose; the server refuses it too (400, never the old HTTP 500) (#5003).
              if (/^(minimum|maximum)_/.test(elementId) && !RxInputValidation.isDoseAmount(value)) {
-                 if (startedDuringCalculation && card && card._rxNeedsReconciliation) {
+                 if (card && card._rxPendingPropertyEdits) delete card._rxPendingPropertyEdits[elementId];
+                 if (card && card._rxNeedsReconciliation && !hasPendingCalculationEdit()) {
                      card._rxNeedsReconciliation = false;
                      if (typeof showRxCalculationState === 'function' && card._rxCalculationErrors) {
                          showRxCalculationState(card, randomId);
@@ -1551,22 +1558,24 @@ function renderRxStage() {
                              card._rxCalculation = null;
                              card._rxCalculationPending = false;
                              card._rxNeedsReconciliation = false;
+                             card._rxPendingPropertyEdits = {};
                              card._rxCalculationConflict = true;
                              card._rxCalculationErrors = {};
                              showRxCalculationState(card, randomId);
                          }
                          return;
                      }
-                     if (startedDuringCalculation && card && card._rxNeedsReconciliation) {
+                     var error = transport && transport.responseJSON ? transport.responseJSON.error : null;
+                     if (affectsCalculation && card && card._rxNeedsReconciliation && !hasPendingCalculationEdit()) {
                          card._rxNeedsReconciliation = false;
-                         if (!card._rxCalculationPending && typeof updateQty === 'function') {
+                         if (error !== 'INVALID_RX_DOSE' && error !== 'INVALID_RX_REPEATS'
+                                 && !card._rxCalculationPending && typeof updateQty === 'function') {
                              var retryQtyEl = document.getElementById('quantity_' + randomId);
                              if (retryQtyEl) updateQty(retryQtyEl);
                          } else if (typeof showRxCalculationState === 'function' && card._rxCalculationErrors) {
                              showRxCalculationState(card, randomId);
                          }
                      }
-                     var error = transport && transport.responseJSON ? transport.responseJSON.error : null;
                      if (el.carlosPropertyVersion !== version && (error === 'INVALID_RX_DOSE' || error === 'INVALID_RX_REPEATS')) {
                          return;
                      }
@@ -2889,6 +2898,8 @@ function requestRxCalculation(element, action, deferPrice) {
         card._rxCalculationPending = false;
         if (isStaleRxCalculationConflict(transport)) {
             card._rxCalculationConflict = true;
+            card._rxNeedsReconciliation = false;
+            card._rxPendingPropertyEdits = {};
             delete card._rxCalculationErrors[action];
         } else {
             card._rxCalculationErrors[action] = element;
@@ -2919,7 +2930,11 @@ function requestRxCalculation(element, action, deferPrice) {
             card._rxPolicy = result.policyViolations;
             showRxCalculationState(card, rand);
             const field = name => document.getElementById(name + '_' + rand);
-            const isSuperseded = name => (card._rxPropertyVersions?.[name] || 0) !== (propertyVersions[name] || 0);
+            const hasPendingEdit = name => Boolean(card._rxPendingPropertyEdits
+                && (Object.prototype.hasOwnProperty.call(card._rxPendingPropertyEdits, name + '_' + rand)
+                    || Object.prototype.hasOwnProperty.call(card._rxPendingPropertyEdits, name)));
+            const isSuperseded = name => hasPendingEdit(name)
+                || (card._rxPropertyVersions?.[name] || 0) !== (propertyVersions[name] || 0);
             const updateQuantity = !instructions || !['', '0'].includes(result.calQuantity);
             for (const [property, name] of Object.entries({
                 method: 'method', route: 'route', frequency: 'frequency', takeMin: 'minimum', takeMax: 'maximum',
@@ -2936,8 +2951,18 @@ function requestRxCalculation(element, action, deferPrice) {
                     field(name).textContent = value == null || String(value).toLowerCase() === 'null' ? '' : value;
                 }
             }
-            if (!isSuperseded('minimum')) field('minimum').removeAttribute('aria-invalid');
-            if (!isSuperseded('maximum')) field('maximum').removeAttribute('aria-invalid');
+            if (!isSuperseded('minimum')) {
+                field('minimum').removeAttribute('aria-invalid');
+                if (typeof RxInputValidation !== 'undefined' && typeof RxInputValidation.showDoseNotation === 'function') {
+                    RxInputValidation.showDoseNotation(field('minimum'), 'rxDoseNotation_' + rand);
+                }
+            }
+            if (!isSuperseded('maximum')) {
+                field('maximum').removeAttribute('aria-invalid');
+                if (typeof RxInputValidation !== 'undefined' && typeof RxInputValidation.showDoseNotation === 'function') {
+                    RxInputValidation.showDoseNotation(field('maximum'), 'rxDoseNotation_' + rand);
+                }
+            }
             if (!isSuperseded('prnVal')) {
                 field('prn').textContent = result.prn ? 'prn' : '';
                 field('prnVal').value = result.prn;
@@ -2948,9 +2973,12 @@ function requestRxCalculation(element, action, deferPrice) {
             if (!deferPrice && (instructions ? updateQuantity : element.value === submittedValue)) {
                 refreshDrugPrice(rand, result.priceQuantity);
             }
-            const pendingEdits = Object.values(card._rxPendingPropertyEdits || {});
-            card._rxPendingPropertyEdits = {};
-            pendingEdits.forEach(resume => resume());
+            const pendingEntries = Object.entries(card._rxPendingPropertyEdits || {});
+            for (const [pendingId, resume] of pendingEntries) {
+                if (!card._rxPendingPropertyEdits || card._rxPendingPropertyEdits[pendingId] !== resume) continue;
+                delete card._rxPendingPropertyEdits[pendingId];
+                resume();
+            }
         }
     });
     return true;
@@ -2977,7 +3005,7 @@ function showRxCalculationState(card, rand) {
     status.textContent = conflict ? (status.dataset.conflict || status.dataset.failure)
         : (errors.length ? status.dataset.failure
             : (pending ? status.dataset.pending : (card._rxPolicy || []).join(' ')));
-    document.getElementById('rxCalculationRetry_' + rand).hidden = conflict || !errors.length || pending;
+    document.getElementById('rxCalculationRetry_' + rand).hidden = conflict || !errors.length || Boolean(card._rxCalculationPending);
     if (conflict || card._rxCalculationReopenShown) {
         const reopen = document.getElementById('rxCalculationReopen_' + rand);
         if (reopen) reopen.hidden = !conflict;

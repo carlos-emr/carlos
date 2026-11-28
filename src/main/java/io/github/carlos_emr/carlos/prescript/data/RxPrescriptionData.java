@@ -223,6 +223,8 @@ public class RxPrescriptionData {
         prescription.setCdsNonAuthoritative(drug.getNonAuthoritative());
         if (drug.getDispenseInterval() != null) prescription.setDispenseInterval(drug.getDispenseInterval());
         copyRefills(drug, prescription);
+        prescription.setHideCpp(drug.getHideFromCpp());
+        prescription.recordSourceNullDefaults(drug.nullDefaultColumnsMask());
 
         String prescriptionSpecial = prescription.getSpecial();
         if (prescriptionSpecial == null || prescriptionSpecial.length() <= 6) {
@@ -449,6 +451,7 @@ public class RxPrescriptionData {
         if (drug.getDispenseInterval() != null) p.setDispenseInterval(drug.getDispenseInterval());
         copyRefills(drug, p);
         p.setHideCpp(drug.getHideFromCpp());
+        p.recordSourceNullDefaults(drug.nullDefaultColumnsMask());
         p.setPharmacyId(drug.getPharmacyId());
         if (drug.isNonAuthoritative() != null) p.setNonAuthoritative(drug.isNonAuthoritative());
         p.discontinued = drug.isDiscontinued();
@@ -790,6 +793,12 @@ public class RxPrescriptionData {
             preserveStoredUnitName = calculated.preserveStoredUnitName;
             policyViolations = calculated.policyViolations;
             calculationSequence = sequence;
+        }
+
+        private int sourceNullDefaultColumns;
+
+        void recordSourceNullDefaults(int mask) {
+            this.sourceNullDefaultColumns = mask;
         }
 
         void recordStoredMedicationText(String quantityText, String dispenseUnit, String dosageText) {
@@ -1996,8 +2005,8 @@ public class RxPrescriptionData {
             drug.setBrandName(getBrandName());
             drug.setGcnSeqNo(getGCN_SEQNO());
             drug.setCustomName(getCustomName());
-            if (Float.compare(drug.getTakeMin(), getTakeMin()) != 0) drug.setTakeMin(getTakeMin());
-            if (Float.compare(drug.getTakeMax(), getTakeMax()) != 0) drug.setTakeMax(getTakeMax());
+            drug.setTakeMin(getTakeMin());
+            drug.setTakeMax(getTakeMax());
             drug.setFreqCode(getFrequencyCode());
             drug.setDuration(getDuration());
             drug.setDurUnit(getDurationUnit());
@@ -2050,7 +2059,7 @@ public class RxPrescriptionData {
                 drug.setImportedRefillQuantity(getRefillQuantity());
                 drug.setImportedRefillDuration(getRefillDuration());
             }
-            drug.setHideFromCpp(false);
+            drug.setHideFromCpp(isHideCpp());
             drug.setPosition(position);
             if (cdsCurrentness == null) drug.setComment(getComment());
             else drug.setImportedProviderNotes(getComment());
@@ -2059,6 +2068,7 @@ public class RxPrescriptionData {
             drug.setProtocol(protocol);
             drug.setPriorRxProtocol(priorRxProtocol);
             drug.setPharmacyId(getPharmacyId());
+            drug.restoreNullDefaultColumns(sourceNullDefaultColumns);
         }
 
         public boolean AddToFavorites(String providerNo, String favoriteName) {
