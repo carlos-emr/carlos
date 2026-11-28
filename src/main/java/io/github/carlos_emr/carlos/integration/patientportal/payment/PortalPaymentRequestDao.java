@@ -69,6 +69,14 @@ public class PortalPaymentRequestDao {
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
     }
 
+    /** A bounded page of durably settled requests across invoices, after the last row examined. */
+    public List<PortalPaymentRequest> paidPageAfter(long afterId, int limit) {
+        return entityManager.createQuery("from PortalPaymentRequest where id > :afterId "
+                        + "and status = :paid and portalSynced = false order by id", PortalPaymentRequest.class)
+                .setParameter("afterId", afterId).setParameter("paid", PortalPaymentRequest.PAID)
+                .setMaxResults(limit).getResultList();
+    }
+
     /**
      * Paid requests the portal has not been told about yet, oldest first, for a bounded retry. A
      * request whose confirmation was lost has no portal id yet; the service finds it by reference.

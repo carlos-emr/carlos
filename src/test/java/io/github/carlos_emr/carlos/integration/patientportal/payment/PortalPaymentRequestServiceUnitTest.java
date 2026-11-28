@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalPaymen
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalPaymentRequestRequest;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalJobAssertionSigner;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -104,6 +105,53 @@ class PortalPaymentRequestServiceUnitTest {
     private void unconfirmedOperation() {
         when(portal.lookupPaymentOperation(eq(123), any(), same(STAFF))).thenThrow(PatientPortalException.ofStatus(
                 404, "/internal/carlos/patients/%d/payment-requests", PatientPortalService.PAYMENT_REQUEST_NOT_FOUND_DETAIL));
+    }
+
+    @Test
+    void restartedHourlyJobRetriesTheDurablePaidRowAfterDenialAndLostReply() {
+        PortalPaymentRequest row = stored(PortalPaymentRequest.PAID);
+        var job = mock(PortalJobAssertionSigner.class);
+        when(dao.paidPageAfter(0, PortalPaymentRetryJob.PAGE_SIZE))
+                .thenAnswer(ignored -> row.isPortalSynced() ? List.of() : List.of(row));
+        when(dao.findForUpdate(row.getId())).thenReturn(row);
+        when(portal.reportPaidOperation(123, "op-ref", "inv-ref", null, job))
+                .thenThrow(PatientPortalException.ofStatus(403, "/payment-settlements", "permission denied"))
+                .thenThrow(PatientPortalException.ofTransportFailure("/payment-settlements", new java.io.IOException()))
+                .thenReturn(23L);
+
+        new PortalPaymentRetryJob(service, () -> false, () -> false).runSafely(job);
+        new PortalPaymentRetryJob(service, () -> true, () -> true).runSafely(job);
+        verify(dao, never()).paidPageAfter(0, PortalPaymentRetryJob.PAGE_SIZE);
+        var first = new PortalPaymentRetryJob(service, () -> true, () -> false);
+        first.runSafely(job);
+        first.runSafely(job);
+        assertThat(row.isPortalSynced()).isFalse();
+        assertThat(row.getPortalRequestId()).isNull();
+        var restarted = new PortalPaymentRetryJob(service, () -> true, () -> false);
+        restarted.runSafely(job);
+        restarted.runSafely(job);
+        assertThat(row.isPortalSynced()).isTrue();
+        assertThat(row.getPortalRequestId()).isEqualTo(23L);
+        verify(portal, org.mockito.Mockito.times(3)).reportPaidOperation(123, "op-ref", "inv-ref", null, job);
+    }
+
+    @Test
+    void aMissingRemoteOperationDoesNotAcknowledgeItOrBlockTheNextPaidRow() {
+        PortalPaymentRequest missing = stored(PortalPaymentRequest.PAID);
+        PortalPaymentRequest found = stored(PortalPaymentRequest.PAID);
+        found.setId(3L);
+        found.setOperationId("second-op");
+        found.setPortalRequestId(19L);
+        var job = mock(PortalJobAssertionSigner.class);
+        when(dao.paidPageAfter(0, PortalPaymentRetryJob.PAGE_SIZE)).thenReturn(List.of(missing, found));
+        when(dao.findForUpdate(3L)).thenReturn(found);
+        when(portal.reportPaidOperation(123, "op-ref", "inv-ref", null, job))
+                .thenThrow(PatientPortalException.ofStatus(404, "/payment-settlements",
+                        PatientPortalService.PAYMENT_REQUEST_NOT_FOUND_DETAIL));
+        when(portal.reportPaidOperation(123, "second-op", "inv-ref", 19L, job)).thenReturn(19L);
+        new PortalPaymentRetryJob(service, () -> true, () -> false).runSafely(job);
+        assertThat(missing.isPortalSynced()).isFalse();
+        assertThat(found.isPortalSynced()).isTrue();
     }
 
     private PortalPaymentRequest persisted;

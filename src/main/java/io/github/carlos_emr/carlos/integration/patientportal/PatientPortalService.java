@@ -132,6 +132,7 @@ public class PatientPortalService implements Closeable {
             "payment request is in a state this cannot apply to";
     private static final String PAYMENT_REQUESTS_PATH = "/internal/carlos/patients/%d/payment-requests";
     private static final String PAYMENT_WITHDRAW_PATH = "/internal/carlos/payment-requests/%d/withdraw";
+    private static final String SETTLEMENT_PATH = "/internal/carlos/patients/%d/payment-settlements";
     private static final String PAYMENT_PAID_PATH = "/internal/carlos/payment-requests/%d/paid";
 
     private static final String BOOKING_PROMPTS_PATH = "/internal/carlos/patients/%d/booking-prompts";
@@ -631,6 +632,33 @@ public class PatientPortalService implements Closeable {
             }
             return request;
         }, requestId);
+    }
+
+    /** Report an existing paid operation as the settlement job. A missing request stays pending. */
+    public long reportPaidOperation(int demographicNo, String operationId, String invoiceRef, Long requestId,
+            PortalJobAssertionSigner job) {
+        if (job == null || job.job() != PortalJob.PAYMENT_SETTLEMENT) {
+            throw new PortalRequestPreparationException("settlements require the payment-settlement signer");
+        }
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("operation_id", operationId);
+        body.put("invoice_ref", invoiceRef);
+        if (requestId != null) {
+            body.put("request_id", requestId.longValue());
+        }
+        Caller caller = (request, method, uri, bytes) -> request.setHeader(JOB_ASSERTION_HEADER,
+                job.sign(PortalJob.PERMISSION_REPORT_PAID, settings.clinicId(), method, uri, bytes));
+        return fetch(POST, SETTLEMENT_PATH, body.toString(), OK, caller, payload -> {
+            long confirmedId = PortalJson.positiveLong(payload, "request_id");
+            if (PortalJson.positiveInt(payload, "demographic_no") != demographicNo
+                    || !operationId.equals(PortalJson.requiredText(payload, "operation_id"))
+                    || !invoiceRef.equals(PortalJson.requiredText(payload, "invoice_ref"))
+                    || (requestId != null && confirmedId != requestId)
+                    || !Set.of("paid", "withdrawn").contains(PortalJson.requiredText(payload, "state"))) {
+                throw new PortalContractException("portal did not acknowledge this settlement");
+            }
+            return confirmedId;
+        }, demographicNo);
     }
 
     /** Lists the patient's latest 100 invites, newest first as the portal orders them. */

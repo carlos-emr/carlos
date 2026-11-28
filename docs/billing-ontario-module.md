@@ -1030,3 +1030,21 @@ docs that future maintainers read as the source of truth.
   transactional boundaries.
 - Keep JSPs rendering from view models, with all user-controlled values
   encoded at the rendering boundary.
+
+## Hourly portal settlement reports
+
+Once a third-party payment has settled a portal request in CARLOS, an optional job retries delivery
+of that status every hour. A CARLOS restart resumes from the pending settlement reports in
+`portal_payment_request`. An unavailable portal or denied credential leaves the report pending.
+A report that finds a withdrawn request acknowledges the withdrawal and leaves its portal status intact.
+
+Enable `patient_portal.payment.settlement.enabled=true` with the portal configured and give
+`patient_portal.job.payment-settlement.private_key` and `.key_id` their own Ed25519 credentials.
+Register the matching public key on the portal under `payment-settlement` first. Its single
+permission is `portal.payment.report_paid`. The job sends only the patient number, two opaque
+references and the previously confirmed portal request ID when known. Portal audit records identify
+the job. Staff actions continue to use the existing patient-specific authorization.
+
+The shared synthetic hourly exchange is stored in `src/test/resources/patientportal/payment-settlement-contract.json`
+and the portal's `tests/fixtures/payment-settlement-contract.json`. The Phase 0 staff create and replay cases have
+independent fixtures in the two repositories.

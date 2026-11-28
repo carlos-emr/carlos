@@ -1,0 +1,17 @@
+{
+  "job": "payment-settlement",
+  "permission": "portal.payment.report_paid",
+  "method": "POST",
+  "path": "/internal/carlos/patients/1234/payment-settlements",
+  "request": {
+    "operation_id": "FAKE-paid-operation-1",
+    "invoice_ref": "FAKE-invoice-ref-1"
+  },
+  "receipt": {
+    "request_id": 1,
+    "demographic_no": 1234,
+    "operation_id": "FAKE-paid-operation-1",
+    "invoice_ref": "FAKE-invoice-ref-1",
+    "state": "paid"
+  }
+}

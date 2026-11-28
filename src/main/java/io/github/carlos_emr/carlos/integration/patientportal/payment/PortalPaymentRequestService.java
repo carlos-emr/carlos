@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalPaymen
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalPaymentRequestRequest;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalJobAssertionSigner;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.math.BigDecimal;
@@ -343,6 +344,25 @@ public class PortalPaymentRequestService {
             }
         }
         return reported;
+    }
+
+    List<PortalPaymentRequest> paidPageAfter(long afterId, int limit) {
+        return transactions.execute(status -> requests.paidPageAfter(afterId, limit));
+    }
+
+    /** Keep the durable row pending until the portal acknowledges the same paid or withdrawn request. */
+    void reportSettlement(PortalPaymentRequest row, PortalJobAssertionSigner job) {
+        long remoteId = portal.get().reportPaidOperation(row.getDemographicNo(), row.getOperationId(),
+                row.getInvoiceRef(), row.getPortalRequestId(), job);
+        transactions.executeWithoutResult(status -> {
+            PortalPaymentRequest current = requests.findForUpdate(row.getId());
+            if (current != null && PortalPaymentRequest.PAID.equals(current.getStatus())
+                    && row.getOperationId().equals(current.getOperationId())
+                    && (current.getPortalRequestId() == null || current.getPortalRequestId() == remoteId)) {
+                current.setPortalRequestId(remoteId);
+                current.setPortalSynced(true);
+            }
+        });
     }
 
     private void markSynced(long id) {

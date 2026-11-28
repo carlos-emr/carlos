@@ -43,6 +43,9 @@ public enum PortalJob {
     /** Lists patients' picks of offered times and reports whether CARLOS booked them. */
     BOOKING_SYNC("booking-sync", Set.of(PortalJob.PERMISSION_BOOKING_PROMPT_SYNC)),
 
+    /** Reports only the settlement of an existing portal payment request. */
+    PAYMENT_SETTLEMENT("payment-settlement", Set.of(PortalJob.PERMISSION_REPORT_PAID)),
+
     /** Publishes the clinic's complete document-signing public key inventory. */
     KEY_PUBLISH("key-publish", Set.of(PortalJob.PERMISSION_CLINIC_KEYS_PUBLISH));
 
@@ -54,6 +57,8 @@ public enum PortalJob {
 
     /** Publish public signing keys; staff callers never hold this job-only permission. */
     public static final String PERMISSION_CLINIC_KEYS_PUBLISH = "portal.mycarlos.clinic_keys.publish";
+
+    public static final String PERMISSION_REPORT_PAID = "portal.payment.report_paid";
 
     private static final String PROPERTY_PREFIX = "patient_portal.job.";
 
