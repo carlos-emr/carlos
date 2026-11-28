@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPatientAlertMapper.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 93.33333333333333,
+    "instructions": 93.77777777777777,
+    "branches": 66.66666666666667,
+    "sourceBlob": "a96dd486b86b73078c5a17d2e188672f1421468f"
+  },
+  "evidenceSha256": "3c3d20c35bcbbb3123f493d9d06ea5b5d511b92ccba629b61a5dcc7e6eabd7ad"
+}

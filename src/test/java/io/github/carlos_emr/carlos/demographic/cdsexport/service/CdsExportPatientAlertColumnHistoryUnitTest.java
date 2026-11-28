@@ -66,6 +66,8 @@ class CdsExportPatientAlertColumnHistoryUnitTest {
         var otherTableAfter = row("demographic", List.of(DEMOGRAPHIC_NO, CdsExportPatientAlertColumnHistory.AFTER, CONTENT), "Alert");
         assertThat(CdsExportPatientAlertColumnHistory.widened(otherTableBefore, otherTableAfter))
                 .isSameAs(otherTableBefore);
+        assertThat(CdsExportPatientAlertColumnHistory.widened(baseline, otherTableAfter))
+                .isSameAs(baseline);
 
         // Reversed direction (TEXT -> VARCHAR) must not be accepted
         assertThat(CdsExportPatientAlertColumnHistory.widened(current, baseline)).isSameAs(current);

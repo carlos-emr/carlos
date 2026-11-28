@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicRetainedNoteReconciler.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 95.02762430939227,
+    "instructions": 94.06674907292954,
+    "branches": 74.0,
+    "sourceBlob": "3d3450ec10cf4f212dd30b46b0d0df5f874b020e"
+  },
+  "evidenceSha256": "3c3d20c35bcbbb3123f493d9d06ea5b5d511b92ccba629b61a5dcc7e6eabd7ad"
+}

@@ -50,7 +50,7 @@ class PatientAlertMigration(unittest.TestCase):
 
     def run_sql(self, sql, *, database=True, success=True, error=None):
         result = subprocess.run(self.command + ([self.database] if database else []),
-                                input=sql, text=True, capture_output=True, timeout=120)
+                                input=sql, text=True, capture_output=True, timeout=120, check=False)
         if success:
             self.assertEqual(result.returncode, 0, result.stderr)
         else:
@@ -111,7 +111,7 @@ class PatientAlertMigration(unittest.TestCase):
                 self.assertEqual(self.run_sql("SELECT CONCAT(CHAR_LENGTH(cust3), '/', OCTET_LENGTH(cust3), '/', "
                                               "cust3=REPEAT(UNHEX('" + WIDE + "'), " + str(ALERT_MAX_LENGTH) + ")) "
                                               "FROM `" + table + "` WHERE " + key + "=7"),
-                                 '{0}/{1}/1'.format(ALERT_MAX_LENGTH, 4 * ALERT_MAX_LENGTH))
+                                 f'{ALERT_MAX_LENGTH}/{4 * ALERT_MAX_LENGTH}/1')
                 # Beyond the 65,535 bytes of TEXT a strict session refuses rather than cutting.
                 self.run_sql("SET SESSION sql_mode='STRICT_ALL_TABLES';"
                              "INSERT INTO `" + table + "` (" + key + ", cust3) VALUES (8, REPEAT('B', 65536))",
