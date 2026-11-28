@@ -8,13 +8,19 @@
 # the stock editor script into the layout an OSCAR 19 server tars up for
 # migration (see manifest.json for the document and asset references).
 #
-# Usage: make-documents-tar.sh <output-dir> <oscar-editControl.js>
+# Usage: make-documents-tar.sh <output-dir> [<oscar-editControl.js>]
+#   standalone use takes the vendored OSCAR 19 editor beside this script
 #   writes <output-dir>/o19-documents.tar.gz containing oscar_mcmaster/…
 
 set -euo pipefail
-OUT="${1:?usage: make-documents-tar.sh <output-dir> <oscar-editControl.js>}"
-EDITOR_ASSET="${2:?usage: make-documents-tar.sh <output-dir> <oscar-editControl.js>}"
+OUT="${1:?usage: make-documents-tar.sh <output-dir> [<oscar-editControl.js>]}"
+EDITOR_ASSET="${2-$(dirname -- "${BASH_SOURCE[0]}")/editControl.js}"
 CTX="oscar_mcmaster"
+
+if [[ ! -f "$EDITOR_ASSET" || ! -r "$EDITOR_ASSET" || ! -s "$EDITOR_ASSET" ]]; then
+  echo "ERROR: expected a readable, non-empty OSCAR editor at $EDITOR_ASSET" >&2
+  exit 1
+fi
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT

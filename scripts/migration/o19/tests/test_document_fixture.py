@@ -2,6 +2,7 @@
 # Copyright (C) 2026 CARLOS Contributors
 """Check the document inputs against the pinned OSCAR 19 importer."""
 
+import hashlib
 from pathlib import Path
 import subprocess
 import tarfile
@@ -16,6 +17,29 @@ FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
 
 class TestDocumentFixture(unittest.TestCase):
+    def test_standalone_archive_contains_the_pinned_editor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            subprocess.run(["bash", FIXTURES / "documents/make-documents-tar.sh", work],
+                           cwd=work, check=True, capture_output=True)
+            with tarfile.open(work / "o19-documents.tar.gz") as documents:
+                with documents.extractfile("oscar_mcmaster/eform/images/editControl.js") as asset:
+                    self.assertEqual(hashlib.sha256(asset.read()).hexdigest(),
+                                     "1222ba3f900b6a16a3d9f0a5cca10bd721e5279f9f1cdd2ffa6b9a351c1b1847")
+
+    def test_unusable_explicit_editor_fails_before_writing_an_archive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            empty = work / "empty.js"
+            empty.touch()
+            for editor in (empty, work / "missing.js"):
+                with self.subTest(editor=editor):
+                    result = subprocess.run(["bash", FIXTURES / "documents/make-documents-tar.sh", work, editor],
+                                            capture_output=True, text=True)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(str(editor), result.stderr)
+                    self.assertFalse((work / "o19-documents.tar.gz").exists())
+
     def test_only_missing_chart_attachment_requires_a_decision_after_ldap_remediation(self):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
@@ -52,6 +76,7 @@ class TestDocumentFixture(unittest.TestCase):
             )
             self.assertEqual([finding["id"] for finding in findings], ["missing-source-documents"])
             details = (work / o19docs.DOCUMENT_PREFLIGHT_DETAILS).read_text(encoding="utf-8")
+            self.assertEqual(len(details.splitlines()), 1)
             self.assertIn("demo_missing_scan.pdf", details)
 
             properties = o19_preflight.parse_properties(FIXTURES / "properties/oscar-clinic-example.properties")

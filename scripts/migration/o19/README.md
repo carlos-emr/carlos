@@ -300,6 +300,8 @@ three turnkey inputs. The dump is `o19-fixture.sql.gz`, the documents
 archive is `o19-documents.tar.gz`, and the synthetic clinic example is
 `oscar.properties`. The documents archive carries the stock letter
 eForm's `eform/images/editControl.js` from the same OSCAR 19 checkout.
+Running `fixtures/documents/make-documents-tar.sh <output-dir>` on its
+own uses the copy from the pinned upstream revision shipped in `fixtures/documents/`.
 The fixture still includes an orphan file and a chart row for
 `demo_missing_scan.pdf` whose attachment is deliberately absent.
 

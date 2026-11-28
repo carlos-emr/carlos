@@ -5,6 +5,9 @@
 src/main/resources/cds-import/schema/EMR_Data_Migration_Schema.xsd -text
 src/main/resources/cds-import/schema/EMR_Data_Migration_Schema_DT.xsd -text
 
+# Preserve the pinned OSCAR 19 rehearsal editor verbatim, including its upstream whitespace.
+scripts/migration/o19/fixtures/documents/editControl.js -text -whitespace linguist-vendored
+
 # Binary images
 *.png binary
 *.jpg binary
