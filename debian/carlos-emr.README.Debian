@@ -922,10 +922,17 @@ Earlier packages copied a 15-second db_remove_abandoned_timeout into
 15 seconds or the value cannot be checked. The check reads the installed
 defaults, the file selected by -Dcarlos_override_properties in CARLOS_JAVA_OPTS
 (or the managed file above), and any service-user home carlos.properties override
-in application startup order. Indirect JVM options such as @argument-files
-produce a warning to verify the effective setting manually.
-To adopt the 360-second default, remove the
-effective override or set it to 360, then run `sudo carlos-ctl restart`.
+in application startup order. Configure reads literal settings from carlos-emr.env.
+Configure checks the effective systemd unit after the package reloads the manager.
+It uses the packaged classpath defaults when the Tomcat launch scripts match the
+installed tomcat11-common checksums and the deployment descriptors match the CARLOS
+package. A replaced launcher, edited descriptor, parallel deployment, or
+service-only supplementary group requires manual verification. It also asks
+for manual verification if the manager is offline, a drop-in or another environment
+file can supply startup options, or the service uses dynamic shell settings,
+relative configuration paths, Tomcat bin/setenv.sh, site agents, or @argument-files.
+To adopt the 360-second default, remove the effective override or set it to 360,
+then run `sudo carlos-ctl restart`.
 Choose a site-specific value above the longest legitimate query or
 transaction.
 

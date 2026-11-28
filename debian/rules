@@ -295,6 +295,10 @@ override_dh_auto_install:
 	install -m 0644 debian/assets/tomcat/tomcat-users.xml $(STAGE)/etc/carlos-emr/tomcat/tomcat-users.xml
 	install -m 0644 debian/assets/tomcat/Catalina/localhost/carlos.xml \
 	    $(STAGE)/etc/carlos-emr/tomcat/Catalina/localhost/carlos.xml
+	# The lease check reads packaged classpath defaults only for the stock
+	# deployment. Keep their descriptor checksums outside operator-owned /etc.
+	(cd $(STAGE)/etc/carlos-emr/tomcat && sha256sum server.xml context.xml catalina.properties Catalina/localhost/carlos.xml) \
+	    > $(STAGE)/$(SHAREDIR)/tomcat-deployment.sha256
 	# nginx front door + ModSecurity/CRS policy
 	install -d $(STAGE)/etc/nginx/sites-available $(STAGE)/etc/nginx/snippets
 	install -m 0644 debian/assets/nginx/carlos-emr.conf $(STAGE)/etc/nginx/sites-available/carlos-emr
