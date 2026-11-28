@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "2931e3e88e0098a5ac181ebc51b347896f33d058",
+  "comparisonSha256": "89718ab11c849c247123e8c316bc4e401bb642af012baeb152c27cb99bad9bcd",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d0f82753a1c31654432e576aa8f1807e4fa3788b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/bean/BpmhDrug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f859f17dc75ea3fe6cdbc66819e80d0aa905193e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/pdf/PDFController.java": {
+      "lines": 90.74074074074075,
+      "instructions": 91.54411764705883,
+      "branches": 79.41176470588235,
+      "sourceBlob": "deb063d4da553b8ff732ed7e6e634ada51e03dc9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxUpdateFavorite2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "564be08ae31f0ddaeb6afaf1c80d1c6cec298cd6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugStrength.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 98.48484848484848,
+      "sourceBlob": "3f924639ada3b75e64e5f05e82483f89fb71abc5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/RxUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "785b3cadc97c5666b9d50ab0127be4e9ea20f006"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/DoseText.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4c719ec8b6b7bdd0ac9b9499be423a56f324bdc7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/DrugConverterImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "927633fd40c928b338ab3bc9193cf8f2e98bcc24"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "ad600be7bf9e5d54fe7feb8321ffb9ab19228334",
+  "baselineSourceTree": "2931e3e88e0098a5ac181ebc51b347896f33d058",
+  "baselineReportSha256": "6e7e046897c95f27d43dfc2e2455ea6ae1ca8080b37b1c7d4bd7f073fac5189e",
+  "baselineLane": "PR #6367 focused JDK 25 Maven unit tests covering the resolved medication formatting, BPMH, REST strength/unit, and favourite edit fixes.",
+  "baselineTestCounts": {
+    "tests": 1488,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "9e7ce144cad3b799b15d7bfad8a91eb1aed1f8856a02601d7fd522bc37c2c203",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the final Surefire TEST-*.xml reports, with one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "ad600be7bf9e5d54fe7feb8321ffb9ab19228334",
+  "baselineAdditionalTestRuns": []
+}
